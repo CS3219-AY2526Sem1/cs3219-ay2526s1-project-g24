@@ -1,4 +1,5 @@
 {
+<<<<<<< Updated upstream
   "name": "with-docker",
   "version": "0.0.0",
   "private": true,
@@ -9,9 +10,31 @@
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "lint": "turbo run lint",
     "test": "turbo run test"
+=======
+  "name": "peerprep",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "@radix-ui/react-slot": "^1.2.3",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "lucide-react": "^0.545.0",
+    "next": "15.5.4",
+    "react": "19.1.0",
+    "react-dom": "19.1.0",
+    "tailwind-merge": "^3.3.1",
+    "tailwindcss-animate": "^1.0.7"
+>>>>>>> Stashed changes
   },
   "dependencies": {},
   "devDependencies": {
+<<<<<<< Updated upstream
     "prettier": "^3.2.5",
     "turbo": "^2.5.8"
   },
@@ -21,3 +44,18 @@
   },
   "packageManager": "pnpm@9.15.0"
 }
+=======
+    "@eslint/eslintrc": "^3",
+    "@types/node": "^20.19.19",
+    "@types/react": "^19.2.2",
+    "@types/react-dom": "^19",
+    "autoprefixer": "^10.4.21",
+    "eslint": "^9",
+    "eslint-config-next": "15.5.4",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^3.4.18",
+    "tw-animate-css": "^1.4.0",
+    "typescript": "5.9.3"
+  }
+}
+>>>>>>> Stashed changes
