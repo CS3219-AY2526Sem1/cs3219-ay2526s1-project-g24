@@ -3,7 +3,6 @@ node_modules/
 
 # pnpm-specific files
 .pnpm-store/
-pnpm-lock.yaml
 
 # Build output
 dist/
@@ -43,3 +42,6 @@ coverage
 # MacOS
 .DS_*
 
+# Next.js
+.next/
+*.backup
