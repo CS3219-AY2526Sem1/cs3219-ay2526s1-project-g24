@@ -33,7 +33,7 @@ services:
       POSTGRES_PASSWORD: ${QUESTION_DB_PASSWORD:-questionpass123}
       POSTGRES_DB: questiondb
     ports:
-      - "5434:5432"  # Expose on 5433 to avoid conflicts with local postgres
+      - "5434:5432"  # Expose on 5434 to avoid conflicts with local postgres
     volumes:
       - question_db_data:/var/lib/postgresql/data
     networks:
