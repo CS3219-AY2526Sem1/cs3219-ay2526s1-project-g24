@@ -12,9 +12,5 @@ COPY . .
 # Install dependencies using uv
 RUN uv sync --frozen --no-cache
 
-# Make entrypoint script executable
-COPY entrypoint.sh /app/entrypoint.sh
-RUN chmod +x /app/entrypoint.sh
-
-# Command to run the application
-CMD ["/app/entrypoint.sh"]
+# Run the FastAPI app (main is now inside app/)
+CMD ["/app/.venv/bin/fastapi", "run", "app/main.py", "--port", "80", "--host", "0.0.0.0"]
