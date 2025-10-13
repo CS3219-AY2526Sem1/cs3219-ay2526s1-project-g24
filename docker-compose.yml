@@ -1,29 +1,86 @@
 version: "3"
 
 services:
-  web:
-    container_name: web
-    build:
-      context: .
-      dockerfile: ./apps/web/Dockerfile
+  # web:
+  #   container_name: web
+  #   build:
+  #     context: .
+  #     dockerfile: ./apps/web/Dockerfile
+  #   restart: always
+  #   ports:
+  #     - 3000:3000
+  #   networks:
+  #     - app_network
+  
+  # api:
+  #   container_name: api
+  #   build:
+  #     context: .
+  #     dockerfile: ./apps/api/Dockerfile
+  #   restart: always
+  #   ports:
+  #     - 3001:3001
+  #   networks:
+  #     - app_network
+
+  # PostgreSQL database for question service
+  question_db:
+    container_name: question_db
+    image: postgres:15-alpine
     restart: always
+    environment:
+      POSTGRES_USER: questionuser
+      POSTGRES_PASSWORD: ${QUESTION_DB_PASSWORD:-questionpass123}
+      POSTGRES_DB: questiondb
     ports:
-      - 3000:3000
+      - "5434:5432"  # Expose on 5433 to avoid conflicts with local postgres
+    volumes:
+      - question_db_data:/var/lib/postgresql/data
     networks:
       - app_network
-  api:
-    container_name: api
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U questionuser -d questiondb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Question service
+  question_service:
+    container_name: question_service
     build:
-      context: .
-      dockerfile: ./apps/api/Dockerfile
+      context: ./apps/question_service
+      dockerfile: dockerfile
     restart: always
     ports:
-      - 3001:3001
+      - "8000:80"
+    environment:
+      DATABASE_URL: postgresql://questionuser:${QUESTION_DB_PASSWORD:-questionpass123}@question_db:5432/questiondb
+      ENV: production
+    depends_on:
+      question_db:
+        condition: service_healthy
     networks:
       - app_network
+    # Run migrations and seed data on startup
+    command: >
+      sh -c "
+        echo '🔄 Waiting for database...' &&
+        sleep 2 &&
+        echo '📦 Running migrations...' &&
+        /app/.venv/bin/alembic upgrade head &&
+        echo '🌱 Seeding database...' &&
+        /app/.venv/bin/python -c 'from seed_db import seed_database; from app.questions.models import Topic; from app.core.database import SessionLocal; db = SessionLocal(); existing = db.query(Topic).count(); db.close(); seed_database() if existing == 0 else print(\"✅ Database already seeded\")' &&
+        echo '🚀 Starting FastAPI server...' &&
+        /app/.venv/bin/fastapi run app/main.py --port 80 --host 0.0.0.0
+      "
+
+# Define volumes for persistent data
+volumes:
+  question_db_data:
+    driver: local
 
 # Define a network, which allows containers to communicate
 # with each other, by using their container name as a hostname
 networks:
   app_network:
-    external: true
+    driver: bridge

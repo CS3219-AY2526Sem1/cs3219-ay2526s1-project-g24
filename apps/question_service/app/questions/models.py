@@ -87,6 +87,7 @@ class Company(Base):
     
     id = Column(Integer, primary_key=True)
     name = Column(String(100), nullable=False, unique=True)
+    description = Column(Text)
     
     questions = relationship("Question", secondary=question_companies, back_populates="companies")
 
@@ -125,9 +126,13 @@ class UserQuestionAttempt(Base):
     # Attempt details
     is_solved = Column(Boolean, default=False)
     attempts_count = Column(Integer, default=0)
+    status = Column(String(50), default="not_attempted")  # not_attempted, attempted, solved
     last_attempted_at = Column(DateTime, default=datetime.utcnow)
     first_solved_at = Column(DateTime, nullable=True)
     
     # Best submission for this user
     best_runtime_ms = Column(Integer, nullable=True)
     best_memory_mb = Column(Integer, nullable=True)
+    
+    # Relationship
+    question = relationship("Question")

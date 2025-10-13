@@ -1,6 +1,18 @@
 from fastapi import APIRouter
 
-from app.questions import router as question_routes
+from app.questions import (
+    company_router,
+    router,
+    test_case_router,
+    topic_router,
+    user_router,
+)
 
-api_router = APIRouter()
-api_router.include_router(question_routes.router)
+api_router = APIRouter(prefix="/api")
+
+# Include all routers
+api_router.include_router(router.router)
+api_router.include_router(test_case_router.router)
+api_router.include_router(topic_router.router)
+api_router.include_router(company_router.router)
+api_router.include_router(user_router.router)
