@@ -26,7 +26,7 @@ Create a single .env file in the project root directory containing all environme
 For now, only the Question Service requires an environment variable:
 
 # .env
-QUESTION_DB_PASSWORD=questionpass123
+QUESTION_DB_PASSWORD={whatever password you want}
 
 As the other services are completed, additional environment variables will be added to this file.
 Each team member should document the required variables for their service in its README or setup notes.
