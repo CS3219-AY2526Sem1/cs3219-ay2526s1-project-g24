@@ -74,9 +74,49 @@ services:
         /app/.venv/bin/fastapi run app/main.py --port 80 --host 0.0.0.0
       "
 
+  # PostgreSQL database for user service
+  user_db:
+    container_name: user_db
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD:-password123}
+      POSTGRES_DB: userdb
+    ports:
+      - "5433:5432" # Expose on 5433 to avoid conflicts
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d userdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # User service
+  userservice:
+    container_name: userservice
+    build:
+      context: .
+      dockerfile: ./apps/user_service/Dockerfile
+    restart: always
+    ports:
+      - "8001:8000"
+    environment:
+      DATABASE_URL: postgresql://user:${USER_DB_PASSWORD:-password123}@user_db:5432/userdb
+    depends_on:
+      user_db:
+        condition: service_healthy
+    networks:
+      - app_network
+
 # Define volumes for persistent data
 volumes:
   question_db_data:
+    driver: local
+  user_db_data:
     driver: local
 
 # Define a network, which allows containers to communicate
