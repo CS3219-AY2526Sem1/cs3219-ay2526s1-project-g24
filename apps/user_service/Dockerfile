@@ -1,52 +1,45 @@
-# Stage 1: Install dependencies
-FROM node:18-alpine AS deps
+# ---- Node 22 on Alpine Linux ----
+FROM node:22-alpine AS base
+
+# Set pnpm as the package manager
+# See https://pnpm.io/docker
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+FROM base AS builder
+RUN apk update && apk add --no-cache libc6-compat
+
 WORKDIR /app
-
-# Install pnpm
-RUN npm i -g pnpm
-
-# Copy dependency definition files
-COPY package.json pnpm-lock.yaml ./
-
-# Fetch dependencies into a cache layer
-RUN pnpm fetch
-
-# Stage 2: Build the application
-FROM node:18-alpine AS builder
-WORKDIR /app
-
-# Install pnpm
-RUN npm i -g pnpm
-
-# Copy source code and other necessary files
 COPY . .
 
-# Copy prisma schema
-COPY prisma ./prisma
+# Generate a partial monorepo with a pruned lockfile for the app
+RUN npx turbo prune --scope=user_service --docker
 
-# Copy fetched dependencies
-COPY --from=deps /app/node_modules ./node_modules
-
-# Install dependencies and build the app
-RUN pnpm install --offline
-RUN pnpm prisma generate
-RUN pnpm run build
-
-# Stage 3: Final runtime image
-FROM node:18-alpine AS runner
+FROM base AS installer
+RUN apk update && apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Copy production dependencies
-COPY --from=builder /app/node_modules ./node_modules
+#############################################
+# ----  Dependencies ----
+COPY --from=builder /app/out/json/ .
+# Use pnpm to install dependencies
+RUN pnpm install --no-frozen-lockfile
 
-# Copy compiled code
-COPY --from=builder /app/dist ./dist
+#############################################
+# ----  App ----
+COPY --from=builder /app/out/full/ .
+RUN npx turbo build --filter=user_service
 
-# Copy package.json to be able to run start script
-COPY package.json . 
+#############################################
+# ----  Start ----
+FROM base AS runner
+WORKDIR /app
 
-# The port the application will run on
-EXPOSE 8000
+# Don't run production as root
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 user-service
+USER user-service
 
-# The command to run the application in production
-CMD ["pnpm", "start"]
+COPY --from=installer /app .
+
+CMD ["node", "apps/user_service/dist/index.js"]
