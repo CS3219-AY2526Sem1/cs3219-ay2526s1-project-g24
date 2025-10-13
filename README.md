@@ -33,26 +33,43 @@ Each team member should document the required variables for their service in its
 Important: Do not commit the .env file to the repository. It should be ignored in .gitignore.
 
 ### 3. Running the project locally
-Start all services and dependencies:
+This project uses a two-file Docker Compose setup for flexibility between environments.
+- `docker-compose.yml`: The base configuration, defines all services, networks, and volumes.
+- `docker-compose.local.yml`: An override file for local development that tells Docker Compose to build service images from local source code.
 
-docker compose up -d
+To build and start all services for local development, run the following command:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
+```
+This command merges the two configuration files, builds the images, and starts the containers in detached mode.
 
-This will start all containers defined in docker-compose.yml and create a shared network for communication between services.
+### 4. Port Mappings
+The following ports are used by the services on `localhost`:
 
-### 4. Stopping the project
-To stop and remove all containers, networks, and volumes:
+| Service | Port | URL |
+| :--- | :--- | :--- |
+| `question_service` | `8000` | http://localhost:8000 |
+| `user_service` | `8001` | http://localhost:8001 |
+| `question_db` | `5434` | (for direct DB access) |
+| `user_db` | `5433` | (for direct DB access) |
 
-docker compose down -v
+Please ensure these ports are not in use by other applications on your machine.
 
-### 5. Verifying services
+### 5. Stopping the project
+To stop and remove all containers, networks, and volumes created by the local setup:
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml down -v
+```
+
+### 6. Verifying services
 Check that all containers are running:
-
+```bash
 docker ps
-
+```
 View logs for a specific service (for example, the Question Service):
-
-docker compose logs question-service
-
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml logs question-service
+```
 If a frontend service is available, it can be accessed at:
 
 http://localhost:<frontend-port>
@@ -60,9 +77,10 @@ http://localhost:<frontend-port>
 ## Development Notes
 Each microservice can be built, tested, and run independently.
 Environment variables for each service should be clearly documented by the developer responsible for that service.
-When making code changes, rebuild the specific service using:
-
-docker compose build <service-name>
+When making code changes, you can rebuild a specific service by running the `up` command again with the `--build` flag.
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build <service-name>
+```
 
 ## Note
 Each team member is responsible for developing their assigned microservice within its own folder.

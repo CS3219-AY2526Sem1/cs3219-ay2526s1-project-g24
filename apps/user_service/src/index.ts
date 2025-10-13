@@ -1,12 +1,8 @@
-import express from 'express';
+import { createServer } from './server';
 
-const app = express();
 const port = process.env.PORT || 8000;
+const server = createServer();
 
-app.get('/health', (req, res) => {
-  res.status(200).send('OK');
-});
-
-app.listen(port, () => {
+server.listen(port, () => {
   console.log(`User service listening on port ${port}`);
 });
