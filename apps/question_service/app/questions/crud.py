@@ -1,5 +1,7 @@
 from sqlalchemy.orm import Session
+
 from . import models, schemas
+
 
 def create_question(db: Session, question: schemas.QuestionCreate):
     db_question = models.Question(**question.dict())

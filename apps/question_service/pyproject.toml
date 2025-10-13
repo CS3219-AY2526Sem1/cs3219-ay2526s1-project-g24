@@ -17,3 +17,7 @@ dependencies = [
 dev = [
     "ruff>=0.14.0",
 ]
+
+[tool.ruff]
+# Select all `isort` rules (I)
+select = ["I"]
