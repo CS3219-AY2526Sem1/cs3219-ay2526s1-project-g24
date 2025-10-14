@@ -3,7 +3,11 @@
   "compilerOptions": {
     "lib": ["ES2015"],
     "outDir": "./dist",
-    "rootDir": "./src"
+    "rootDir": "./src",
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "esModuleInterop": true,
+    "resolveJsonModule": true
   },
   "exclude": ["node_modules"],
   "include": ["src"]
