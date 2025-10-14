@@ -8,36 +8,46 @@ export interface AuthenticatedRequest extends Request {
 }
 
 export function expressAuthentication(
-  req: AuthenticatedRequest,
+  req: Request,
   securityName: string,
   scopes?: string[]
-): Promise<any> {
-  if (securityName !== 'jwt') {
-    return Promise.reject(new Error('Unsupported security scheme'));
-  }
+) {
+  return new Promise(async (resolve, reject) => {
+    if (securityName !== 'jwt') {
+      return reject(new Error('Unsupported security scheme'));
+    }
 
-  const token = req.cookies.auth_token;
-
-  return new Promise((resolve, reject) => {
+    const token = req.cookies.auth_token;
     if (!token) {
       return reject(new Error('No token provided'));
     }
 
-    jwt.verify(token, config.jwt.secret, async (err: any, decoded: any) => {
-      if (err) {
-        return reject(err);
+    try {
+      const decoded = jwt.verify(token, config.jwt.secret) as any;
+      if (!decoded || !decoded.userId) {
+        return reject(new Error('Invalid token'));
       }
 
-      try {
-        const user = await getUserById(decoded.userId);
-        if (!user) {
-          return reject(new Error('User not found'));
+      // Scope-based authorization check
+      if (scopes && scopes.length > 0) {
+        const userScopes = decoded.scopes || [];
+        const hasAllScopes = scopes.every(scope => userScopes.includes(scope));
+        if (!hasAllScopes) {
+          const error = new Error('Forbidden: Insufficient permissions');
+          (error as any).status = 403;
+          return reject(error);
         }
-        // The resolved user object will be injected into the controller by tsoa
-        resolve(user);
-      } catch (error) {
-        reject(error);
       }
-    });
+
+      const user = await getUserById(decoded.userId);
+      if (!user) {
+        return reject(new Error('User not found'));
+      }
+
+      resolve(user);
+    } catch (err) {
+      // This will catch errors from jwt.verify (e.g., expired token)
+      return reject(err);
+    }
   });
 }
