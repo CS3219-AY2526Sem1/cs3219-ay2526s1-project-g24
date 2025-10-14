@@ -1,8 +1,3 @@
-import dotenv from 'dotenv';
-import path from 'path';
-
-dotenv.config({ path: path.resolve(__dirname, '../../.env') });
-
 export const config = {
   google: {
     clientId: process.env.GOOGLE_CLIENT_ID || '',

@@ -3,6 +3,7 @@ import swaggerUi from 'swagger-ui-express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
 import { RegisterRoutes } from './routes/routes';
+import { AuthController } from './controllers/auth.controller';
 import swaggerDocument from '../dist/swagger.json';
 
 export const createServer = (): Express => {

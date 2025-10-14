@@ -1,40 +1,37 @@
-import * as tsoa from 'tsoa';
 import {
-  getUserById,
+  Controller,
+  Get,
+  Patch,
+  Delete,
+  Route,
+  Tags,
+  Security,
+  Request,
+  Body,
+} from 'tsoa';
+import {
   updateUser,
   deleteUser,
+  getAllUsers,
 } from '../services/user.service';
-import type { AuthenticatedRequest } from '../middlewares/auth.middleware';
+import { hasRole } from '../services/auth.service';
 import { User } from '../models/user.model';
 
-@tsoa.Route('v1/users')
-@tsoa.Tags('Users')
-@tsoa.Security('jwt')
-export class UsersController extends tsoa.Controller {
-  @tsoa.Get('me')
-  public async getCurrentUser(@tsoa.Request() req: AuthenticatedRequest) {
-    if (!req.userId) {
-      this.setStatus(401);
-      return;
-    }
-    const user = await getUserById(req.userId);
-    if (!user) {
-      this.setStatus(404);
-      return;
-    }
-    return user;
+@Route('v1/users')
+@Tags('Users')
+@Security('jwt')
+export class UsersController extends Controller {
+  @Get('me')
+  public async getCurrentUser(@Request() req: { user: User }) {
+    return req.user;
   }
 
-  @tsoa.Patch('me')
+  @Patch('me')
   public async updateCurrentUser(
-    @tsoa.Request() req: AuthenticatedRequest,
-    @tsoa.Body() data: Partial<User>
+    @Request() req: { user: User },
+    @Body() data: Partial<User>
   ) {
-    if (!req.userId) {
-      this.setStatus(401);
-      return;
-    }
-    const user = await updateUser(req.userId, data);
+    const user = await updateUser(req.user.id, data);
     if (!user) {
       this.setStatus(404);
       return;
@@ -42,29 +39,24 @@ export class UsersController extends tsoa.Controller {
     return user;
   }
 
-  @tsoa.Post('me/avatar:presign')
-  public async getPresignedAvatarUrl() {
-    // Placeholder
-    return { url: 'https://s3.amazonaws.com/your-bucket/your-key' };
-  }
-
-  @tsoa.Put('me/avatar')
-  public async uploadAvatar() {
-    // Placeholder
-    return { message: 'Avatar uploaded' };
-  }
-
-  @tsoa.Delete('me')
-  public async deleteCurrentUser(@tsoa.Request() req: AuthenticatedRequest) {
-    if (!req.userId) {
-      this.setStatus(401);
-      return;
-    }
-    const user = await deleteUser(req.userId);
+  @Delete('me')
+  public async deleteCurrentUser(@Request() req: { user: User }) {
+    const user = await deleteUser(req.user.id);
     if (!user) {
       this.setStatus(404);
       return;
     }
     return { message: 'User deleted' };
+  }
+
+  @Get('/')
+  public async getAllUsers(@Request() req: { user: User }) {
+    const isAdmin = await hasRole(req.user.id, ['admin']);
+    if (!isAdmin) {
+      this.setStatus(403);
+      return;
+    }
+
+    return getAllUsers();
   }
 }

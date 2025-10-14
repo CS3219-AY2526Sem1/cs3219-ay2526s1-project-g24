@@ -10,7 +10,9 @@
     "lint": "tsc --noEmit && eslint \"src/**/*.ts*\" --max-warnings 0",
     "start": "node dist/index.js",
     "test": "jest --detectOpenHandles",
-    "tsoa": "tsoa spec-and-routes"
+    "tsoa": "tsoa spec-and-routes",
+    "db:seed": "ts-node src/seed.ts",
+    "db:migrate": "prisma migrate deploy"
   },
   "jest": {
     "preset": "@repo/jest-presets/node"
@@ -25,7 +27,6 @@
     "class-validator": "^0.14.2",
     "cookie-parser": "^1.4.7",
     "cors": "^2.8.5",
-    "dotenv": "^17.2.3",
     "express": "^4.18.3",
     "googleapis": "^162.0.0",
     "jsonwebtoken": "^9.0.2",
