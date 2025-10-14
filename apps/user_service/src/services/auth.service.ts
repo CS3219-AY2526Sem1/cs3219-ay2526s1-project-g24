@@ -1,0 +1,41 @@
+import { google } from 'googleapis';
+import { config } from '../config';
+import axios from 'axios';
+import { PrismaClient } from '@prisma/client';
+
+const prisma = new PrismaClient();
+
+const oauth2Client = new google.auth.OAuth2(
+  config.google.clientId,
+  config.google.clientSecret,
+  config.google.redirectUri
+);
+
+export const getGoogleAuthUrl = () => {
+  const scopes = [
+    'https://www.googleapis.com/auth/userinfo.profile',
+    'https://www.googleapis.com/auth/userinfo.email',
+  ];
+
+  return oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    prompt: 'consent',
+    scope: scopes,
+  });
+};
+
+export const getGoogleUser = async (code: string) => {
+  const { tokens } = await oauth2Client.getToken(code);
+  oauth2Client.setCredentials(tokens);
+
+  const { data } = await axios.get(
+    'https://www.googleapis.com/oauth2/v1/userinfo?alt=json',
+    {
+      headers: {
+        Authorization: `Bearer ${tokens.access_token}`,
+      },
+    }
+  );
+
+  return data;
+};
