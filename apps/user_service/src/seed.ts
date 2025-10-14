@@ -20,12 +20,24 @@ async function main() {
 
   // Seed Permissions
   const permissions = [
-    "users:read",
-    "users:write",
-    "questions:read",
-    "questions:write",
-    "admin:read",
-    "admin:write",
+    // User-level permissions
+    'users:read:self', // A user's own permissions, often implied
+    'users:read',      // Permission to read any user's data
+
+    // Admin-level permissions for user management
+    'admin:users:read',
+    'admin:users:edit',
+    'admin:users:delete',
+    'admin:users:edit-roles',
+
+    // Admin-level permissions for role management
+    'admin:roles:create',
+    'admin:roles:read',
+    'admin:roles:edit-permissions',
+
+    // Admin-level permissions for permission management
+    'admin:permissions:create',
+    'admin:permissions:read',
   ];
   const createdPermissions = await Promise.all(
     permissions.map((p) => prisma.permission.create({ data: { name: p } })),
@@ -42,17 +54,19 @@ async function main() {
     ),
   );
 
-  // User gets basic read permissions
-  const userPermissions = createdPermissions.filter((p) =>
-    p.name.endsWith(":read"),
+  // User gets basic self-service and read permissions
+  const userPermissions = createdPermissions.filter(
+    (p) => p.name === 'users:read:self' || p.name === 'users:read',
   );
-  await Promise.all(
-    userPermissions.map((p) =>
-      prisma.rolePermission.create({
-        data: { role_id: userRole.id, permission_id: p.id },
-      }),
-    ),
-  );
+  if (userPermissions.length > 0) {
+    await Promise.all(
+        userPermissions.map((p) =>
+            prisma.rolePermission.create({
+                data: { role_id: userRole.id, permission_id: p.id },
+            }),
+        ),
+    );
+  }
   console.log("Assigned permissions to roles.");
 
   // Seed Users
