@@ -8,30 +8,43 @@ import {
   Security,
   Request,
   Body,
+  Path,
+  BodyProp,
 } from 'tsoa';
 import {
+  getUserById,
   updateUser,
   deleteUser,
-  getAllUsers,
 } from '../services/user.service';
-import { hasRole } from '../services/auth.service';
 import { User } from '../models/user.model';
 
 @Route('v1/users')
 @Tags('Users')
 @Security('jwt')
 export class UsersController extends Controller {
+  // Self-service endpoint for the authenticated user
   @Get('me')
   public async getCurrentUser(@Request() req: { user: User }) {
     return req.user;
   }
-
+  
+  // Self-service endpoint to update own profile
   @Patch('me')
   public async updateCurrentUser(
     @Request() req: { user: User },
-    @Body() data: Partial<User>
+    @BodyProp() username?: string,
+    @BodyProp() display_name?: string,
+    @BodyProp() description?: string,
+    @BodyProp() programming_proficiency?: 'beginner' | 'intermediate' | 'advanced',
+    @BodyProp() avatar_url?: string
   ) {
-    const user = await updateUser(req.user.id, data);
+    const user = await updateUser(req.user.id, {
+      username,
+      display_name,
+      description,
+      programming_proficiency,
+      avatar_url,
+    });
     if (!user) {
       this.setStatus(404);
       return;
@@ -39,6 +52,7 @@ export class UsersController extends Controller {
     return user;
   }
 
+  // Self-service endpoint to delete own profile
   @Delete('me')
   public async deleteCurrentUser(@Request() req: { user: User }) {
     const user = await deleteUser(req.user.id);
@@ -49,14 +63,50 @@ export class UsersController extends Controller {
     return { message: 'User deleted' };
   }
 
-  @Get('/')
-  public async getAllUsers(@Request() req: { user: User }) {
-    const isAdmin = await hasRole(req.user.id, ['admin']);
-    if (!isAdmin) {
-      this.setStatus(403);
+  // Administrative Endpoint to get any user
+  @Get('{userId}')
+  @Security('jwt', ['users:read'])
+  public async getUser(@Path() userId: string) {
+    const user = await getUserById(userId);
+    if (!user) {
+      this.setStatus(404);
       return;
     }
+    return user;
+  }
 
-    return getAllUsers();
+  // Administrative endpoint to update any user
+  @Patch('{userId}')
+  @Security('jwt', ['admin:users:edit'])
+  public async updateUserById(
+    @Path() userId: string,
+    @BodyProp() username?: string,
+    @BodyProp() display_name?: string,
+    @BodyProp() description?: string,
+    @BodyProp() programming_proficiency?: 'beginner' | 'intermediate' | 'advanced',
+  ) {
+    const user = await updateUser(userId, {
+      username,
+      display_name,
+      description,
+      programming_proficiency,
+    });
+    if (!user) {
+      this.setStatus(404);
+      return;
+    }
+    return user;
+  }
+
+  // Administrative endpoint to delete any user
+  @Delete('{userId}')
+  @Security('jwt', ['admin:users:delete'])
+  public async deleteUserById(@Path() userId: string) {
+    const user = await deleteUser(userId);
+    if (!user) {
+      this.setStatus(404);
+      return;
+    }
+    return { message: 'User deleted successfully' };
   }
 }
