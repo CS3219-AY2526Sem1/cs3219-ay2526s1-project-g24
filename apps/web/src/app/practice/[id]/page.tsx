@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 
@@ -49,6 +49,9 @@ export default function PracticePage() {
     const [selectedLanguage, setSelectedLanguage] = useState<'python' | 'javascript' | 'java' | 'cpp'>('python');
     const [code, setCode] = useState('# Write your solution here\n\nclass Solution:\n    def twoSum(self, nums: list[int], target: int) -> list[int]:\n        pass');
 
+    const containerRef = useRef<HTMLDivElement>(null);
+    const rightPanelRef = useRef<HTMLDivElement>(null);
+
     const question = mockQuestionData[questionId] || mockQuestionData[1];
 
     const languageConfig = {
@@ -70,42 +73,40 @@ export default function PracticePage() {
         }
     };
 
-    const handleMouseMoveVertical = useCallback((e: globalThis.MouseEvent) => {
-        if (!isDraggingVertical) return;
-        const newWidth = (e.clientX / window.innerWidth) * 100;
-        if (newWidth >= 25 && newWidth <= 60) {
-            setLeftWidth(newWidth);
-        }
-    }, [isDraggingVertical]);
-
-    const handleMouseMoveHorizontal = useCallback((e: globalThis.MouseEvent) => {
-        if (!isDraggingHorizontal) return;
-        const rightPanel = document.getElementById('right-panel');
-        if (!rightPanel) return;
-        const rect = rightPanel.getBoundingClientRect();
-        const newHeight = ((e.clientY - rect.top) / rect.height) * 100;
-        if (newHeight >= 30 && newHeight <= 80) {
-            setCodeHeight(newHeight);
-        }
-    }, [isDraggingHorizontal]);
-
-    const handleMouseUp = useCallback(() => {
-        setIsDraggingVertical(false);
-        setIsDraggingHorizontal(false);
-    }, []);
-
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            window.addEventListener('mousemove', handleMouseMoveVertical);
-            window.addEventListener('mousemove', handleMouseMoveHorizontal);
+        const handleMouseMove = (e: MouseEvent) => {
+            if (isDraggingVertical && containerRef.current) {
+                const containerRect = containerRef.current.getBoundingClientRect();
+                const offsetX = e.clientX - containerRect.left;
+                const newWidthPercent = (offsetX / containerRect.width) * 100;
+                setLeftWidth(Math.min(Math.max(newWidthPercent, 20), 80));
+            }
+
+            if (isDraggingHorizontal && rightPanelRef.current) {
+                const panelRect = rightPanelRef.current.getBoundingClientRect();
+                const offsetY = e.clientY - panelRect.top;
+                const newHeightPercent = (offsetY / panelRect.height) * 100;
+                setCodeHeight(Math.min(Math.max(newHeightPercent, 30), 80));
+            }
+        };
+
+        const handleMouseUp = () => {
+            setIsDraggingVertical(false);
+            setIsDraggingHorizontal(false);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+
+        if (isDraggingVertical || isDraggingHorizontal) {
+            window.addEventListener('mousemove', handleMouseMove);
             window.addEventListener('mouseup', handleMouseUp);
+
             return () => {
-                window.removeEventListener('mousemove', handleMouseMoveVertical);
-                window.removeEventListener('mousemove', handleMouseMoveHorizontal);
+                window.removeEventListener('mousemove', handleMouseMove);
                 window.removeEventListener('mouseup', handleMouseUp);
             };
         }
-    }, [isDraggingVertical, isDraggingHorizontal, handleMouseMoveVertical, handleMouseMoveHorizontal, handleMouseUp]);
+    }, [isDraggingVertical, isDraggingHorizontal]);
 
     const handleExit = () => {
         router.push('/questions');
@@ -129,11 +130,14 @@ export default function PracticePage() {
             </header>
 
             {/* Main Content */}
-            <div className="flex-1 flex overflow-hidden">
+            <div ref={containerRef} className="flex-1 flex overflow-hidden">
                 {/* Left Panel - Question */}
                 <div
                     className="bg-[#252525] overflow-y-auto"
-                    style={{ width: `${leftWidth}%` }}
+                    style={{
+                        width: `${leftWidth}%`,
+                        pointerEvents: isDraggingVertical || isDraggingHorizontal ? 'none' : 'auto'
+                    }}
                 >
                     <div className="p-6">
                         {/* Question Header */}
@@ -185,14 +189,22 @@ export default function PracticePage() {
 
                 {/* Vertical Resizer */}
                 <div
-                    className="w-1 bg-[#3e3e3e] hover:bg-[#5e5e5e] cursor-col-resize transition-colors"
-                    onMouseDown={() => setIsDraggingVertical(true)}
+                    className="w-1 bg-[#3e3e3e] hover:bg-[#5e5e5e] cursor-col-resize transition-colors relative z-50"
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        setIsDraggingVertical(true);
+                        document.body.style.cursor = 'col-resize';
+                        document.body.style.userSelect = 'none';
+                    }}
                 />
 
                 {/* Right Panel - Code Editor & Test Cases */}
                 <div
-                    id="right-panel"
+                    ref={rightPanelRef}
                     className="flex-1 flex flex-col bg-[#1e1e1e]"
+                    style={{
+                        pointerEvents: isDraggingVertical || isDraggingHorizontal ? 'none' : 'auto'
+                    }}
                 >
                     {/* Code Editor Section */}
                     <div
@@ -267,8 +279,13 @@ export default function PracticePage() {
 
                     {/* Horizontal Resizer */}
                     <div
-                        className="h-1 bg-[#3e3e3e] hover:bg-[#5e5e5e] cursor-row-resize transition-colors"
-                        onMouseDown={() => setIsDraggingHorizontal(true)}
+                        className="h-1 bg-[#3e3e3e] hover:bg-[#5e5e5e] cursor-row-resize transition-colors relative z-50"
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            setIsDraggingHorizontal(true);
+                            document.body.style.cursor = 'row-resize';
+                            document.body.style.userSelect = 'none';
+                        }}
                     />
 
                     {/* Test Cases Section */}

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 
@@ -46,6 +46,9 @@ export default function CollaborativeCodingPage() {
     const [selectedLanguage, setSelectedLanguage] = useState<'python' | 'javascript' | 'java' | 'cpp'>('python');
     const [code, setCode] = useState('# Write your solution here\n\nclass Solution:\n    def divide(self, dividend: int, divisor: int) -> int:\n        pass');
 
+    const containerRef = useRef<HTMLDivElement>(null);
+    const rightPanelRef = useRef<HTMLDivElement>(null);
+
     const question = questions[currentQuestion];
 
     const languageConfig = {
@@ -67,42 +70,40 @@ export default function CollaborativeCodingPage() {
         }
     };
 
-    const handleMouseMoveVertical = useCallback((e: globalThis.MouseEvent) => {
-        if (!isDraggingVertical) return;
-        const newWidth = (e.clientX / window.innerWidth) * 100;
-        if (newWidth >= 25 && newWidth <= 60) {
-            setLeftWidth(newWidth);
-        }
-    }, [isDraggingVertical]);
-
-    const handleMouseMoveHorizontal = useCallback((e: globalThis.MouseEvent) => {
-        if (!isDraggingHorizontal) return;
-        const rightPanel = document.getElementById('right-panel');
-        if (!rightPanel) return;
-        const rect = rightPanel.getBoundingClientRect();
-        const newHeight = ((e.clientY - rect.top) / rect.height) * 100;
-        if (newHeight >= 30 && newHeight <= 80) {
-            setCodeHeight(newHeight);
-        }
-    }, [isDraggingHorizontal]);
-
-    const handleMouseUp = useCallback(() => {
-        setIsDraggingVertical(false);
-        setIsDraggingHorizontal(false);
-    }, []);
-
     useEffect(() => {
-        if (typeof window !== 'undefined') {
-            window.addEventListener('mousemove', handleMouseMoveVertical);
-            window.addEventListener('mousemove', handleMouseMoveHorizontal);
+        const handleMouseMove = (e: MouseEvent) => {
+            if (isDraggingVertical && containerRef.current) {
+                const containerRect = containerRef.current.getBoundingClientRect();
+                const offsetX = e.clientX - containerRect.left;
+                const newWidthPercent = (offsetX / containerRect.width) * 100;
+                setLeftWidth(Math.min(Math.max(newWidthPercent, 20), 80));
+            }
+
+            if (isDraggingHorizontal && rightPanelRef.current) {
+                const panelRect = rightPanelRef.current.getBoundingClientRect();
+                const offsetY = e.clientY - panelRect.top;
+                const newHeightPercent = (offsetY / panelRect.height) * 100;
+                setCodeHeight(Math.min(Math.max(newHeightPercent, 30), 80));
+            }
+        };
+
+        const handleMouseUp = () => {
+            setIsDraggingVertical(false);
+            setIsDraggingHorizontal(false);
+            document.body.style.cursor = '';
+            document.body.style.userSelect = '';
+        };
+
+        if (isDraggingVertical || isDraggingHorizontal) {
+            window.addEventListener('mousemove', handleMouseMove);
             window.addEventListener('mouseup', handleMouseUp);
+
             return () => {
-                window.removeEventListener('mousemove', handleMouseMoveVertical);
-                window.removeEventListener('mousemove', handleMouseMoveHorizontal);
+                window.removeEventListener('mousemove', handleMouseMove);
                 window.removeEventListener('mouseup', handleMouseUp);
             };
         }
-    }, [isDraggingVertical, isDraggingHorizontal, handleMouseMoveVertical, handleMouseMoveHorizontal, handleMouseUp]);
+    }, [isDraggingVertical, isDraggingHorizontal]);
 
     const handleTerminate = () => {
         router.push('/home');
@@ -110,7 +111,6 @@ export default function CollaborativeCodingPage() {
 
     return (
         <div className="h-screen bg-[#1e1e1e] flex flex-col font-montserrat">
-            {/* Header */}
             <header className="bg-[#2e2e2e] px-6 py-2.5 flex items-center justify-between border-b border-[#3e3e3e]">
                 <div className="flex items-center gap-6">
                     <h1 className="font-mclaren text-xl text-white">PeerPrep</h1>
@@ -125,15 +125,15 @@ export default function CollaborativeCodingPage() {
                 </button>
             </header>
 
-            {/* Main Content */}
-            <div className="flex-1 flex overflow-hidden">
-                {/* Left Panel - Question */}
+            <div ref={containerRef} className="flex-1 flex overflow-hidden">
                 <div
                     className="bg-[#252525] overflow-y-auto"
-                    style={{ width: `${leftWidth}%` }}
+                    style={{
+                        width: `${leftWidth}%`,
+                        pointerEvents: isDraggingVertical || isDraggingHorizontal ? 'none' : 'auto'
+                    }}
                 >
                     <div className="p-6">
-                        {/* Question Header */}
                         <div className="mb-6">
                             <div className="flex items-center gap-3 mb-3">
                                 <h2 className="text-2xl font-semibold text-white">{question.title}</h2>
@@ -148,7 +148,6 @@ export default function CollaborativeCodingPage() {
                             </div>
                         </div>
 
-                        {/* Question Description */}
                         <div className="space-y-4 text-gray-300 text-sm leading-relaxed">
                             <p className="whitespace-pre-line">{question.description}</p>
 
@@ -159,7 +158,6 @@ export default function CollaborativeCodingPage() {
                                 </div>
                             )}
 
-                            {/* Examples */}
                             {question.examples.map((example, idx) => (
                                 <div key={idx} className="bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]">
                                     <p className="font-semibold text-white mb-2">Example {idx + 1}:</p>
@@ -171,7 +169,6 @@ export default function CollaborativeCodingPage() {
                                 </div>
                             ))}
 
-                            {/* Constraints */}
                             <div>
                                 <p className="font-semibold text-white mb-2">Constraints:</p>
                                 <ul className="list-disc list-inside text-gray-400 space-y-1 text-xs">
@@ -184,24 +181,28 @@ export default function CollaborativeCodingPage() {
                     </div>
                 </div>
 
-                {/* Vertical Resizer */}
                 <div
-                    className="w-1 bg-[#3e3e3e] hover:bg-[#5e5e5e] cursor-col-resize transition-colors"
-                    onMouseDown={() => setIsDraggingVertical(true)}
+                    className="w-1 bg-[#3e3e3e] hover:bg-[#5e5e5e] cursor-col-resize transition-colors relative z-50"
+                    onMouseDown={(e) => {
+                        e.preventDefault();
+                        setIsDraggingVertical(true);
+                        document.body.style.cursor = 'col-resize';
+                        document.body.style.userSelect = 'none';
+                    }}
                 />
 
-                {/* Right Panel - Code Editor & Test Cases */}
                 <div
-                    id="right-panel"
+                    ref={rightPanelRef}
                     className="flex-1 flex flex-col bg-[#1e1e1e]"
+                    style={{
+                        pointerEvents: isDraggingVertical || isDraggingHorizontal ? 'none' : 'auto'
+                    }}
                 >
-                    {/* Code Editor Section */}
                     <div
                         className="bg-[#1e1e1e] overflow-hidden"
                         style={{ height: `${codeHeight}%` }}
                     >
                         <div className="h-full flex flex-col">
-                            {/* Code Editor Header */}
                             <div className="bg-[#2e2e2e] px-4 py-2.5 flex items-center justify-between border-b border-[#3e3e3e]">
                                 <div className="flex items-center gap-3">
                                     <div className="relative">
@@ -236,7 +237,6 @@ export default function CollaborativeCodingPage() {
                                 </div>
                             </div>
 
-                            {/* Code Editor Area with Monaco Editor */}
                             <div className="flex-1 bg-[#1e1e1e] overflow-hidden">
                                 <Editor
                                     height="100%"
@@ -266,15 +266,17 @@ export default function CollaborativeCodingPage() {
                         </div>
                     </div>
 
-                    {/* Horizontal Resizer */}
                     <div
-                        className="h-1 bg-[#3e3e3e] hover:bg-[#5e5e5e] cursor-row-resize transition-colors"
-                        onMouseDown={() => setIsDraggingHorizontal(true)}
+                        className="h-1 bg-[#3e3e3e] hover:bg-[#5e5e5e] cursor-row-resize transition-colors relative z-50"
+                        onMouseDown={(e) => {
+                            e.preventDefault();
+                            setIsDraggingHorizontal(true);
+                            document.body.style.cursor = 'row-resize';
+                            document.body.style.userSelect = 'none';
+                        }}
                     />
 
-                    {/* Test Cases Section */}
                     <div className="flex-1 bg-[#252525] overflow-hidden flex flex-col">
-                        {/* Tab Navigation */}
                         <div className="bg-[#2e2e2e] px-4 flex items-center gap-1 border-b border-[#3e3e3e]">
                             <button
                                 onClick={() => setActiveTab('testResults')}
@@ -302,11 +304,9 @@ export default function CollaborativeCodingPage() {
                             </button>
                         </div>
 
-                        {/* Tab Content */}
                         <div className="flex-1 overflow-y-auto p-4">
                             {activeTab === 'testResults' ? (
                                 <div>
-                                    {/* Test Case Selector */}
                                     <div className="flex items-center gap-2 mb-4">
                                         <button
                                             onClick={() => setSelectedTestCase(1)}
@@ -328,7 +328,6 @@ export default function CollaborativeCodingPage() {
                                         </button>
                                     </div>
 
-                                    {/* Test Results Display */}
                                     <div className="space-y-4">
                                         <div>
                                             <label className="text-white block mb-2 text-sm font-medium">Input (stdin)</label>
