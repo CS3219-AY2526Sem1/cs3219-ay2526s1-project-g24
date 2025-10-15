@@ -121,16 +121,6 @@ paths:
                     status: "matched"
                     createdAt: 1697040000000
                     sessionId: "session_xyz789"
-                timeout:
-                  summary: No match found within 30 seconds
-                  value:
-                    reqId: "req_abc123xyz"
-                    userId: "user-123"
-                    difficulty: "easy"
-                    topics: ["arrays", "strings"]
-                    languages: ["python"]
-                    status: "timeout"
-                    createdAt: 1697040000000
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
