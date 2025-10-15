@@ -1,5 +1,3 @@
-version: "3"
-
 services:
   web:
     container_name: web
@@ -47,7 +45,10 @@ services:
   # Question service
   question_service:
     container_name: question_service
-    image: your-docker-repo/question-service:latest # Placeholder for your pre-built image
+    # image: your-docker-repo/question-service:latest # Placeholder for your pre-built image
+    build:
+      context: ./apps/question_service
+      dockerfile: dockerfile
     restart: always
     ports:
       - "8000:80"
@@ -84,7 +85,10 @@ services:
   # User service
   user_service:
     container_name: user_service
-    image: your-docker-repo/user-service:latest # Placeholder for your pre-built image
+    # image: your-docker-repo/user-service:latest # Placeholder for your pre-built image
+    build:
+      context: .
+      dockerfile: ./apps/user_service/Dockerfile
     restart: always
     ports:
       - "8001:8000"
@@ -96,11 +100,62 @@ services:
     networks:
       - app_network
 
+  # Redis for matching service
+  matching_redis:
+    container_name: matching_redis
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - matching_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app_network
+
+  # Matching service
+  matching_service:
+    container_name: matching_service
+    build:
+      context: .
+      dockerfile: ./apps/matching-service/Dockerfile
+    restart: always
+    ports:
+      - "3002:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      REDIS_HOST: matching_redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      COLLABORATION_SERVICE_URL: http://collaboration_service:4000
+      MATCH_TIMEOUT_SECONDS: 30
+      REQUEST_TTL_SECONDS: 60
+      LOG_LEVEL: info
+    depends_on:
+      matching_redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/-/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app_network
+
 # Define volumes for persistent data
 volumes:
   question_db_data:
     driver: local
   user_db_data:
+    driver: local
+  matching_redis_data:
     driver: local
 
 # Define a network, which allows containers to communicate
