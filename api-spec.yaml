@@ -1,0 +1,1131 @@
+openapi: 3.0.0
+info:
+  title: PeerPrep API
+  description: API specification for PeerPrep G24 AY25/26
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8001
+    description: User Service
+  - url: http://localhost:8002
+    description: Matching Service
+  - url: http://localhost:8003
+    description: Question Service
+  - url: http://localhost:8004
+    description: Admin Service
+  - url: http://localhost:8005
+    description: Collaboration Service
+  - url: http://localhost:8006
+    description: Queue Service (Internal)
+
+tags:
+  - name: Authentication
+    description: Google OAuth and session management
+  - name: Users
+    description: User profile management
+  - name: Matching
+    description: Peer matching service with SSE
+  - name: Questions
+    description: Question retrieval (public)
+  - name: Admin
+    description: Admin-only question management
+  - name: Collaboration
+    description: Real-time collaboration sessions
+  - name: Queue
+    description: Internal queue service
+  - name: Health
+    description: Health check and metrics endpoints
+
+paths:
+  # ========== USER SERVICE ==========
+  /v1/auth/google/url:
+    get:
+      tags:
+        - Authentication
+      summary: Get Google OAuth URL
+      description: Returns the Google OAuth authorization URL for login
+      responses:
+        '200':
+          description: OAuth URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+
+  /v1/auth/google/callback:
+    get:
+      tags:
+        - Authentication
+      summary: Google OAuth callback
+      description: Handles the OAuth callback from Google
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AuthResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+
+  /v1/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Logout successful
+
+  /v1/auth/session:
+    get:
+      tags:
+        - Authentication
+      summary: Get current session
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Session retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Session'
+
+  /v1/users/me:
+    get:
+      tags:
+        - Users
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+    patch:
+      tags:
+        - Users
+      summary: Update current user profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                fullName:
+                  type: string
+                language:
+                  type: string
+                proficiency:
+                  type: string
+      responses:
+        '200':
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+
+    delete:
+      tags:
+        - Users
+      summary: Delete current user account
+      security:
+        - bearerAuth: []
+      responses:
+        '204':
+          description: User deleted
+
+  /v1/users/me/avatar:presign:
+    post:
+      tags:
+        - Users
+      summary: Get presigned URL for avatar upload
+      description: Returns a presigned S3 URL for direct file upload
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contentType:
+                  type: string
+                  example: "image/jpeg"
+      responses:
+        '200':
+          description: Presigned URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl:
+                    type: string
+                    format: uri
+                  imageUrl:
+                    type: string
+                    format: uri
+
+  /v1/users/me/avatar:
+    put:
+      tags:
+        - Users
+      summary: Update avatar URL after upload
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                avatarUrl:
+                  type: string
+                  format: uri
+      responses:
+        '200':
+          description: Avatar updated
+
+  # ========== MATCHING SERVICE ==========
+  /v1/match/requests:
+    post:
+      tags:
+        - Matching
+      summary: Create match request
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - difficulty
+                - language
+                - topics
+              properties:
+                difficulty:
+                  type: string
+                  enum: [EASY, MEDIUM, HARD]
+                language:
+                  type: string
+                  enum: [python, javascript, java, cpp]
+                topics:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Match request created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requestId:
+                    type: string
+
+  /v1/match/requests/{reqId}:
+    get:
+      tags:
+        - Matching
+      summary: Get match request status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reqId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Match request details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MatchRequest'
+
+    delete:
+      tags:
+        - Matching
+      summary: Cancel match request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reqId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Match request cancelled
+
+  /v1/match/requests/{reqId}/events:
+    get:
+      tags:
+        - Matching
+      summary: SSE stream for match events
+      description: Server-Sent Events endpoint for real-time match updates
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reqId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: object
+                properties:
+                  event:
+                    type: string
+                    enum: [searching, matched, timeout, cancelled]
+                  data:
+                    type: object
+
+  # ========== QUESTION SERVICE ==========
+  /v1/questions:
+    get:
+      tags:
+        - Questions
+      summary: Get all questions (public)
+      description: Retrieve all questions with optional filters for search, difficulty, topics, and pagination
+      parameters:
+        - name: search
+          in: query
+          description: Search by question title or topic keywords
+          schema:
+            type: string
+        - name: difficulty
+          in: query
+          description: Filter by difficulty level
+          schema:
+            type: string
+            enum: [EASY, MEDIUM, HARD]
+        - name: topics
+          in: query
+          description: Filter by one or more topics
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Number of questions per page
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Questions list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/QuestionSummary'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+
+  /v1/questions/{qid}:
+    get:
+      tags:
+        - Questions
+      summary: Get question by ID
+      description: Retrieve detailed information about a specific question including description, examples, constraints, and test cases
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Question details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+        '404':
+          description: Question not found
+
+  /v1/questions/{qid}/execute:
+    post:
+      tags:
+        - Questions
+      summary: Execute code for solo practice
+      description: Run code against test cases for a specific question in solo practice mode
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - language
+              properties:
+                code:
+                  type: string
+                  description: The code to execute
+                language:
+                  type: string
+                  enum: [python, javascript, java, cpp]
+                  description: Programming language
+                testCases:
+                  type: array
+                  description: Optional custom test cases (uses default question test cases if not provided)
+                  items:
+                    type: object
+                    properties:
+                      input:
+                        type: string
+                      expectedOutput:
+                        type: string
+      responses:
+        '200':
+          description: Code execution completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResult'
+        '400':
+          description: Invalid code or language
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/questions/{qid}/submit:
+    post:
+      tags:
+        - Questions
+      summary: Submit solution for solo practice
+      description: Submit a solution and save it to user's submission history
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - language
+              properties:
+                code:
+                  type: string
+                language:
+                  type: string
+                  enum: [python, javascript, java, cpp]
+      responses:
+        '200':
+          description: Submission recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  submissionId:
+                    type: string
+                  passed:
+                    type: boolean
+                  totalTests:
+                    type: integer
+                  passedTests:
+                    type: integer
+                  executionTime:
+                    type: number
+                  timestamp:
+                    type: string
+                    format: date-time
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+
+  /v1/topics:
+    get:
+      tags:
+        - Questions
+      summary: Get all available topics
+      description: Retrieve list of all question topics for filter dropdown
+      responses:
+        '200':
+          description: Topics list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example: ["Arrays", "Hash Table", "Strings", "Dynamic Programming", "Binary Search", "DFS", "BFS", "Tree", "Graph", "Sorting"]
+
+  # ========== ADMIN SERVICE ==========
+  /v1/admin/questions:
+    post:
+      tags:
+        - Admin
+      summary: Create new question (Admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionInput'
+      responses:
+        '201':
+          description: Question created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+
+  /v1/admin/questions/{qid}:
+    put:
+      tags:
+        - Admin
+      summary: Update question (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuestionInput'
+      responses:
+        '200':
+          description: Question updated
+
+  /v1/questions/admin/{qid}:
+    delete:
+      tags:
+        - Admin
+      summary: Delete question (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [soft, hard]
+            default: soft
+      responses:
+        '204':
+          description: Question deleted
+
+  /v1/questions/admin/images:presign:
+    post:
+      tags:
+        - Admin
+      summary: Get presigned URL for question image upload
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                contentType:
+                  type: string
+      responses:
+        '200':
+          description: Presigned URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl:
+                    type: string
+                  imageUrl:
+                    type: string
+
+  # ========== COLLABORATION SERVICE ==========
+  /v1/sessions:
+    post:
+      tags:
+        - Collaboration
+      summary: Create collaboration session
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                questionId:
+                  type: string
+                language:
+                  type: string
+                participants:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        '201':
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollabSession'
+
+  /v1/sessions/{sessionId}:
+    get:
+      tags:
+        - Collaboration
+      summary: Get session details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CollabSession'
+
+  /v1/sessions/{sessionId}:terminate:
+    post:
+      tags:
+        - Collaboration
+      summary: Terminate session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session terminated
+
+  /v1/sessions/{sessionId}:rejoin:
+    post:
+      tags:
+        - Collaboration
+      summary: Rejoin session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Rejoined session
+
+  /v1/sessions/{sessionId}/snapshot:
+    get:
+      tags:
+        - Collaboration
+      summary: Get session code snapshot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Code snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  language:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /v1/sessions/{sessionId}/execute:
+    post:
+      tags:
+        - Collaboration
+      summary: Execute code in session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                language:
+                  type: string
+                testCases:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      input:
+                        type: string
+                      expectedOutput:
+                        type: string
+      responses:
+        '200':
+          description: Execution result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ExecutionResult'
+
+  /v1/ws/sessions/{sessionId}:
+    get:
+      tags:
+        - Collaboration
+      summary: WebSocket endpoint for real-time collaboration
+      description: WebSocket connection for Yjs CRDT synchronization
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '101':
+          description: WebSocket connection established
+
+  # ========== QUEUE SERVICE (INTERNAL) ==========
+  /internal/queue/enqueue:
+    post:
+      tags:
+        - Queue
+      summary: Add item to queue (Internal)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '201':
+          description: Item enqueued
+
+  /internal/queue/dequeue:
+    post:
+      tags:
+        - Queue
+      summary: Remove item from queue (Internal)
+      responses:
+        '200':
+          description: Item dequeued
+
+  /internal/queue/peek:
+    get:
+      tags:
+        - Queue
+      summary: Peek at queue (Internal)
+      responses:
+        '200':
+          description: Queue head
+
+  /internal/queue/stats:
+    get:
+      tags:
+        - Queue
+      summary: Get queue statistics (Internal)
+      responses:
+        '200':
+          description: Queue stats
+
+  # ========== HEALTH CHECKS (ALL SERVICES) ==========
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check (User Service)
+      responses:
+        '200':
+          description: Service healthy
+
+  /ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness check (User Service)
+      responses:
+        '200':
+          description: Service ready
+
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Prometheus metrics (User Service)
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /-/health:
+    get:
+      tags:
+        - Health
+      summary: Health check (Matching/Question/Admin/Collab Services)
+      responses:
+        '200':
+          description: Service healthy
+
+  /-/ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness check (Matching/Question/Admin/Collab Services)
+      responses:
+        '200':
+          description: Service ready
+
+  /-/metrics:
+    get:
+      tags:
+        - Health
+      summary: Prometheus metrics (Matching/Question/Admin/Collab Services)
+      responses:
+        '200':
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+
+# ========== COMPONENTS ==========
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    QuestionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+        difficulty:
+          type: string
+          enum: [EASY, MEDIUM, HARD]
+
+    Question:
+      allOf:
+        - $ref: '#/components/schemas/QuestionSummary'
+        - type: object
+          properties:
+            description:
+              type: string
+            examples:
+              type: array
+              items:
+                type: object
+                properties:
+                  input:
+                    type: string
+                  output:
+                    type: string
+                  explanation:
+                    type: string
+            constraints:
+              type: array
+              items:
+                type: string
+            testCases:
+              type: array
+              items:
+                type: object
+                properties:
+                  input:
+                    type: string
+                  expectedOutput:
+                    type: string
+
+    QuestionInput:
+      type: object
+      required:
+        - title
+        - difficulty
+        - topics
+        - description
+      properties:
+        title:
+          type: string
+        difficulty:
+          type: string
+          enum: [EASY, MEDIUM, HARD]
+        topics:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        examples:
+          type: array
+          items:
+            type: object
+            properties:
+              input:
+                type: string
+              output:
+                type: string
+              explanation:
+                type: string
+        constraints:
+          type: array
+          items:
+            type: string
+        testCases:
+          type: array
+          items:
+            type: object
+            properties:
+              input:
+                type: string
+              expectedOutput:
+                type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+        refreshToken:
+          type: string
+        user:
+          $ref: '#/components/schemas/UserProfile'
+
+    Session:
+      type: object
+      properties:
+        userId:
+          type: string
+        email:
+          type: string
+        isAuthenticated:
+          type: boolean
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        fullName:
+          type: string
+        email:
+          type: string
+          format: email
+        language:
+          type: string
+        proficiency:
+          type: string
+        avatarUrl:
+          type: string
+          format: uri
+
+    MatchRequest:
+      type: object
+      properties:
+        requestId:
+          type: string
+        userId:
+          type: string
+        difficulty:
+          type: string
+        language:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [searching, matched, timeout, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+
+    CollabSession:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        questionId:
+          type: string
+        participants:
+          type: array
+          items:
+            type: string
+        language:
+          type: string
+        status:
+          type: string
+          enum: [active, terminated]
+        startTime:
+          type: string
+          format: date-time
+
+    ExecutionResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              testCase:
+                type: integer
+              passed:
+                type: boolean
+              output:
+                type: string
+              expected:
+                type: string
+        passed:
+          type: integer
+        failed:
+          type: integer
+        executionTime:
+          type: number
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        statusCode:
+          type: integer
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
