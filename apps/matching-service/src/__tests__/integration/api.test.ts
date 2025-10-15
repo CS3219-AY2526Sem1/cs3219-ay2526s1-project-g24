@@ -69,14 +69,6 @@ jest.unstable_mockModule("../../services/redis.js", () => ({
   },
 }));
 
-// Mock BullMQ
-jest.unstable_mockModule("bullmq", () => ({
-  Queue: jest.fn().mockImplementation(() => ({
-    add: jest.fn(async () => ({ id: "job-id" })),
-    close: jest.fn(),
-  })),
-}));
-
 describe("API Routes Integration Tests", () => {
   let app: express.Application;
 

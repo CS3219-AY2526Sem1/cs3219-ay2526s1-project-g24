@@ -6,9 +6,10 @@ info:
     Matching service for pairing users based on difficulty, topics, and programming languages.
 
     ## Features
-    - Creates match requests with 30-second timeout
+    - Creates match requests that persist until matched or cancelled
     - Real-time updates via Server-Sent Events (SSE)
     - Automatic matching based on compatibility criteria
+    - Auto-cancellation when SSE connection is closed (user disconnects)
     - Observable with Prometheus metrics
 
     ## Matching Criteria
@@ -16,6 +17,11 @@ info:
     - Same difficulty level
     - At least one overlapping topic
     - At least one overlapping programming language
+
+    ## Important Behavior
+    - **No automatic timeout**: Requests remain in queue until matched or cancelled
+    - **Auto-cancel on disconnect**: Closing the SSE connection cancels the request
+    - **Active connection required**: Users must maintain SSE connection to stay in queue
   contact:
     name: PeerPrep Team
     email: support@peerprep.example.com
@@ -42,7 +48,10 @@ paths:
       summary: Create a new match request
       description: |
         Creates a new match request and begins searching for a compatible partner.
-        The request will timeout after 30 seconds if no match is found.
+        The request will remain in queue until matched or until the SSE connection is closed.
+
+        **Important:** You must open an SSE connection at `/v1/match/requests/{reqId}/events` 
+        and keep it open. Closing the SSE connection will automatically cancel the match request.
 
         Use Server-Sent Events at `/v1/match/requests/{reqId}/events` to receive real-time updates.
       operationId: createMatchRequest
@@ -132,7 +141,10 @@ paths:
       summary: Cancel a match request
       description: |
         Cancels an active match request. Only works if the request is still in "queued" status.
-        Returns 400 if the request is already matched or timed out.
+        Returns 400 if the request is already matched or cancelled.
+
+        **Note:** Closing the SSE connection also automatically cancels the request, 
+        so explicit cancellation is optional.
       operationId: cancelMatchRequest
       parameters:
         - $ref: "#/components/parameters/RequestId"
@@ -171,23 +183,35 @@ paths:
       description: |
         Server-Sent Events stream providing real-time updates for a match request.
 
-        ## Event Types
-        - **status**: Match status changed (matched, timeout, cancelled)
-        - **timer**: Countdown timer update (sent every second)
+        **Critical:** Keeping this SSE connection open is required to stay in the matching queue.
+        When the connection is closed (e.g., user closes tab), the match request is automatically cancelled.
+
+        ## Event Format
+        Events are sent as JSON in the `data` field with the following structure:
+        - `status`: Current request status ("queued", "matched", "cancelled")
+        - `timestamp`: Event timestamp in milliseconds
+        - `elapsed`: Seconds elapsed since request creation (for queued status)
+        - `sessionId`: Collaboration session ID (only when matched)
 
         ## Usage Example
         ```javascript
         const eventSource = new EventSource(`/v1/match/requests/${reqId}/events`);
 
-        eventSource.addEventListener('status', (event) => {
+        eventSource.onmessage = (event) => {
           const data = JSON.parse(event.data);
-          console.log('Status:', data.status, data.sessionId);
-        });
+          
+          if (data.status === 'queued') {
+            console.log(`Waiting... ${data.elapsed}s`);
+          } else if (data.status === 'matched') {
+            console.log('Matched! Session:', data.sessionId);
+            window.location.href = `/session/${data.sessionId}`;
+          } else if (data.status === 'cancelled') {
+            console.log('Request cancelled');
+          }
+        };
 
-        eventSource.addEventListener('timer', (event) => {
-          const data = JSON.parse(event.data);
-          console.log('Time remaining:', data.secondsRemaining);
-        });
+        // Closing this connection cancels the request
+        // eventSource.close();
         ```
       operationId: subscribeToMatchEvents
       parameters:
@@ -201,17 +225,20 @@ paths:
                 type: string
                 format: binary
               examples:
-                statusEvent:
-                  summary: Status change event
+                queuedEvent:
+                  summary: Queued status update (sent every second)
                   value: |
-                    event: status
-                    data: {"status":"matched","sessionId":"session_xyz789"}
+                    data: {"status":"queued","timestamp":1697385601000,"elapsed":5}
 
-                timerEvent:
-                  summary: Timer countdown event
+                matchedEvent:
+                  summary: Matched status event
                   value: |
-                    event: timer
-                    data: {"secondsRemaining":25}
+                    data: {"status":"matched","timestamp":1697385645000,"sessionId":"session_xyz789"}
+
+                cancelledEvent:
+                  summary: Cancelled status event
+                  value: |
+                    data: {"status":"cancelled","timestamp":1697385650000}
         "404":
           $ref: "#/components/responses/NotFound"
 
@@ -288,7 +315,8 @@ paths:
         - `match_queue_length` - Number of requests in queue by difficulty
         - `match_latency_seconds` - Time from queue to match
         - `matches_total` - Total successful matches
-        - `match_timeouts_total` - Total timeouts
+        - `match_cancellations_total` - Total cancellations
+        - `sse_connections` - Active SSE connections
         - `redis_operation_duration_seconds` - Redis latency
       operationId: getMetrics
       responses:
@@ -336,14 +364,12 @@ components:
       enum:
         - queued
         - matched
-        - timeout
         - cancelled
       description: |
         Current status of the match request:
-        - `queued`: Searching for a match
+        - `queued`: Searching for a match (SSE connection active)
         - `matched`: Successfully paired with another user
-        - `timeout`: No match found within 30 seconds
-        - `cancelled`: User cancelled the request
+        - `cancelled`: User cancelled or disconnected
 
     CreateMatchRequest:
       type: object
@@ -448,17 +474,30 @@ components:
           description: Present only when status is "matched"
           example: "session_xyz789"
 
-    TimerEvent:
+    SSEEvent:
       type: object
+      description: |
+        Server-Sent Event data format. Events are sent as JSON in the `data` field.
+        The service sends periodic updates (every 1 second) for queued requests.
       required:
-        - secondsRemaining
+        - status
+        - timestamp
       properties:
-        secondsRemaining:
+        status:
+          $ref: "#/components/schemas/RequestStatus"
+        timestamp:
           type: integer
-          minimum: 0
-          maximum: 30
-          description: Countdown timer (30 to 0)
-          example: 25
+          format: int64
+          description: Event timestamp in milliseconds since epoch
+          example: 1697385601000
+        elapsed:
+          type: integer
+          description: Seconds elapsed since request creation (only for queued status)
+          example: 5
+        sessionId:
+          type: string
+          description: Collaboration session ID (only for matched status)
+          example: "session_xyz789"
 
     Error:
       type: object
