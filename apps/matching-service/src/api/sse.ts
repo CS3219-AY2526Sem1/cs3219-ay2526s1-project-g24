@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { logger } from "../observability/logger.js";
 import { metrics } from "../observability/metrics.js";
 import { redisOps } from "../services/redis.js";
+import { cancelMatchRequest } from "./routes.js";
 
 /**
  * Handle SSE connection for a match request
@@ -59,11 +60,7 @@ export async function handleSSE(req: Request, res: Response) {
         res.write(`data: ${JSON.stringify(event)}\n\n`);
 
         // Close connection if terminal state reached
-        if (
-          event.status === "matched" ||
-          event.status === "timeout" ||
-          event.status === "cancelled"
-        ) {
+        if (event.status === "matched" || event.status === "cancelled") {
           logger.info(
             { reqId, status: event.status },
             "Terminal state reached, closing SSE",
@@ -101,18 +98,24 @@ export async function handleSSE(req: Request, res: Response) {
   }, 1000);
 
   // Handle client disconnect
-  req.on("close", () => {
+  req.on("close", async () => {
     clearInterval(timerInterval);
     subscriber.quit();
     metrics.decrementSseConnections();
     logger.info({ reqId }, "SSE connection closed by client");
+
+    // Auto-cancel the request if it's still queued
+    await cancelMatchRequest(reqId, "client disconnected");
   });
 
   // Handle errors
-  res.on("error", (error) => {
+  res.on("error", async (error) => {
     clearInterval(timerInterval);
     subscriber.quit();
     metrics.decrementSseConnections();
     logger.error({ error, reqId }, "SSE connection error");
+
+    // Auto-cancel the request if it's still queued
+    await cancelMatchRequest(reqId, "connection error");
   });
 }

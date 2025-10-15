@@ -89,9 +89,7 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
         "Creating match request",
       );
 
-      // Store request in Redis with 30s TTL (triggers timeout on expiration)
-      const requestTTL = 30;
-
+      // Store request in Redis (no TTL - persists until matched or cancelled)
       await redisOps.createRequest(
         reqId,
         {
@@ -100,7 +98,7 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
           topics: data.topics.join(","),
           languages: data.languages.join(","),
         },
-        requestTTL,
+        0, // 0 = no expiration
       );
 
       // Add to queue
@@ -161,6 +159,61 @@ router.get("/v1/match/requests/:reqId", async (req: Request, res: Response) => {
 });
 
 /**
+ * Cancel a match request (internal function)
+ * Used by both DELETE endpoint and SSE disconnect
+ */
+export async function cancelMatchRequest(
+  reqId: string,
+  reason: string = "user requested",
+): Promise<{ success: boolean; error?: string; statusCode?: number }> {
+  try {
+    const request = await redisOps.getRequest(reqId);
+
+    if (!request) {
+      return { success: false, error: "Request not found", statusCode: 404 };
+    }
+
+    if (request.status !== "queued") {
+      return {
+        success: false,
+        error: `Cannot cancel request - already ${request.status}`,
+        statusCode: 400,
+      };
+    }
+
+    // Update status
+    await redisOps.updateRequestStatus(reqId, "cancelled");
+
+    // Remove from queue
+    await redisOps.dequeue(reqId, request.difficulty);
+
+    // Notify via pub/sub
+    const event = {
+      status: "cancelled",
+      timestamp: Date.now(),
+    };
+    await redisOps.publishEvent(reqId, event);
+
+    // Record metrics
+    metrics.recordCancellation(request.difficulty);
+
+    logger.info(
+      { reqId, userId: request.userId, reason },
+      "Match request cancelled",
+    );
+
+    return { success: true };
+  } catch (error) {
+    logger.error({ error, reqId }, "Failed to cancel match request");
+    return {
+      success: false,
+      error: "Internal server error",
+      statusCode: 500,
+    };
+  }
+}
+
+/**
  * DELETE /v1/match/requests/:reqId
  * Cancel a match request
  */
@@ -170,45 +223,15 @@ router.delete(
     const { reqId } = req.params;
 
     try {
-      await withSpan("cancel_match_request", { reqId }, async (span) => {
-        const request = await redisOps.getRequest(reqId);
+      await withSpan("cancel_match_request", { reqId }, async () => {
+        const result = await cancelMatchRequest(reqId, "user requested");
 
-        if (!request) {
-          res.status(404).json({ error: "Request not found" });
+        if (!result.success) {
+          res
+            .status(result.statusCode || 500)
+            .json({ error: result.error || "Failed to cancel" });
           return;
         }
-
-        if (request.status !== "queued") {
-          res.status(400).json({
-            error: "Cannot cancel request",
-            reason: `Request is already ${request.status}`,
-          });
-          return;
-        }
-
-        span.setAttribute("difficulty", request.difficulty);
-        span.setAttribute("user_id", request.userId);
-
-        // Update status
-        await redisOps.updateRequestStatus(reqId, "cancelled");
-
-        // Remove from queue
-        await redisOps.dequeue(reqId, request.difficulty);
-
-        // Notify via pub/sub
-        const event = {
-          status: "cancelled",
-          timestamp: Date.now(),
-        };
-        await redisOps.publishEvent(reqId, event);
-
-        // Record metrics
-        metrics.recordCancellation(request.difficulty);
-
-        logger.info(
-          { reqId, userId: request.userId },
-          "Match request cancelled",
-        );
 
         res.status(200).json({ message: "Request cancelled" });
       });

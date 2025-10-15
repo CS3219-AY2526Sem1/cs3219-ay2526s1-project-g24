@@ -15,7 +15,7 @@ describe('Redis Operations', () => {
   });
 
   describe('createRequest', () => {
-    it('should create a request in Redis with TTL', async () => {
+    it('should create a request in Redis without TTL (ttl=0)', async () => {
       const reqId = 'test-req-id';
       const request = createMockRequest();
 
@@ -28,7 +28,8 @@ describe('Redis Operations', () => {
         createdAt: request.createdAt.toString(),
       });
 
-      await mockRedis.expire(`match:req:${reqId}`, 60);
+      // With ttl=0, expire should NOT be called
+      // await mockRedis.expire(`match:req:${reqId}`, 0);
 
       expect(mockRedis.hset).toHaveBeenCalledWith(
         `match:req:${reqId}`,
@@ -38,7 +39,8 @@ describe('Redis Operations', () => {
           status: 'queued',
         })
       );
-      expect(mockRedis.expire).toHaveBeenCalledWith(`match:req:${reqId}`, 60);
+      // No expiration set when ttl=0
+      expect(mockRedis.expire).not.toHaveBeenCalled();
     });
   });
 
@@ -171,13 +173,13 @@ describe('Redis Operations', () => {
   });
 
   describe('updateRequestStatus', () => {
-    it('should update request status without sessionId', async () => {
+    it('should update request status to cancelled', async () => {
       const reqId = 'test-req-id';
 
-      await mockRedis.hset(`match:req:${reqId}`, { status: 'timeout' });
+      await mockRedis.hset(`match:req:${reqId}`, { status: 'cancelled' });
 
       const request = await mockRedis.hgetall(`match:req:${reqId}`);
-      expect(request.status).toBe('timeout');
+      expect(request.status).toBe('cancelled');
     });
 
     it('should update request status with sessionId', async () => {

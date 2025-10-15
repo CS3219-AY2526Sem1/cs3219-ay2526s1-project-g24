@@ -9,7 +9,6 @@ import { initTracing, shutdownTracing } from "./observability/tracing.js";
 import { initRedis, closeRedis } from "./services/redis.js";
 import { router } from "./api/routes.js";
 import { startMatcher } from "./workers/matcher.js";
-import { startTimeoutWorker } from "./workers/timeout.js";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
@@ -42,7 +41,8 @@ async function start() {
 
     // Start workers
     startMatcher();
-    startTimeoutWorker();
+    // Timeout worker disabled - requests persist until matched or cancelled
+    // startTimeoutWorker();
 
     logger.info("Workers started");
     logger.info("Matching Service ready");

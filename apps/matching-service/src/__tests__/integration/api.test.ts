@@ -30,7 +30,10 @@ jest.unstable_mockModule("../../services/redis.js", () => ({
         status: "queued",
         createdAt: Date.now().toString(),
       });
-      await mockRedis.expire(`match:req:${reqId}`, ttl);
+      // Only set expiration if ttl > 0
+      if (ttl > 0) {
+        await mockRedis.expire(`match:req:${reqId}`, ttl);
+      }
     }),
     getRequest: jest.fn(async (reqId: string) => {
       const data = await mockRedis.hgetall(`match:req:${reqId}`);
@@ -270,7 +273,7 @@ describe("API Routes Integration Tests", () => {
         .expect(400);
 
       expect(response.body).toHaveProperty("error");
-      expect(response.body.reason).toContain("matched");
+      expect(response.body.error).toContain("matched");
     });
 
     it("should return 404 for non-existent request", async () => {

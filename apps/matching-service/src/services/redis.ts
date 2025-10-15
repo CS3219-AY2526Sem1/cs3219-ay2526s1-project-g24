@@ -102,7 +102,10 @@ export const redisOps = {
       }),
     );
 
-    await trackLatency("expire", () => redis.expire(key, ttlSeconds));
+    // Only set expiration if ttlSeconds > 0
+    if (ttlSeconds > 0) {
+      await trackLatency("expire", () => redis.expire(key, ttlSeconds));
+    }
   },
 
   /**

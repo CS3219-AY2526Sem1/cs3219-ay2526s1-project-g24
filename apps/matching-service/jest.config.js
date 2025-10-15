@@ -16,6 +16,10 @@ export default {
       "ts-jest",
       {
         useESM: true,
+        tsconfig: {
+          module: "ES2020",
+          moduleResolution: "node",
+        },
       },
     ],
   },

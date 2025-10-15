@@ -1,11 +1,17 @@
 /**
  * Unit tests for timeout worker
+ * 
+ * NOTE: Timeout worker is currently DISABLED.
+ * These tests are skipped as the auto-timeout feature has been replaced
+ * with auto-cancellation on SSE disconnect.
+ * 
+ * See src/api/sse.ts for the new disconnect-based cancellation logic.
  */
 
 import { describe, it, expect, beforeEach } from '@jest/globals';
 import { createMockRedis, createMockRequest } from "../utils/test-helpers.js";
 
-describe('Timeout Worker Logic', () => {
+describe.skip('Timeout Worker Logic (DISABLED)', () => {
   let mockRedis: ReturnType<typeof createMockRedis>;
 
   beforeEach(() => {
