@@ -306,12 +306,40 @@ paths:
         '204':
           description: Match request cancelled
 
+  /v1/match/requests/{reqId}/extend:
+    post:
+      tags:
+        - Matching
+      summary: Extend match timeout
+      description: Resets the match timeout countdown, allowing the user to continue waiting for a match
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reqId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Timeout reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  extendsUntil:
+                    type: string
+                    format: date-time
+
   /v1/match/requests/{reqId}/events:
     get:
       tags:
         - Matching
       summary: SSE stream for match events
-      description: Server-Sent Events endpoint for real-time match updates
+      description: Server-Sent Events endpoint for real-time match updates. Timeout duration is configurable via MATCH_TIMEOUT_MS environment variable (default 5 minutes). User can reset the timeout by continuing to wait.
       security:
         - bearerAuth: []
       parameters:
@@ -640,6 +668,7 @@ paths:
       tags:
         - Collaboration
       summary: Create collaboration session
+      description: Creates a new collaboration session. Sessions automatically terminate after inactivity timeout (configurable via SESSION_AFK_TIMEOUT_MS, default 15 minutes). User activity or acknowledgment resets the timeout countdown.
       security:
         - bearerAuth: []
       requestBody:
@@ -718,6 +747,34 @@ paths:
       responses:
         '200':
           description: Rejoined session
+
+  /v1/sessions/{sessionId}/keepalive:
+    post:
+      tags:
+        - Collaboration
+      summary: Reset AFK timeout
+      description: Resets the session inactivity timeout countdown when user confirms they are still active
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Session timeout reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  expiresAt:
+                    type: string
+                    format: date-time
 
   /v1/sessions/{sessionId}/snapshot:
     get:
