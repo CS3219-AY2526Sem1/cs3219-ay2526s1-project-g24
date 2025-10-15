@@ -1,42 +1,45 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { useRouter } from 'next/navigation';
+import { useRouter, useParams } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 
-const questions = [
-    {
-        title: 'Divide Two Integers',
-        difficulty: 'MEDIUM',
-        topics: ['Bit Manipulation', 'Math'],
-        description: `Given two integers dividend and divisor, divide two integers without using multiplication, division, and mod operator.
+const mockQuestionData: { [key: number]: any } = {
+    1: {
+        title: 'Two Sum',
+        difficulty: 'EASY',
+        topics: ['Arrays', 'Hash Table'],
+        description: `Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.
 
-The integer division should truncate toward zero, which means losing its fractional part. For example, 8.345 would be truncated to 8, and -2.7335 would be truncated to -2.
+You may assume that each input would have exactly one solution, and you may not use the same element twice.
 
-Return the quotient after dividing dividend by divisor.`,
-        note: `Assume we are dealing with an environment that could only store integers within the 32-bit signed integer range: [-2³¹, 2³¹ − 1]. For this problem, if the quotient is strictly greater than 2³¹ - 1, then return 2³¹ - 1, and if the quotient is strictly less than -2³¹, then return -2³¹.`,
+You can return the answer in any order.`,
         examples: [
             {
-                input: 'dividend = 10, divisor = 3',
-                output: '3',
-                explanation: '10/3 = 3.33333.. which is truncated to 3'
+                input: 'nums = [2,7,11,15], target = 9',
+                output: '[0,1]',
+                explanation: 'Because nums[0] + nums[1] == 9, we return [0, 1].'
             },
             {
-                input: 'dividend = 7, divisor = -3',
-                output: '-2',
-                explanation: '7/-3 = -2.33333.. which is truncated to -2.'
+                input: 'nums = [3,2,4], target = 6',
+                output: '[1,2]',
+                explanation: 'Because nums[1] + nums[2] == 6, we return [1, 2].'
             }
         ],
         constraints: [
-            '-2³¹ <= dividend, divisor <= 2³¹ - 1',
-            'divisor != 0'
+            '2 <= nums.length <= 10⁴',
+            '-10⁹ <= nums[i] <= 10⁹',
+            '-10⁹ <= target <= 10⁹',
+            'Only one valid answer exists.'
         ]
-    }
-];
+    },
+};
 
-export default function CollaborativeCodingPage() {
+export default function PracticePage() {
     const router = useRouter();
-    const [currentQuestion] = useState(0);
+    const params = useParams();
+    const questionId = Number(params.id);
+
     const [leftWidth, setLeftWidth] = useState(40);
     const [codeHeight, setCodeHeight] = useState(60);
     const [isDraggingVertical, setIsDraggingVertical] = useState(false);
@@ -44,26 +47,26 @@ export default function CollaborativeCodingPage() {
     const [activeTab, setActiveTab] = useState<'testResults' | 'customInput'>('testResults');
     const [selectedTestCase, setSelectedTestCase] = useState(1);
     const [selectedLanguage, setSelectedLanguage] = useState<'python' | 'javascript' | 'java' | 'cpp'>('python');
-    const [code, setCode] = useState('# Write your solution here\n\nclass Solution:\n    def divide(self, dividend: int, divisor: int) -> int:\n        pass');
+    const [code, setCode] = useState('# Write your solution here\n\nclass Solution:\n    def twoSum(self, nums: list[int], target: int) -> list[int]:\n        pass');
 
-    const question = questions[currentQuestion];
+    const question = mockQuestionData[questionId] || mockQuestionData[1];
 
     const languageConfig = {
         python: {
             language: 'python',
-            defaultCode: '# Write your solution here\n\nclass Solution:\n    def divide(self, dividend: int, divisor: int) -> int:\n        pass'
+            defaultCode: '# Write your solution here\n\nclass Solution:\n    def twoSum(self, nums: list[int], target: int) -> list[int]:\n        pass'
         },
         javascript: {
             language: 'javascript',
-            defaultCode: '// Write your solution here\n\n/**\n * @param {number} dividend\n * @param {number} divisor\n * @return {number}\n */\nvar divide = function(dividend, divisor) {\n    \n};'
+            defaultCode: '// Write your solution here\n\n/**\n * @param {number[]} nums\n * @param {number} target\n * @return {number[]}\n */\nvar twoSum = function(nums, target) {\n    \n};'
         },
         java: {
             language: 'java',
-            defaultCode: '// Write your solution here\n\nclass Solution {\n    public int divide(int dividend, int divisor) {\n        \n    }\n}'
+            defaultCode: '// Write your solution here\n\nclass Solution {\n    public int[] twoSum(int[] nums, int target) {\n        \n    }\n}'
         },
         cpp: {
             language: 'cpp',
-            defaultCode: '// Write your solution here\n\nclass Solution {\npublic:\n    int divide(int dividend, int divisor) {\n        \n    }\n};'
+            defaultCode: '// Write your solution here\n\nclass Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        \n    }\n};'
         }
     };
 
@@ -104,8 +107,8 @@ export default function CollaborativeCodingPage() {
         }
     }, [isDraggingVertical, isDraggingHorizontal, handleMouseMoveVertical, handleMouseMoveHorizontal, handleMouseUp]);
 
-    const handleTerminate = () => {
-        router.push('/home');
+    const handleExit = () => {
+        router.push('/questions');
     };
 
     return (
@@ -114,14 +117,14 @@ export default function CollaborativeCodingPage() {
             <header className="bg-[#2e2e2e] px-6 py-2.5 flex items-center justify-between border-b border-[#3e3e3e]">
                 <div className="flex items-center gap-6">
                     <h1 className="font-mclaren text-xl text-white">PeerPrep</h1>
-                    <span className="text-gray-400 text-sm">ID 22031001</span>
+                    <span className="text-gray-400 text-sm">Solo Practice</span>
                 </div>
-                <span className="text-white text-sm">Cliff Hänger (you) x Xiao Ming</span>
+                <span className="text-white text-sm">Cliff Hänger</span>
                 <button
-                    onClick={handleTerminate}
+                    onClick={handleExit}
                     className="px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors"
                 >
-                    Terminate
+                    Exit
                 </button>
             </header>
 
@@ -137,12 +140,15 @@ export default function CollaborativeCodingPage() {
                         <div className="mb-6">
                             <div className="flex items-center gap-3 mb-3">
                                 <h2 className="text-2xl font-semibold text-white">{question.title}</h2>
-                                <span className="text-xs px-3 py-1 rounded bg-[#854d0e] text-[#fbbf24] font-medium uppercase">
+                                <span className={`text-xs px-3 py-1 rounded font-medium uppercase ${question.difficulty === 'EASY' ? 'bg-[#4a5a3a] text-[#a8d08d]' :
+                                    question.difficulty === 'MEDIUM' ? 'bg-[#5a4a3a] text-[#f4b942]' :
+                                        'bg-[#5a3a3a] text-[#f4a2a2]'
+                                    }`}>
                                     {question.difficulty}
                                 </span>
                             </div>
                             <div className="flex gap-2">
-                                {question.topics.map(topic => (
+                                {question.topics.map((topic: string) => (
                                     <span key={topic} className="text-sm text-gray-400">{topic}</span>
                                 ))}
                             </div>
@@ -152,15 +158,8 @@ export default function CollaborativeCodingPage() {
                         <div className="space-y-4 text-gray-300 text-sm leading-relaxed">
                             <p className="whitespace-pre-line">{question.description}</p>
 
-                            {question.note && (
-                                <div>
-                                    <p className="font-semibold text-white mb-2">Note:</p>
-                                    <p className="text-gray-400">{question.note}</p>
-                                </div>
-                            )}
-
                             {/* Examples */}
-                            {question.examples.map((example, idx) => (
+                            {question.examples.map((example: any, idx: number) => (
                                 <div key={idx} className="bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]">
                                     <p className="font-semibold text-white mb-2">Example {idx + 1}:</p>
                                     <div className="font-mono text-xs space-y-1">
@@ -175,7 +174,7 @@ export default function CollaborativeCodingPage() {
                             <div>
                                 <p className="font-semibold text-white mb-2">Constraints:</p>
                                 <ul className="list-disc list-inside text-gray-400 space-y-1 text-xs">
-                                    {question.constraints.map((constraint, idx) => (
+                                    {question.constraints.map((constraint: string, idx: number) => (
                                         <li key={idx}>{constraint}</li>
                                     ))}
                                 </ul>
@@ -231,7 +230,7 @@ export default function CollaborativeCodingPage() {
                                         Run Code
                                     </button>
                                     <button className="px-4 py-1.5 bg-[#F1FCAC] hover:bg-[#e5f099] text-black text-sm font-medium transition-colors">
-                                        Run Test
+                                        Submit
                                     </button>
                                 </div>
                             </div>
@@ -331,21 +330,21 @@ export default function CollaborativeCodingPage() {
                                     {/* Test Results Display */}
                                     <div className="space-y-4">
                                         <div>
-                                            <label className="text-white block mb-2 text-sm font-medium">Input (stdin)</label>
+                                            <label className="text-white block mb-2 text-sm font-medium">Input</label>
                                             <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300">
-                                                {selectedTestCase === 1 ? '2' : '10\n3'}
+                                                {selectedTestCase === 1 ? 'nums = [2,7,11,15], target = 9' : 'nums = [3,2,4], target = 6'}
                                             </div>
                                         </div>
                                         <div>
-                                            <label className="text-white block mb-2 text-sm font-medium">Your Output (stdout)</label>
+                                            <label className="text-white block mb-2 text-sm font-medium">Your Output</label>
                                             <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300">
-                                                {selectedTestCase === 1 ? '1' : '3'}
+                                                {selectedTestCase === 1 ? '[0,1]' : '[1,2]'}
                                             </div>
                                         </div>
                                         <div>
                                             <label className="text-white block mb-2 text-sm font-medium">Expected Output</label>
                                             <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300">
-                                                {selectedTestCase === 1 ? '1' : '3'}
+                                                {selectedTestCase === 1 ? '[0,1]' : '[1,2]'}
                                             </div>
                                         </div>
                                     </div>

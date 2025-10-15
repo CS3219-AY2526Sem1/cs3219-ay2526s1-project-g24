@@ -29,7 +29,7 @@ export default function Wait() {
     return (
         <div className="min-h-screen bg-[#333232] flex flex-col items-center justify-center relative">
             <Link href="/home">
-                <h1 className="font-mclaren text-2xl text-[#9e9e9e] absolute top-8 left-8 cursor-pointer hover:text-white transition-colors">
+                <h1 className="font-mclaren text-2xl text-[#9e9e9e] absolute top-8 left-1/2 transform -translate-x-1/2 cursor-pointer hover:text-white transition-colors">
                     PeerPrep
                 </h1>
             </Link>
