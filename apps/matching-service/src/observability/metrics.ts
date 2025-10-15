@@ -3,7 +3,7 @@
  */
 
 import { Registry, Gauge, Histogram, Counter } from "prom-client";
-import type { Difficulty } from "../types.ts";
+import type { Difficulty } from "../types.js";
 
 // Create a new registry
 export const register = new Registry();
