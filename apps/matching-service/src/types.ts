@@ -4,7 +4,7 @@
 
 export type Difficulty = "easy" | "medium" | "hard";
 
-export type RequestStatus = "queued" | "matched" | "cancelled";
+export type RequestStatus = "queued" | "matched" | "cancelled" | "timeout";
 
 /**
  * Match request submitted by a user

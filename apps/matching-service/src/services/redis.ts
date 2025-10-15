@@ -235,4 +235,76 @@ export const redisOps = {
       return false;
     }
   },
+
+  /**
+   * Add request to timeout tracking sorted set
+   * Score is the deadline timestamp (when the request should timeout)
+   */
+  async addTimeout(
+    reqId: string,
+    difficulty: Difficulty,
+    timeoutSeconds: number,
+  ): Promise<void> {
+    const redis = getRedis();
+    const deadline = Date.now() + timeoutSeconds * 1000;
+    const member = `${reqId}:${difficulty}`;
+
+    await trackLatency("zadd", () =>
+      redis.zadd("match:timeouts", deadline, member),
+    );
+  },
+
+  /**
+   * Remove request from timeout tracking (when matched or cancelled)
+   */
+  async removeTimeout(reqId: string, difficulty: Difficulty): Promise<void> {
+    const redis = getRedis();
+    const member = `${reqId}:${difficulty}`;
+
+    await trackLatency("zrem", () => redis.zrem("match:timeouts", member));
+  },
+
+  /**
+   * Get all expired timeouts from sorted set
+   * Returns array of {reqId, difficulty} for requests past their deadline
+   */
+  async getExpiredTimeouts(): Promise<
+    Array<{ reqId: string; difficulty: Difficulty }>
+  > {
+    const redis = getRedis();
+    const now = Date.now();
+
+    // Get all members with score <= now (expired)
+    const results = (await trackLatency("zrangebyscore", () =>
+      redis.zrangebyscore("match:timeouts", "-inf", now),
+    )) as string[];
+
+    return results.map((member) => {
+      const [reqId, difficulty] = member.split(":");
+      return { reqId, difficulty: difficulty as Difficulty };
+    });
+  },
+
+  /**
+   * Remove expired timeouts from sorted set (cleanup after processing)
+   */
+  async removeExpiredTimeouts(): Promise<number> {
+    const redis = getRedis();
+    const now = Date.now();
+
+    // Remove all members with score <= now
+    const count = await trackLatency("zremrangebyscore", () =>
+      redis.zremrangebyscore("match:timeouts", "-inf", now),
+    );
+
+    return count;
+  },
+
+  /**
+   * Get count of pending timeouts
+   */
+  async getTimeoutCount(): Promise<number> {
+    const redis = getRedis();
+    return trackLatency("zcard", () => redis.zcard("match:timeouts"));
+  },
 };

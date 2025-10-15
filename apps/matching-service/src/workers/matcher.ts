@@ -102,6 +102,10 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
         session.sessionId,
       );
 
+      // Remove from timeout tracking (they've been matched)
+      await redisOps.removeTimeout(item1.reqId, difficulty);
+      await redisOps.removeTimeout(item2.reqId, difficulty);
+
       // Publish events
       await redisOps.publishEvent(item1.reqId, {
         status: "matched",

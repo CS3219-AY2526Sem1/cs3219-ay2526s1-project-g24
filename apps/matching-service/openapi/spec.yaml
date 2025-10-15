@@ -19,9 +19,17 @@ info:
     - At least one overlapping programming language
 
     ## Important Behavior
-    - **No automatic timeout**: Requests remain in queue until matched or cancelled
+    - **Configurable timeout**: Requests timeout after `MATCH_TIMEOUT_SECONDS` (default: 30s) if not matched
+    - **Timeout implementation**: Uses Redis sorted set with periodic scanning for accurate, reliable timeout detection
     - **Auto-cancel on disconnect**: Closing the SSE connection cancels the request
     - **Active connection required**: Users must maintain SSE connection to stay in queue
+    
+    ## Timeout Mechanism
+    The service uses **Sorted Set with Periodic Scanning** for timeouts:
+    - Requests tracked in Redis sorted set with deadline timestamps
+    - Worker scans every 5 seconds for expired requests
+    - Provides accurate difficulty labels in timeout metrics
+    - More portable than keyspace notifications across Redis deployments
   contact:
     name: PeerPrep Team
     email: support@peerprep.example.com
@@ -365,11 +373,13 @@ components:
         - queued
         - matched
         - cancelled
+        - timeout
       description: |
         Current status of the match request:
         - `queued`: Searching for a match (SSE connection active)
         - `matched`: Successfully paired with another user
         - `cancelled`: User cancelled or disconnected
+        - `timeout`: Request timed out (no match within configured timeout)
 
     CreateMatchRequest:
       type: object

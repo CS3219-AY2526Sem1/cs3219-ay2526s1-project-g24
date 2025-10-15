@@ -19,7 +19,8 @@ import type {
 // Load OpenAPI spec
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
-const openapiSpec = YAML.load(join(__dirname, "../../openapi/spec.yaml"));
+const openapiPath = join(__dirname, "../../openapi/spec.yaml");
+const openapiSpec = YAML.load(openapiPath);
 
 const router: Router = express.Router();
 
@@ -105,6 +106,13 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
       const createdAt = Date.now();
       await redisOps.enqueue(reqId, data.difficulty, createdAt);
 
+      // Add to timeout tracking (sorted set with deadline)
+      const timeoutSeconds = parseInt(
+        process.env.MATCH_TIMEOUT_SECONDS || "30",
+        10,
+      );
+      await redisOps.addTimeout(reqId, data.difficulty, timeoutSeconds);
+
       // Trigger matcher via pub/sub
       await redis.publish(
         "match:trigger",
@@ -186,6 +194,9 @@ export async function cancelMatchRequest(
 
     // Remove from queue
     await redisOps.dequeue(reqId, request.difficulty);
+
+    // Remove from timeout tracking
+    await redisOps.removeTimeout(reqId, request.difficulty);
 
     // Notify via pub/sub
     const event = {

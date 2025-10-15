@@ -66,6 +66,32 @@ jest.unstable_mockModule("../../services/redis.js", () => ({
     }),
     healthCheck: jest.fn(async () => true),
     createSubscriber: jest.fn(() => mockRedis),
+    // Timeout operations
+    addTimeout: jest.fn(async (reqId: string, difficulty: string, timeoutSeconds: number) => {
+      const deadline = Date.now() + timeoutSeconds * 1000;
+      await mockRedis.zadd("match:timeouts", deadline, `${reqId}:${difficulty}`);
+    }),
+    removeTimeout: jest.fn(async (reqId: string) => {
+      // In real implementation, we'd need to find the member by reqId prefix
+      // For testing, we'll just remove by reqId pattern
+      const members = await mockRedis.zrange("match:timeouts", 0, -1);
+      for (const member of members) {
+        if (member.startsWith(`${reqId}:`)) {
+          await mockRedis.zrem("match:timeouts", member);
+        }
+      }
+    }),
+    getExpiredTimeouts: jest.fn(async () => {
+      const now = Date.now();
+      return await mockRedis.zrangebyscore("match:timeouts", "-inf", now.toString());
+    }),
+    removeExpiredTimeouts: jest.fn(async (count: number) => {
+      const now = Date.now();
+      await mockRedis.zremrangebyscore("match:timeouts", "-inf", now.toString());
+    }),
+    getTimeoutCount: jest.fn(async () => {
+      return await mockRedis.zcard("match:timeouts");
+    }),
   },
 }));
 

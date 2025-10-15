@@ -120,6 +120,52 @@ export function createMockRedis() {
       return sortedSets.get(key)?.size || 0;
     }),
 
+    zrange: jest.fn(async (key: string, start: number, stop: number) => {
+      const set = sortedSets.get(key);
+      if (!set || set.size === 0) {
+        return [];
+      }
+      const members = Array.from(set.keys());
+      if (stop === -1) {
+        return members.slice(start);
+      }
+      return members.slice(start, stop + 1);
+    }),
+
+    zrangebyscore: jest.fn(async (key: string, min: string, max: string) => {
+      const set = sortedSets.get(key);
+      if (!set || set.size === 0) {
+        return [];
+      }
+      
+      const minScore = min === "-inf" ? -Infinity : parseFloat(min);
+      const maxScore = max === "+inf" ? Infinity : parseFloat(max);
+      
+      return Array.from(set.entries())
+        .filter(([_, score]) => score >= minScore && score <= maxScore)
+        .sort((a, b) => a[1] - b[1])
+        .map(([member]) => member);
+    }),
+
+    zremrangebyscore: jest.fn(async (key: string, min: string, max: string) => {
+      const set = sortedSets.get(key);
+      if (!set || set.size === 0) {
+        return 0;
+      }
+      
+      const minScore = min === "-inf" ? -Infinity : parseFloat(min);
+      const maxScore = max === "+inf" ? Infinity : parseFloat(max);
+      
+      let removed = 0;
+      for (const [member, score] of set.entries()) {
+        if (score >= minScore && score <= maxScore) {
+          set.delete(member);
+          removed++;
+        }
+      }
+      return removed;
+    }),
+
     // Pub/Sub
     publish: jest.fn(async (channel: string, message: string) => {
       const subs = subscribers.get(channel);
