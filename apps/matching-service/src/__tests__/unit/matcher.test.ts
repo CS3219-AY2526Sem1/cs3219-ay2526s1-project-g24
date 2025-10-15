@@ -5,26 +5,7 @@
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { createMockRedis, createMockRequest, createMockFetch } from "../utils/test-helpers.js";
 import type { StoredMatchRequest } from "../../types.js";
-
-// Helper function to test compatibility (extracted from matcher.ts)
-function isCompatible(req1: StoredMatchRequest, req2: StoredMatchRequest): boolean {
-  const topics1 = req1.topics.split(',').map((t) => t.trim());
-  const topics2 = req2.topics.split(',').map((t) => t.trim());
-  const langs1 = req1.languages.split(',').map((l) => l.trim());
-  const langs2 = req2.languages.split(',').map((l) => l.trim());
-
-  const hasTopicOverlap = topics1.some((t) => topics2.includes(t));
-  if (!hasTopicOverlap) {
-    return false;
-  }
-
-  const hasLangOverlap = langs1.some((l) => langs2.includes(l));
-  if (!hasLangOverlap) {
-    return false;
-  }
-
-  return true;
-}
+import { isCompatible } from "../../workers/matcher.js";
 
 describe('Matcher Worker Logic', () => {
   describe('isCompatible', () => {

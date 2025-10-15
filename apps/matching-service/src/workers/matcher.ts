@@ -12,7 +12,7 @@ import type { StoredMatchRequest, Difficulty } from "../types.js";
 /**
  * Check if two requests are compatible
  */
-function isCompatible(
+export function isCompatible(
   req1: StoredMatchRequest,
   req2: StoredMatchRequest,
 ): boolean {

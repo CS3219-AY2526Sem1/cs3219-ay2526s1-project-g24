@@ -3,13 +3,8 @@ export default {
   testEnvironment: "node",
   extensionsToTreatAsEsm: [".ts"],
   moduleNameMapper: {
+    // Map .js extensions in imports to TypeScript files
     "^(\\.{1,2}/.*)\\.js$": "$1",
-    "^@/api/(.*)$": "<rootDir>/src/api/$1",
-    "^@/workers/(.*)$": "<rootDir>/src/workers/$1",
-    "^@/services/(.*)$": "<rootDir>/src/services/$1",
-    "^@/observability/(.*)$": "<rootDir>/src/observability/$1",
-    "^@/types$": "<rootDir>/src/types",
-    "^@/test-utils$": "<rootDir>/src/__tests__/utils/test-helpers",
   },
   transform: {
     "^.+\\.ts$": [
