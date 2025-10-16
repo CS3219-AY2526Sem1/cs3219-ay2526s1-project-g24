@@ -79,6 +79,8 @@ class QuestionBase(BaseModel):
     function_signature: Dict[str, Any]
     constraints: Optional[str] = None
     hints: Optional[List[str]] = None
+    time_limit: int = Field(5, ge=1, le=30, description="Time limit in seconds")
+    memory_limit: int = Field(128000, ge=32000, le=512000, description="Memory limit in KB")
 
 class QuestionCreate(QuestionBase):
     topic_ids: List[int] = []
@@ -92,6 +94,10 @@ class QuestionUpdate(BaseModel):
     code_templates: Optional[Dict[str, str]] = None
     constraints: Optional[str] = None
     hints: Optional[List[str]] = None
+    time_limit: Optional[int] = Field(None, ge=1, le=30, description="Time limit in seconds")
+    memory_limit: Optional[int] = Field(
+        None, ge=32000, le=512000, description="Memory limit in KB"
+    )
     topic_ids: Optional[List[int]] = None
     company_ids: Optional[List[int]] = None
 
@@ -157,14 +163,13 @@ class QuestionListResponse(BaseModel):
 
 # Code Execution Schemas
 class CodeExecutionRequest(BaseModel):
-    question_id: int
     language: str
     code: str
     test_case_ids: Optional[List[int]] = None  # If None, run against sample cases
     
     @validator('language')
     def validate_language(cls, v):
-        allowed = ['python', 'javascript', 'java', 'cpp', 'go']
+        allowed = ['python', 'javascript', 'java', 'cpp']
         if v not in allowed:
             raise ValueError(f'Language must be one of {allowed}')
         return v
@@ -191,7 +196,6 @@ class CodeExecutionResponse(BaseModel):
 
 # Submission Schemas
 class SubmissionRequest(BaseModel):
-    question_id: int
     language: str
     code: str
 

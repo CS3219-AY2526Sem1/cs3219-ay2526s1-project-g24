@@ -21,8 +21,8 @@ services:
     networks:
       - app_network
 
-  question_db:
-    container_name: question_db
+  question-db:
+    container_name: question-db
     image: postgres:15-alpine
     restart: always
     environment:
@@ -41,8 +41,8 @@ services:
       timeout: 5s
       retries: 5
 
-  question_service:
-    container_name: question_service
+  question-service:
+    container_name: question-service
     build:
       context: ./apps/question_service
       dockerfile: dockerfile
@@ -50,10 +50,10 @@ services:
     ports:
       - "8000:80"
     environment:
-      DATABASE_URL: postgresql://questionuser:${QUESTION_DB_PASSWORD:-questionpass123}@question_db:5432/questiondb
+      DATABASE_URL: postgresql://questionuser:${QUESTION_DB_PASSWORD:-questionpass123}@question-db:5432/questiondb
       ENV: development
     depends_on:
-      question_db:
+      question-db:
         condition: service_healthy
     networks:
       - app_network
@@ -68,8 +68,8 @@ services:
         echo '🚀 Starting FastAPI server...' &&
         /app/.venv/bin/fastapi run app/main.py --port 80 --host 0.0.0.0"
 
-  user_db:
-    container_name: user_db
+  user-db:
+    container_name: user-db
     image: postgres:15-alpine
     restart: always
     environment:
@@ -88,8 +88,8 @@ services:
       timeout: 5s
       retries: 5
 
-  user_service:
-    container_name: user_service
+  user-service:
+    container_name: user-service
     build:
       context: .
       dockerfile: ./apps/user_service/Dockerfile
@@ -99,9 +99,9 @@ services:
     env_file:
       - ./apps/user_service/.env
     environment:
-      DATABASE_URL: postgresql://user:${USER_DB_PASSWORD:-password123}@user_db:5432/userdb
+      DATABASE_URL: postgresql://user:${USER_DB_PASSWORD:-password123}@user-db:5432/userdb
     depends_on:
-      user_db:
+      user-db:
         condition: service_healthy
     networks:
       - app_network
@@ -167,12 +167,101 @@ services:
       - app_network
 
 # Define volumes for persistent data
+  code-execution-service:
+    container_name: code-execution-service
+    build:
+      context: ./apps/code_execution_service
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3010:3010"
+    environment:
+      JUDGE0_URL: http://judgezero-server:2358
+      JUDGE0_AUTH_TOKEN: ${JUDGE0_AUTH_TOKEN:-}
+      DEFAULT_TIME_LIMIT: 5.0
+      DEFAULT_MEMORY_LIMIT: 128000
+      PORT: 3010
+    depends_on:
+      - judgezero-server
+      - judgezero-workers
+    networks:
+      - app_network
+
+  judgezero-server:
+    container_name: judgezero-server
+    image: judge0/judge0:1.13.1
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    networks:
+      - app_network
+    privileged: true
+    restart: always
+    depends_on:
+      judgezero-db:
+        condition: service_healthy
+      judgezero-redis:
+        condition: service_healthy
+
+  judgezero-workers:
+    container_name: judgezero-workers
+    image: judge0/judge0:1.13.1
+    command: ["./scripts/workers"]
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    networks:
+      - app_network
+    privileged: true
+    restart: always
+    depends_on:
+      judgezero-db:
+        condition: service_healthy
+      judgezero-redis:
+        condition: service_healthy
+
+  judgezero-db:
+    container_name: judgezero-db
+    image: postgres:16.2
+    environment:
+      POSTGRES_USER: judge0
+      POSTGRES_PASSWORD: ${JUDGE0_DB_PASSWORD:-YourPasswordHere}
+      POSTGRES_DB: judge0
+    volumes:
+      - judgezero_db_data:/var/lib/postgresql/data/
+    networks:
+      - app_network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U judge0"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+
+  judgezero-redis:
+    container_name: judgezero-redis
+    image: redis:7.2.4
+    command: [
+      "bash", "-c",
+      'docker-entrypoint.sh --appendonly no --requirepass "$$REDIS_PASSWORD"'
+    ]
+    environment:
+      REDIS_PASSWORD: ${JUDGE0_REDIS_PASSWORD:-YourPasswordHere}
+    networks:
+      - app_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+
 volumes:
   question_db_data:
     driver: local
   user_db_data:
     driver: local
   matching_redis_data:
+    driver: local
+  judgezero_db_data:
     driver: local
 
 networks:

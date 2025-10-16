@@ -96,6 +96,7 @@ Output: [0,1]
                 "python": "def twoSum(nums: List[int], target: int) -> List[int]:\n    pass",
                 "javascript": "function twoSum(nums, target) {\n    \n}",
                 "java": "class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        \n    }\n}",
+                "cpp": "class Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "twoSum",
@@ -111,6 +112,8 @@ Output: [0,1]
                 "Think about what data structure allows O(1) lookup",
                 "Use a hash map to store numbers you've seen and their indices",
             ],
+            "time_limit": 2,  # seconds
+            "memory_limit": 64000,  # KB (64 MB)
             "acceptance_rate": 49,
             "total_submissions": 1234567,
             "total_accepted": 604958,
@@ -171,6 +174,8 @@ Output: []
             "code_templates": {
                 "python": "def reverseList(head: Optional[ListNode]) -> Optional[ListNode]:\n    pass",
                 "javascript": "function reverseList(head) {\n    \n}",
+                "java": "class Solution {\n    public ListNode reverseList(ListNode head) {\n        \n    }\n}",
+                "cpp": "class Solution {\npublic:\n    ListNode* reverseList(ListNode* head) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "reverseList",
@@ -183,6 +188,8 @@ Output: []
                 "Can you solve it recursively?",
                 "Think about maintaining previous, current, and next pointers",
             ],
+            "time_limit": 3,  # seconds
+            "memory_limit": 64000,  # KB (64 MB)
             "acceptance_rate": 72,
             "total_submissions": 890234,
             "total_accepted": 640968,
@@ -239,6 +246,8 @@ Explanation: The answer is "wke", with the length of 3.
             "code_templates": {
                 "python": "def lengthOfLongestSubstring(s: str) -> int:\n    pass",
                 "javascript": "function lengthOfLongestSubstring(s) {\n    \n}",
+                "java": "class Solution {\n    public int lengthOfLongestSubstring(String s) {\n        \n    }\n}",
+                "cpp": "class Solution {\npublic:\n    int lengthOfLongestSubstring(string s) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "lengthOfLongestSubstring",
@@ -251,6 +260,8 @@ Explanation: The answer is "wke", with the length of 3.
                 "Keep track of characters seen in current window",
                 "When you find a repeat, move the left pointer",
             ],
+            "time_limit": 4,  # seconds
+            "memory_limit": 96000,  # KB (96 MB)
             "acceptance_rate": 33,
             "total_submissions": 2345678,
             "total_accepted": 774173,
@@ -309,6 +320,8 @@ Explanation: merged array = [1,2,3,4] and median is (2 + 3) / 2 = 2.5.
             "code_templates": {
                 "python": "def findMedianSortedArrays(nums1: List[int], nums2: List[int]) -> float:\n    pass",
                 "javascript": "function findMedianSortedArrays(nums1, nums2) {\n    \n}",
+                "java": "class Solution {\n    public double findMedianSortedArrays(int[] nums1, int[] nums2) {\n        \n    }\n}",
+                "cpp": "class Solution {\npublic:\n    double findMedianSortedArrays(vector<int>& nums1, vector<int>& nums2) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "findMedianSortedArrays",
@@ -324,6 +337,8 @@ Explanation: merged array = [1,2,3,4] and median is (2 + 3) / 2 = 2.5.
                 "Think about partitioning both arrays",
                 "Ensure left partition elements <= right partition elements",
             ],
+            "time_limit": 8,  # seconds (harder problem)
+            "memory_limit": 128000,  # KB (128 MB)
             "acceptance_rate": 35,
             "total_submissions": 567890,
             "total_accepted": 198761,
@@ -376,6 +391,8 @@ Output: false
             "code_templates": {
                 "python": "def isValid(s: str) -> bool:\n    pass",
                 "javascript": "function isValid(s) {\n    \n}",
+                "java": "class Solution {\n    public boolean isValid(String s) {\n        \n    }\n}",
+                "cpp": "class Solution {\npublic:\n    bool isValid(string s) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "isValid",
@@ -384,6 +401,8 @@ Output: false
             },
             "constraints": "* 1 <= s.length <= 10^4\n* s consists of parentheses only '()[]{}'.",
             "hints": ["Use a stack to keep track of opening brackets"],
+            "time_limit": 2,  # seconds
+            "memory_limit": 64000,  # KB (64 MB)
             "acceptance_rate": 40,
             "total_submissions": 1567234,
             "total_accepted": 626893,
@@ -440,6 +459,9 @@ Output: []
             "difficulty": DifficultyEnum.EASY,
             "code_templates": {
                 "python": "def mergeTwoLists(list1: Optional[ListNode], list2: Optional[ListNode]) -> Optional[ListNode]:\n    pass",
+                "javascript": "function mergeTwoLists(list1, list2) {\n    \n}",
+                "java": "class Solution {\n    public ListNode mergeTwoLists(ListNode list1, ListNode list2) {\n        \n    }\n}",
+                "cpp": "class Solution {\npublic:\n    ListNode* mergeTwoLists(ListNode* list1, ListNode* list2) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "mergeTwoLists",
@@ -451,6 +473,8 @@ Output: []
             },
             "constraints": "* The number of nodes in both lists is in the range [0, 50]\n* -100 <= Node.val <= 100\n* Both list1 and list2 are sorted in non-decreasing order.",
             "hints": ["Use a dummy node to simplify edge cases"],
+            "time_limit": 3,  # seconds
+            "memory_limit": 64000,  # KB (64 MB)
             "acceptance_rate": 61,
             "total_submissions": 789456,
             "total_accepted": 481568,
@@ -498,6 +522,9 @@ Output: 23
             "difficulty": DifficultyEnum.MEDIUM,
             "code_templates": {
                 "python": "def maxSubArray(nums: List[int]) -> int:\n    pass",
+                "javascript": "function maxSubArray(nums) {\n    \n}",
+                "java": "class Solution {\n    public int maxSubArray(int[] nums) {\n        \n    }\n}",
+                "cpp": "class Solution {\npublic:\n    int maxSubArray(vector<int>& nums) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "maxSubArray",
@@ -509,6 +536,8 @@ Output: 23
                 "Try using Kadane's algorithm",
                 "At each position, decide whether to extend the current subarray or start a new one",
             ],
+            "time_limit": 5,  # seconds
+            "memory_limit": 96000,  # KB (96 MB)
             "acceptance_rate": 50,
             "total_submissions": 1890234,
             "total_accepted": 945117,
@@ -564,6 +593,9 @@ Explanation: There are three ways to climb to the top.
             "difficulty": DifficultyEnum.EASY,
             "code_templates": {
                 "python": "def climbStairs(n: int) -> int:\n    pass",
+                "javascript": "function climbStairs(n) {\n    \n}",
+                "java": "class Solution {\n    public int climbStairs(int n) {\n        \n    }\n}",
+                "cpp": "class Solution {\npublic:\n    int climbStairs(int n) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "climbStairs",
@@ -575,6 +607,8 @@ Explanation: There are three ways to climb to the top.
                 "This is actually a Fibonacci sequence!",
                 "Try dynamic programming or recursion with memoization",
             ],
+            "time_limit": 2,  # seconds
+            "memory_limit": 32000,  # KB (32 MB)
             "acceptance_rate": 52,
             "total_submissions": 1456789,
             "total_accepted": 757530,

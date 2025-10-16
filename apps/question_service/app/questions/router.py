@@ -6,6 +6,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
+from app.core.code_execution_client import code_execution_client
 from app.core.database import get_db
 from app.questions import crud, models, schemas
 
@@ -298,7 +299,7 @@ def create_test_case(
 # ============================================================================
 
 @router.post("/{question_id}/run", response_model=schemas.CodeExecutionResponse)
-def run_code(
+async def run_code(
     question_id: int,
     request: schemas.CodeExecutionRequest,
     db: Session = Depends(get_db)
@@ -308,6 +309,13 @@ def run_code(
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
     
+    # Validate language
+    if request.language not in question.code_templates:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Language {request.language} not supported for this question"
+        )
+    
     # Get test cases
     if request.test_case_ids:
         test_cases = [crud.get_test_case(db, tc_id) for tc_id in request.test_case_ids]
@@ -315,35 +323,67 @@ def run_code(
     else:
         test_cases = crud.get_test_cases(db, question_id, public_only=True)
     
-    # TODO: Implement actual code execution
-    # This is a stub implementation
-    results = []
-    for tc in test_cases:
-        results.append(schemas.TestCaseResult(
-            test_case_id=tc.id,
-            input_data=tc.input_data,
-            expected_output=tc.expected_output,
-            actual_output=tc.expected_output,  # Stub: assume correct
-            passed=True,
-            runtime_ms=100,
-            memory_mb=10.5,
-            error=None
-        ))
+    if not test_cases:
+        raise HTTPException(status_code=400, detail="No test cases found")
     
-    return schemas.CodeExecutionResponse(
-        question_id=question_id,
-        language=request.language,
-        total_test_cases=len(results),
-        passed_test_cases=len(results),
-        results=results,
-        overall_passed=True,
-        avg_runtime_ms=100,
-        avg_memory_mb=10.5
-    )
+    # Prepare test cases for execution service
+    execution_test_cases = []
+    for tc in test_cases:
+        execution_test_cases.append({
+            "input_data": tc.input_data,
+            "expected_output": tc.expected_output,
+            "order_index": tc.order_index,
+        })
+    
+    # Call code execution service with question-specific limits
+    try:
+        execution_result = await code_execution_client.execute_code(
+            language=request.language,
+            source_code=request.code,
+            test_cases=execution_test_cases,
+            time_limit=float(question.time_limit),
+            memory_limit=question.memory_limit,
+        )
+        
+        # Map results back to our schema
+        results = []
+        for result in execution_result["results"]:
+            # Find the original test case ID
+            tc = test_cases[result["order_index"]]
+            results.append(schemas.TestCaseResult(
+                test_case_id=tc.id,
+                input_data=result["input_data"],
+                expected_output=result["expected_output"],
+                actual_output=result.get("actual_output"),
+                passed=result["passed"],
+                runtime_ms=result.get("runtime_ms"),
+                memory_mb=result.get("memory_kb", 0) / 1024 if result.get("memory_kb") else None,
+                error=result.get("error_message"),
+            ))
+        
+        return schemas.CodeExecutionResponse(
+            question_id=question_id,
+            language=request.language,
+            total_test_cases=execution_result["total_test_cases"],
+            passed_test_cases=execution_result["passed_test_cases"],
+            results=results,
+            overall_passed=execution_result["overall_passed"],
+            avg_runtime_ms=execution_result.get("avg_runtime_ms"),
+            avg_memory_mb=(
+                execution_result.get("avg_memory_kb") / 1024
+                if execution_result.get("avg_memory_kb")
+                else None
+            ),
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Code execution failed: {str(e)}"
+        )
 
 
 @router.post("/{question_id}/submit", response_model=schemas.SubmissionResponse)
-def submit_solution(
+async def submit_solution(
     question_id: int,
     request: schemas.SubmissionRequest,
     user_id: str = Query(..., description="User ID submitting the solution"),
@@ -354,45 +394,109 @@ def submit_solution(
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
     
+    # Validate language
+    if request.language not in question.code_templates:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Language {request.language} not supported for this question"
+        )
+    
     # Get all test cases (including private)
     test_cases = crud.get_test_cases(db, question_id, public_only=False)
     
-    # TODO: Implement actual code execution
-    # This is a stub implementation
-    passed = len(test_cases)
-    total = len(test_cases)
-    is_solved = passed == total
+    if not test_cases:
+        raise HTTPException(status_code=400, detail="No test cases found")
     
-    # Update question stats
-    question.total_submissions += 1
-    if is_solved:
-        question.total_accepted += 1
-    question.acceptance_rate = int((question.total_accepted / question.total_submissions) * 100)
-    db.commit()
+    # Prepare test cases for execution service
+    execution_test_cases = []
+    for tc in test_cases:
+        execution_test_cases.append({
+            "input_data": tc.input_data,
+            "expected_output": tc.expected_output,
+            "order_index": tc.order_index,
+        })
     
-    # Record user attempt
-    attempt = schemas.UserAttemptCreate(
-        question_id=question_id,
-        is_solved=is_solved,
-        runtime_ms=150,
-        memory_mb=12.3
-    )
-    crud.create_user_attempt(db, user_id, attempt)
-    
-    submission_id = str(uuid.uuid4())
-    
-    return schemas.SubmissionResponse(
-        submission_id=submission_id,
-        question_id=question_id,
-        status="accepted" if is_solved else "wrong_answer",
-        passed_test_cases=passed,
-        total_test_cases=total,
-        runtime_ms=150,
-        memory_mb=12.3,
-        runtime_percentile=75.5,
-        memory_percentile=80.2,
-        timestamp=datetime.utcnow()
-    )
+    # Call code execution service with question-specific limits
+    try:
+        execution_result = await code_execution_client.execute_code(
+            language=request.language,
+            source_code=request.code,
+            test_cases=execution_test_cases,
+            time_limit=float(question.time_limit),
+            memory_limit=question.memory_limit,
+        )
+        
+        passed = execution_result["passed_test_cases"]
+        total = execution_result["total_test_cases"]
+        is_solved = execution_result["overall_passed"]
+        
+        # Determine status
+        if is_solved:
+            status = "accepted"
+        elif execution_result.get("compilation_error"):
+            status = "compilation_error"
+        else:
+            # Check if any test had specific errors
+            has_tle = any(
+                r.get("status") == "time_limit_exceeded"
+                for r in execution_result["results"]
+            )
+            has_runtime_error = any(
+                r.get("status") == "runtime_error"
+                for r in execution_result["results"]
+            )
+            
+            if has_tle:
+                status = "time_limit_exceeded"
+            elif has_runtime_error:
+                status = "runtime_error"
+            else:
+                status = "wrong_answer"
+        
+        # Update question stats
+        question.total_submissions += 1
+        if is_solved:
+            question.total_accepted += 1
+        question.acceptance_rate = int((question.total_accepted / question.total_submissions) * 100)
+        db.commit()
+        
+        # Get runtime and memory stats
+        avg_runtime = execution_result.get("avg_runtime_ms")
+        avg_memory = execution_result.get("avg_memory_kb")
+        avg_memory_mb = avg_memory / 1024 if avg_memory else None
+        
+        # Record user attempt
+        attempt = schemas.UserAttemptCreate(
+            question_id=question_id,
+            is_solved=is_solved,
+            runtime_ms=int(avg_runtime) if avg_runtime else None,
+            memory_mb=avg_memory_mb,
+        )
+        crud.create_user_attempt(db, user_id, attempt)
+        
+        # Calculate percentiles (simplified - in production, would query historical data)
+        runtime_percentile = 75.5 if is_solved else None
+        memory_percentile = 80.2 if is_solved else None
+        
+        submission_id = str(uuid.uuid4())
+        
+        return schemas.SubmissionResponse(
+            submission_id=submission_id,
+            question_id=question_id,
+            status=status,
+            passed_test_cases=passed,
+            total_test_cases=total,
+            runtime_ms=int(avg_runtime) if avg_runtime else None,
+            memory_mb=avg_memory_mb,
+            runtime_percentile=runtime_percentile,
+            memory_percentile=memory_percentile,
+            timestamp=datetime.utcnow()
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Code execution failed: {str(e)}"
+        )
 
 
 # ============================================================================
@@ -471,6 +575,8 @@ def _build_question_detail(db: Session, question: models.Question, user_id: Opti
         function_signature=question.function_signature,
         constraints=question.constraints,
         hints=question.hints,
+        time_limit=question.time_limit,
+        memory_limit=question.memory_limit,
         acceptance_rate=question.acceptance_rate,
         total_submissions=question.total_submissions,
         total_accepted=question.total_accepted,

@@ -58,6 +58,10 @@ class Question(Base):
     constraints = Column(Text)
     hints = Column(JSON)  # Array of hint strings
     
+    # Execution limits
+    time_limit = Column(Integer, default=5)  # Time limit in seconds
+    memory_limit = Column(Integer, default=128000)  # Memory limit in KB (128 MB default)
+    
     # Metadata
     acceptance_rate = Column(Integer, default=0)
     total_submissions = Column(Integer, default=0)
