@@ -43,7 +43,7 @@ describe('UsersController', () => {
     it('should return 404 if user not found', async () => {
       const req = { user: { id: 'user_id' } };
       const displayName = 'Test User';
-      vi.spyOn(userService, 'updateUser').mockResolvedValue(null);
+      vi.spyOn(userService, 'updateUser').mockResolvedValue(null as any);
       const result = await usersController.updateCurrentUser(req as any, undefined, displayName);
       expect(result).toBeUndefined();
     });
@@ -60,7 +60,7 @@ describe('UsersController', () => {
 
     it('should return 404 if user not found', async () => {
       const req = { user: { id: 'user_id' } };
-      vi.spyOn(userService, 'deleteUser').mockResolvedValue(null);
+      vi.spyOn(userService, 'deleteUser').mockResolvedValue(null as any);
       const result = await usersController.deleteCurrentUser(req as any);
       expect(result).toBeUndefined();
     });
@@ -98,7 +98,7 @@ describe('UsersController', () => {
 
     it('should return 404 if user not found', async () => {
       const displayName = 'Test User';
-      vi.spyOn(userService, 'updateUser').mockResolvedValue(null);
+      vi.spyOn(userService, 'updateUser').mockResolvedValue(null as any);
       const result = await usersController.updateUserById('user_id', undefined, displayName);
       expect(result).toBeUndefined();
     });
@@ -113,7 +113,7 @@ describe('UsersController', () => {
     });
 
     it('should return 404 if user not found', async () => {
-      vi.spyOn(userService, 'deleteUser').mockResolvedValue(null);
+      vi.spyOn(userService, 'deleteUser').mockResolvedValue(null as any);
       const result = await usersController.deleteUserById('user_id');
       expect(result).toBeUndefined();
     });

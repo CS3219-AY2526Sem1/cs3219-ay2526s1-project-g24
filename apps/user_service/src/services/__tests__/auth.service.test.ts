@@ -35,7 +35,7 @@ describe('Auth Service', () => {
   beforeEach(async () => {
     prisma = new PrismaClient();
     vi.clearAllMocks();
-    authService = await import('../auth.service');
+    authService = await import('../auth.service.js');
   });
 
   it('should get google auth url', () => {

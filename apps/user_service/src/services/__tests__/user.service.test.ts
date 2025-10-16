@@ -1,4 +1,3 @@
-
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import { getUserById, updateUser, deleteUser, getAllUsers } from '../user.service';
@@ -23,7 +22,7 @@ describe('User Service', () => {
   });
 
   it('should get user by id', async () => {
-    const user = { id: '1', name: 'Test' };
+    const user = { id: '1', username: 'Test' };
     vi.mocked(prisma.user.findUnique).mockResolvedValue(user as any);
     const result = await getUserById('1');
     expect(result).toEqual(user);
@@ -31,15 +30,15 @@ describe('User Service', () => {
   });
 
   it('should update user', async () => {
-    const user = { id: '1', name: 'Test' };
+    const user = { id: '1', username: 'Test' };
     vi.mocked(prisma.user.update).mockResolvedValue(user as any);
-    const result = await updateUser('1', { name: 'Test' });
+    const result = await updateUser('1', { username: 'Test' });
     expect(result).toEqual(user);
-    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: '1' }, data: { name: 'Test' } });
+    expect(prisma.user.update).toHaveBeenCalledWith({ where: { id: '1' }, data: { username: 'Test' } });
   });
 
   it('should delete user', async () => {
-    const user = { id: '1', name: 'Test' };
+    const user = { id: '1', username: 'Test' };
     vi.mocked(prisma.user.delete).mockResolvedValue(user as any);
     const result = await deleteUser('1');
     expect(result).toEqual(user);
@@ -47,7 +46,7 @@ describe('User Service', () => {
   });
 
   it('should get all users', async () => {
-    const users = [{ id: '1', name: 'Test' }];
+    const users = [{ id: '1', username: 'Test' }];
     vi.mocked(prisma.user.findMany).mockResolvedValue(users as any);
     const result = await getAllUsers();
     expect(result).toEqual(users);
