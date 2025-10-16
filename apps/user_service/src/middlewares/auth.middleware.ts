@@ -1,11 +1,10 @@
 import { Request } from 'express';
-import jwt from 'jsonwebtoken';
-import { config } from '../config';
+import * as jose from 'jose';
 import { getUserById } from '../services/user.service';
 
-export interface AuthenticatedRequest extends Request {
-  user?: any; // tsoa will inject the user object here
-}
+const JWKS = jose.createRemoteJWKSet(
+  new URL('http://localhost:8000/.well-known/jwks.json')
+);
 
 export function expressAuthentication(
   req: Request,
@@ -23,14 +22,17 @@ export function expressAuthentication(
     }
 
     try {
-      const decoded = jwt.verify(token, config.jwt.secret) as any;
+      const { payload: decoded } = await jose.jwtVerify(token, JWKS, {
+        algorithms: ['RS256'],
+      });
+
       if (!decoded || !decoded.userId) {
         return reject(new Error('Invalid token'));
       }
 
       // Scope-based authorization check
       if (scopes && scopes.length > 0) {
-        const userScopes = decoded.scopes || [];
+        const userScopes = (decoded.scopes as string[]) || [];
         const hasAllScopes = scopes.every(scope => userScopes.includes(scope));
         if (!hasAllScopes) {
           const error = new Error('Forbidden: Insufficient permissions');
@@ -39,7 +41,7 @@ export function expressAuthentication(
         }
       }
 
-      const user = await getUserById(decoded.userId);
+      const user = await getUserById(decoded.userId as string);
       if (!user) {
         return reject(new Error('User not found'));
       }
