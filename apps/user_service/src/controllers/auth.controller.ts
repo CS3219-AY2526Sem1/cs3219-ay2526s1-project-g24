@@ -12,7 +12,7 @@ import {
 import type { TsoaResponse } from 'tsoa';
 import { getGoogleAuthUrl, getGoogleUser } from '../services/auth.service';
 import { PrismaClient } from '@prisma/client';
-import jwt from 'jsonwebtoken';
+import * as jose from 'jose';
 import { config } from '../config';
 import { getUserById } from '../services/user.service';
 
@@ -104,18 +104,18 @@ export class AuthController extends Controller {
       );
       const scopes = [...new Set(permissions)]; // Remove duplicates
 
-      const accessToken = jwt.sign(
-        {
-          userId: user.id,
-          email: user.email,
-          roles,
-          scopes,
-        },
-        config.jwt.secret,
-        {
-          expiresIn: '7d', // Set a longer expiration
-        }
-      );
+      const privateKey = await jose.importPKCS8(config.jwt.privateKey, 'RS256');
+
+      const accessToken = await new jose.SignJWT({
+        userId: user.id,
+        email: user.email,
+        roles,
+        scopes,
+      })
+        .setProtectedHeader({ alg: 'RS256', kid: '1' })
+        .setIssuedAt()
+        .setExpirationTime('7d')
+        .sign(privateKey);
 
       res(
         200,
