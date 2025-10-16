@@ -1,10 +1,12 @@
 import asyncio
 import json
+import logging
 from typing import Any, Dict, List, Optional
 
 import httpx
 
 from app.core.config import settings
+from app.execution.code_generator import code_generator, LanguageEnum as GeneratorLanguageEnum
 from app.execution.schemas import (
     CodeExecutionRequest,
     CodeExecutionResponse,
@@ -14,6 +16,13 @@ from app.execution.schemas import (
     Judge0SubmissionResponse,
     LanguageEnum,
     TestCaseResult,
+)
+
+# Set up logger
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
 )
 
 # Judge0 Language IDs
@@ -43,18 +52,46 @@ class Judge0Service:
         return headers
 
     def _prepare_code(
-        self, language: LanguageEnum, source_code: str, input_data: Dict[str, Any]
+        self, 
+        language: LanguageEnum, 
+        source_code: str, 
+        input_data: Dict[str, Any],
+        function_signature: Optional[Dict[str, Any]] = None
     ) -> tuple[str, str]:
         """
         Prepare code and stdin for execution based on language.
+        Uses the new CodeGenerator for robust, language-agnostic code generation.
+        
         Returns (code_to_execute, stdin)
         """
-        # Convert input_data to JSON for stdin
-        stdin = json.dumps(input_data)
+        if function_signature:
+            # Use new code generator approach (preferred)
+            wrapper_code, stdin_data = code_generator.generate_wrapper(
+                language=GeneratorLanguageEnum(language.value),
+                user_code=source_code,
+                function_signature=function_signature,
+                input_data=input_data
+            )
+            # Debug logging to see what's being generated
+            logger.info("="*70)
+            logger.info(f"GENERATED CODE FOR {language.value.upper()}")
+            logger.info(f"Function: {function_signature.get('function_name')}")
+            logger.info("="*70)
+            logger.info(f"Wrapper Code:\n{wrapper_code}")
+            logger.info("="*70)
+            logger.info("STDIN DATA:")
+            logger.info("="*70)
+            logger.info(f"Stdin: {stdin_data}")
+            logger.info("="*70)
+            return wrapper_code, stdin_data
+        else:
+            # Fallback to old approach if function_signature not provided
+            # (for backward compatibility during migration)
+            stdin = json.dumps(input_data)
 
-        if language == LanguageEnum.PYTHON:
-            # Wrap user code to read from stdin and call function
-            wrapper = f"""
+            if language == LanguageEnum.PYTHON:
+                # Wrap user code to instantiate Solution class and call method
+                wrapper = f"""
 import json
 import sys
 
@@ -63,82 +100,75 @@ import sys
 # Read input from stdin
 input_data = json.loads(sys.stdin.read())
 
-# Call the function (assume first function defined)
+# Instantiate Solution class and call the method
+solution = Solution()
+# Get the first non-magic method
 import inspect
-functions = [obj for name, obj in locals().items() 
-             if inspect.isfunction(obj) and not name.startswith('_')]
-if functions:
-    result = functions[0](**input_data)
+methods = [name for name, obj in inspect.getmembers(solution, predicate=inspect.ismethod) 
+           if not name.startswith('_')]
+if methods:
+    result = getattr(solution, methods[0])(**input_data)
     print(json.dumps(result))
 """
-            return wrapper, stdin
+                return wrapper, stdin
 
-        elif language == LanguageEnum.JAVASCRIPT:
-            wrapper = f"""
+            elif language == LanguageEnum.JAVASCRIPT:
+                wrapper = f"""
 {source_code}
 
 // Read input from stdin
-const input = require('fs').readFileSync(0, 'utf-8');
+const fs = require('fs');
+const input = fs.readFileSync(0, 'utf-8').trim();
 const inputData = JSON.parse(input);
 
-// Get first function
-const functions = Object.keys(global).filter(key => typeof global[key] === 'function');
-if (functions.length > 0) {{
-    const result = global[functions[0]](inputData);
+// Extract function name and parameters from "var functionName = function(params)" pattern
+const functionMatch = `{source_code}`.match(/var\\s+(\\w+)\\s*=\\s*function\\s*\\(([^)]*)\\)/);
+if (functionMatch) {{
+    const functionName = functionMatch[1];
+    const paramNames = functionMatch[2].split(',').map(p => p.trim()).filter(p => p);
+    
+    // Build arguments array in the correct order based on parameter names
+    const args = paramNames.map(paramName => inputData[paramName]);
+    
+    const result = eval(functionName)(...args);
     console.log(JSON.stringify(result));
+}} else {{
+    console.error('No function found');
 }}
 """
-            return wrapper, stdin
+                return wrapper, stdin
 
-        elif language == LanguageEnum.JAVA:
-            # For Java, we need a more complex wrapper
-            wrapper = f"""
+            elif language == LanguageEnum.JAVA:
+                # Java not fully implemented in fallback
+                wrapper = f"""
 import java.util.*;
 import com.google.gson.*;
 
+{source_code}
+
 public class Main {{
-    {source_code}
-    
     public static void main(String[] args) {{
-        Scanner scanner = new Scanner(System.in);
-        String input = scanner.nextLine();
-        Gson gson = new Gson();
-        Map<String, Object> inputData = gson.fromJson(input, Map.class);
-        
-        // Call solution method
-        Object result = solution(inputData);
-        System.out.println(gson.toJson(result));
+        System.out.println("Java execution requires function_signature");
     }}
 }}
 """
-            return wrapper, stdin
+                return wrapper, stdin
 
-        elif language == LanguageEnum.CPP:
-            # C++ wrapper with JSON parsing
-            wrapper = f"""
+            elif language == LanguageEnum.CPP:
+                # C++ not fully implemented in fallback
+                wrapper = f"""
 #include <iostream>
-#include <string>
-#include <nlohmann/json.hpp>
-
-using json = nlohmann::json;
 
 {source_code}
 
 int main() {{
-    std::string input;
-    std::getline(std::cin, input);
-    json inputData = json::parse(input);
-    
-    // Call solution function
-    auto result = solution(inputData);
-    std::cout << json(result).dump() << std::endl;
-    
+    std::cout << "C++ execution requires function_signature" << std::endl;
     return 0;
 }}
 """
-            return wrapper, stdin
+                return wrapper, stdin
 
-        return source_code, stdin
+            return source_code, stdin
 
     async def submit_code(
         self,
@@ -243,7 +273,10 @@ int main() {{
             try:
                 # Prepare code with test case
                 code, stdin = self._prepare_code(
-                    request.language, request.source_code, test_case.input_data
+                    request.language, 
+                    request.source_code, 
+                    test_case.input_data,
+                    request.function_signature
                 )
 
                 # Submit to Judge0
@@ -251,7 +284,7 @@ int main() {{
                     language=request.language,
                     source_code=code,
                     stdin=stdin,
-                    expected_output=json.dumps(test_case.expected_output),
+                    expected_output=None,  # Don't pass to Judge0, we'll do our own comparison
                     time_limit=request.time_limit,
                     memory_limit=request.memory_limit,
                 )
@@ -259,6 +292,17 @@ int main() {{
                 # Get result
                 judge0_result = await self.get_submission_result(token)
                 status = self._parse_status(judge0_result)
+                
+                # Debug: Log Judge0 response for JavaScript
+                if request.language == LanguageEnum.JAVASCRIPT:
+                    logger.info("="*70)
+                    logger.info(f"JUDGE0 RESULT FOR JAVASCRIPT")
+                    logger.info(f"Status: {status}")
+                    logger.info(f"Stdout: {judge0_result.stdout}")
+                    logger.info(f"Stderr: {judge0_result.stderr}")
+                    logger.info(f"Compile Output: {judge0_result.compile_output}")
+                    logger.info(f"Message: {judge0_result.message}")
+                    logger.info("="*70)
 
                 # Handle compilation errors (affects all test cases)
                 if status == ExecutionStatus.COMPILATION_ERROR:
@@ -285,16 +329,22 @@ int main() {{
                 passed = False
                 error_message = None
 
-                if status == ExecutionStatus.ACCEPTED and judge0_result.stdout:
-                    passed = self._compare_outputs(
-                        judge0_result.stdout, test_case.expected_output
-                    )
-                    if not passed:
-                        status = ExecutionStatus.WRONG_ANSWER
+                # Parse stdout if available (regardless of status)
+                if judge0_result.stdout:
                     try:
                         actual_output = json.loads(judge0_result.stdout.strip())
                     except json.JSONDecodeError:
                         actual_output = judge0_result.stdout.strip()
+                    
+                    # Always do our own comparison (JSON-aware)
+                    passed = self._compare_outputs(
+                        judge0_result.stdout, test_case.expected_output
+                    )
+                    # Update status based on our comparison
+                    if passed:
+                        status = ExecutionStatus.ACCEPTED
+                    else:
+                        status = ExecutionStatus.WRONG_ANSWER
                 elif judge0_result.stderr:
                     error_message = judge0_result.stderr
 

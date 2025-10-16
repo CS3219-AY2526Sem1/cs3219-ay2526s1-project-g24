@@ -15,6 +15,24 @@ class TestCaseVisibility(str, Enum):
     PRIVATE = "private"
     SAMPLE = "sample"
 
+# Function Signature Schemas (for structured code generation)
+class FunctionArgument(BaseModel):
+    """Represents a function argument with name and type"""
+    name: str
+    type: str  # Generic type like "int", "int[]", "string", "ListNode", etc.
+    
+    class Config:
+        from_attributes = True
+
+class FunctionSignature(BaseModel):
+    """Structured function metadata for code generation"""
+    function_name: str
+    arguments: List[FunctionArgument]
+    return_type: str
+    
+    class Config:
+        from_attributes = True
+
 # Topic Schemas
 class TopicBase(BaseModel):
     name: str
@@ -76,11 +94,30 @@ class QuestionBase(BaseModel):
     description: str
     difficulty: DifficultyEnum
     code_templates: Dict[str, str]  # {"python": "...", "javascript": "..."}
-    function_signature: Dict[str, Any]
+    function_signature: Dict[str, Any]  # Stored as JSON, validated as FunctionSignature structure
     constraints: Optional[str] = None
     hints: Optional[List[str]] = None
     time_limit: int = Field(5, ge=1, le=30, description="Time limit in seconds")
     memory_limit: int = Field(128000, ge=32000, le=512000, description="Memory limit in KB")
+    
+    @validator('function_signature')
+    def validate_function_signature(cls, v):
+        """Validate function_signature has correct structure"""
+        if not isinstance(v, dict):
+            raise ValueError("function_signature must be a dictionary")
+        
+        required_keys = {'function_name', 'arguments', 'return_type'}
+        if not all(key in v for key in required_keys):
+            raise ValueError(f"function_signature must contain keys: {required_keys}")
+        
+        if not isinstance(v['arguments'], list):
+            raise ValueError("arguments must be a list")
+        
+        for arg in v['arguments']:
+            if not isinstance(arg, dict) or 'name' not in arg or 'type' not in arg:
+                raise ValueError("Each argument must have 'name' and 'type' keys")
+        
+        return v
 
 class QuestionCreate(QuestionBase):
     topic_ids: List[int] = []

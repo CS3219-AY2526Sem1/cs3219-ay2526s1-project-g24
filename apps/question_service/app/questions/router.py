@@ -337,12 +337,20 @@ async def run_code(
     
     # Call code execution service with question-specific limits
     try:
+        # Convert function_signature to dict for API call
+        function_signature_dict = {
+            "function_name": question.function_signature["function_name"],
+            "arguments": question.function_signature["arguments"],
+            "return_type": question.function_signature["return_type"]
+        }
+        
         execution_result = await code_execution_client.execute_code(
             language=request.language,
             source_code=request.code,
             test_cases=execution_test_cases,
             time_limit=float(question.time_limit),
             memory_limit=question.memory_limit,
+            function_signature=function_signature_dict,
         )
         
         # Map results back to our schema
@@ -418,12 +426,20 @@ async def submit_solution(
     
     # Call code execution service with question-specific limits
     try:
+        # Convert function_signature to dict for API call
+        function_signature_dict = {
+            "function_name": question.function_signature["function_name"],
+            "arguments": question.function_signature["arguments"],
+            "return_type": question.function_signature["return_type"]
+        }
+        
         execution_result = await code_execution_client.execute_code(
             language=request.language,
             source_code=request.code,
             test_cases=execution_test_cases,
             time_limit=float(question.time_limit),
             memory_limit=question.memory_limit,
+            function_signature=function_signature_dict,
         )
         
         passed = execution_result["passed_test_cases"]

@@ -93,14 +93,14 @@ Output: [0,1]
 ```""",
             "difficulty": DifficultyEnum.EASY,
             "code_templates": {
-                "python": "def twoSum(nums: List[int], target: int) -> List[int]:\n    pass",
-                "javascript": "function twoSum(nums, target) {\n    \n}",
+                "python": "class Solution:\n    def twoSum(self, nums: List[int], target: int) -> List[int]:\n        ",
+                "javascript": "/**\n * @param {number[]} nums\n * @param {number} target\n * @return {number[]}\n */\nvar twoSum = function(nums, target) {\n    \n};",
                 "java": "class Solution {\n    public int[] twoSum(int[] nums, int target) {\n        \n    }\n}",
                 "cpp": "class Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "twoSum",
-                "params": [
+                "arguments": [
                     {"name": "nums", "type": "int[]"},
                     {"name": "target", "type": "int"},
                 ],
@@ -172,14 +172,14 @@ Output: []
 ```""",
             "difficulty": DifficultyEnum.EASY,
             "code_templates": {
-                "python": "def reverseList(head: Optional[ListNode]) -> Optional[ListNode]:\n    pass",
-                "javascript": "function reverseList(head) {\n    \n}",
+                "python": "class Solution:\n    def reverseList(self, head: Optional[ListNode]) -> Optional[ListNode]:\n        ",
+                "javascript": "/**\n * @param {ListNode} head\n * @return {ListNode}\n */\nvar reverseList = function(head) {\n    \n};",
                 "java": "class Solution {\n    public ListNode reverseList(ListNode head) {\n        \n    }\n}",
                 "cpp": "class Solution {\npublic:\n    ListNode* reverseList(ListNode* head) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "reverseList",
-                "params": [{"name": "head", "type": "ListNode"}],
+                "arguments": [{"name": "head", "type": "ListNode"}],
                 "return_type": "ListNode",
             },
             "constraints": "* The number of nodes in the list is in the range [0, 5000]\n* -5000 <= Node.val <= 5000",
@@ -244,14 +244,14 @@ Explanation: The answer is "wke", with the length of 3.
 ```""",
             "difficulty": DifficultyEnum.MEDIUM,
             "code_templates": {
-                "python": "def lengthOfLongestSubstring(s: str) -> int:\n    pass",
-                "javascript": "function lengthOfLongestSubstring(s) {\n    \n}",
+                "python": "class Solution:\n    def lengthOfLongestSubstring(self, s: str) -> int:\n        ",
+                "javascript": "/**\n * @param {string} s\n * @return {number}\n */\nvar lengthOfLongestSubstring = function(s) {\n    \n};",
                 "java": "class Solution {\n    public int lengthOfLongestSubstring(String s) {\n        \n    }\n}",
                 "cpp": "class Solution {\npublic:\n    int lengthOfLongestSubstring(string s) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "lengthOfLongestSubstring",
-                "params": [{"name": "s", "type": "string"}],
+                "arguments": [{"name": "s", "type": "string"}],
                 "return_type": "int",
             },
             "constraints": "* 0 <= s.length <= 5 * 10^4\n* s consists of English letters, digits, symbols and spaces.",
@@ -318,14 +318,14 @@ Explanation: merged array = [1,2,3,4] and median is (2 + 3) / 2 = 2.5.
 ```""",
             "difficulty": DifficultyEnum.HARD,
             "code_templates": {
-                "python": "def findMedianSortedArrays(nums1: List[int], nums2: List[int]) -> float:\n    pass",
-                "javascript": "function findMedianSortedArrays(nums1, nums2) {\n    \n}",
+                "python": "class Solution:\n    def findMedianSortedArrays(self, nums1: List[int], nums2: List[int]) -> float:\n        ",
+                "javascript": "/**\n * @param {number[]} nums1\n * @param {number[]} nums2\n * @return {number}\n */\nvar findMedianSortedArrays = function(nums1, nums2) {\n    \n};",
                 "java": "class Solution {\n    public double findMedianSortedArrays(int[] nums1, int[] nums2) {\n        \n    }\n}",
                 "cpp": "class Solution {\npublic:\n    double findMedianSortedArrays(vector<int>& nums1, vector<int>& nums2) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "findMedianSortedArrays",
-                "params": [
+                "arguments": [
                     {"name": "nums1", "type": "int[]"},
                     {"name": "nums2", "type": "int[]"},
                 ],
@@ -389,14 +389,14 @@ Output: false
 ```""",
             "difficulty": DifficultyEnum.EASY,
             "code_templates": {
-                "python": "def isValid(s: str) -> bool:\n    pass",
-                "javascript": "function isValid(s) {\n    \n}",
+                "python": "class Solution:\n    def isValid(self, s: str) -> bool:\n        ",
+                "javascript": "/**\n * @param {string} s\n * @return {boolean}\n */\nvar isValid = function(s) {\n    \n};",
                 "java": "class Solution {\n    public boolean isValid(String s) {\n        \n    }\n}",
                 "cpp": "class Solution {\npublic:\n    bool isValid(string s) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "isValid",
-                "params": [{"name": "s", "type": "string"}],
+                "arguments": [{"name": "s", "type": "string"}],
                 "return_type": "boolean",
             },
             "constraints": "* 1 <= s.length <= 10^4\n* s consists of parentheses only '()[]{}'.",
@@ -458,14 +458,14 @@ Output: []
 ```""",
             "difficulty": DifficultyEnum.EASY,
             "code_templates": {
-                "python": "def mergeTwoLists(list1: Optional[ListNode], list2: Optional[ListNode]) -> Optional[ListNode]:\n    pass",
-                "javascript": "function mergeTwoLists(list1, list2) {\n    \n}",
+                "python": "class Solution:\n    def mergeTwoLists(self, list1: Optional[ListNode], list2: Optional[ListNode]) -> Optional[ListNode]:\n        ",
+                "javascript": "/**\n * @param {ListNode} list1\n * @param {ListNode} list2\n * @return {ListNode}\n */\nvar mergeTwoLists = function(list1, list2) {\n    \n};",
                 "java": "class Solution {\n    public ListNode mergeTwoLists(ListNode list1, ListNode list2) {\n        \n    }\n}",
                 "cpp": "class Solution {\npublic:\n    ListNode* mergeTwoLists(ListNode* list1, ListNode* list2) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "mergeTwoLists",
-                "params": [
+                "arguments": [
                     {"name": "list1", "type": "ListNode"},
                     {"name": "list2", "type": "ListNode"},
                 ],
@@ -521,14 +521,14 @@ Output: 23
 ```""",
             "difficulty": DifficultyEnum.MEDIUM,
             "code_templates": {
-                "python": "def maxSubArray(nums: List[int]) -> int:\n    pass",
-                "javascript": "function maxSubArray(nums) {\n    \n}",
+                "python": "class Solution:\n    def maxSubArray(self, nums: List[int]) -> int:\n        ",
+                "javascript": "/**\n * @param {number[]} nums\n * @return {number}\n */\nvar maxSubArray = function(nums) {\n    \n};",
                 "java": "class Solution {\n    public int maxSubArray(int[] nums) {\n        \n    }\n}",
                 "cpp": "class Solution {\npublic:\n    int maxSubArray(vector<int>& nums) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "maxSubArray",
-                "params": [{"name": "nums", "type": "int[]"}],
+                "arguments": [{"name": "nums", "type": "int[]"}],
                 "return_type": "int",
             },
             "constraints": "* 1 <= nums.length <= 10^5\n* -10^4 <= nums[i] <= 10^4",
@@ -592,14 +592,14 @@ Explanation: There are three ways to climb to the top.
 ```""",
             "difficulty": DifficultyEnum.EASY,
             "code_templates": {
-                "python": "def climbStairs(n: int) -> int:\n    pass",
-                "javascript": "function climbStairs(n) {\n    \n}",
+                "python": "class Solution:\n    def climbStairs(self, n: int) -> int:\n        ",
+                "javascript": "/**\n * @param {number} n\n * @return {number}\n */\nvar climbStairs = function(n) {\n    \n};",
                 "java": "class Solution {\n    public int climbStairs(int n) {\n        \n    }\n}",
                 "cpp": "class Solution {\npublic:\n    int climbStairs(int n) {\n        \n    }\n};",
             },
             "function_signature": {
                 "function_name": "climbStairs",
-                "params": [{"name": "n", "type": "int"}],
+                "arguments": [{"name": "n", "type": "int"}],
                 "return_type": "int",
             },
             "constraints": "* 1 <= n <= 45",
