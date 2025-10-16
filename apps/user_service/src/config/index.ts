@@ -5,6 +5,7 @@ export const config = {
     redirectUri: process.env.GOOGLE_REDIRECT_URI || '',
   },
   jwt: {
-    secret: process.env.JWT_SECRET || '',
+    privateKey: process.env.RSA_PRIVATE_KEY || '',
+    publicKey: process.env.RSA_PUBLIC_KEY || '',
   },
 };
