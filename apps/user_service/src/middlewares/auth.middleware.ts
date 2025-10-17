@@ -1,10 +1,8 @@
-import { Request } from 'express';
-import * as jose from 'jose';
-import { getUserById } from '../services/user.service';
-
-const JWKS = jose.createRemoteJWKSet(
-  new URL('http://localhost:8000/.well-known/jwks.json')
-);
+import { Request } from "express";
+import * as jose from "jose";
+import { getUserById } from "../services/user.service";
+import { config } from "../config";
+import logger from "../logger";
 
 export function expressAuthentication(
   req: Request,
@@ -12,38 +10,65 @@ export function expressAuthentication(
   scopes?: string[]
 ) {
   return new Promise(async (resolve, reject) => {
-    if (securityName !== 'jwt') {
-      return reject(new Error('Unsupported security scheme'));
+    if (securityName !== "jwt") {
+      return reject(new Error("Unsupported security scheme"));
     }
 
-    const token = req.cookies.auth_token;
+    let token = "";
+    if (
+      req.headers.authorization &&
+      req.headers.authorization.startsWith("Bearer ")
+    ) {
+      token = req.headers.authorization.substring(7);
+    } else if (req.cookies.auth_token) {
+      token = req.cookies.auth_token;
+    }
+
     if (!token) {
-      return reject(new Error('No token provided'));
+      return reject(new Error("No token provided"));
     }
 
     try {
-      const { payload: decoded } = await jose.jwtVerify(token, JWKS, {
-        algorithms: ['RS256'],
-      });
+      const JWKS = jose.createRemoteJWKSet(new URL(config.jwt.jwksUri));
+      let decoded;
+      try {
+        const result = await jose.jwtVerify(token, JWKS, {
+          algorithms: ["RS256"],
+        });
+        decoded = result.payload;
+        logger.debug({ decoded }, "JWT verified, payload");
+      } catch (err) {
+        logger.error({ err }, "JWT verification error");
+        return reject(new Error("JWT verification failed: " + err));
+      }
 
       if (!decoded || !decoded.userId) {
-        return reject(new Error('Invalid token'));
+        logger.error({ decoded }, "Invalid token payload");
+        return reject(new Error("Invalid token"));
       }
 
       // Scope-based authorization check
       if (scopes && scopes.length > 0) {
         const userScopes = (decoded.scopes as string[]) || [];
-        const hasAllScopes = scopes.every(scope => userScopes.includes(scope));
+        logger.debug({ scopes }, "Required route scopes");
+        logger.debug({ userScopes }, "JWT scopes");
+        const hasAllScopes = scopes.every((scope) =>
+          userScopes.includes(scope)
+        );
         if (!hasAllScopes) {
-          const error = new Error('Forbidden: Insufficient permissions');
+          logger.error({ scopes, userScopes }, "Missing required scopes.");
+          const error = new Error("Forbidden: Insufficient permissions");
           (error as any).status = 403;
           return reject(error);
         }
       }
+      // If no scopes required, allow any valid JWT
 
+      logger.debug({ userId: decoded.userId }, "Finding user by ID");
       const user = await getUserById(decoded.userId as string);
+      logger.debug({ user }, "Resolved user object");
       if (!user) {
-        return reject(new Error('User not found'));
+        return reject(new Error("User not found"));
       }
 
       resolve(user);
