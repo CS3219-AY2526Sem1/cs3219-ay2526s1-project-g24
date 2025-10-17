@@ -608,7 +608,7 @@ Explanation: There are three ways to climb to the top.
                 "Try dynamic programming or recursion with memoization",
             ],
             "time_limit": 2,  # seconds
-            "memory_limit": 32000,  # KB (32 MB)
+            "memory_limit": 64000,  # KB (64 MB) - Increased for Java JVM
             "acceptance_rate": 52,
             "total_submissions": 1456789,
             "total_accepted": 757530,

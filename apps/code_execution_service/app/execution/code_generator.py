@@ -225,16 +225,17 @@ console.log(JSON.stringify(result));
         
         # Create Main.java with user's Solution class
         main_java = f'''import com.google.gson.*;
-import java.util.Scanner;
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.io.IOException;
 
 {user_code}
 
 public class Main {{
-    public static void main(String[] args) {{
-        Scanner scanner = new Scanner(System.in);
-        scanner.useDelimiter("\\\\Z");
-        String input = scanner.next();
-        scanner.close();
+    public static void main(String[] args) throws IOException {{
+        BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
+        String input = reader.readLine();
+        reader.close();
         JsonObject json = JsonParser.parseString(input).getAsJsonObject();
         
 {parsing_code}
