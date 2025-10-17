@@ -74,6 +74,7 @@ export const generateJwtToken = async (user: User & { roles: any[] }) => {
   );
   const scopes = [...new Set(permissions)]; // Remove duplicates
 
+  // We sign the JWT with the private key (This should be the most recently rotated key)
   const privateKey = await jose.importPKCS8(config.jwt.privateKey, 'RS256');
 
   const accessToken = await new jose.SignJWT({

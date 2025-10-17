@@ -68,6 +68,23 @@ This process ensures that the JWT contains a self-contained, up-to-date represen
 
 ## Security Model: Inter-Service Communication
 
+### How Other Services Use JWKS for Auth
+
+```mermaid
+sequenceDiagram
+    participant Client as Client
+    participant API as API Service
+    participant JWKS as User Service JWKS Endpoint
+
+    Client->>API: Send request with JWT (Authorization header)
+    API->>JWKS: Fetch JWKS (if not cached)
+    JWKS-->>API: Return JWKs (public keys)
+    API->>API: Extract kid from JWT header
+    API->>API: Find matching JWK by kid
+    API->>API: Verify JWT signature using JWK
+    API-->>Client: Allow or deny access based on JWT validity and claims
+```
+
 To ensure secure communication between microservices, this service uses **asymmetric key cryptography (RS256)** for signing JWTs.
 
 - **Signing:** The User Service signs JWTs with a **private key** that is kept secret and never leaves this service.
@@ -198,6 +215,35 @@ pnpm test
 ```
 
 ---
+
+
+## JWT/JWKS/Key Rotation Flow (Mermaid Diagram)
+
+```mermaid
+sequenceDiagram
+    participant AuthService as Auth Service (signs JWTs)
+    participant JWKS as JWKS Endpoint
+    participant OtherService as Other Service (verifies JWTs)
+
+    AuthService->>JWKS: Expose JWKs (kid=1, kid=2, ...)
+    OtherService->>JWKS: Fetch JWKS
+    JWKS-->>OtherService: Return JWKs (kid=1, kid=2, ...)
+    AuthService->>OtherService: Issue JWT (kid=1)
+    OtherService->>OtherService: Verify JWT using JWK (kid=1)
+
+    Note over AuthService: Key rotation: add new key (kid=2)
+    AuthService->>JWKS: Expose JWKs (kid=1, kid=2)
+    AuthService->>OtherService: Issue JWT (kid=2)
+    OtherService->>JWKS: Fetch JWKS
+    JWKS-->>OtherService: Return JWKs (kid=1, kid=2)
+    OtherService->>OtherService: Verify JWT using JWK (kid=2)
+
+    Note over AuthService: After old JWTs expire, remove kid=1
+    AuthService->>JWKS: Expose JWKs (kid=2)
+    OtherService->>JWKS: Fetch JWKS
+    JWKS-->>OtherService: Return JWKs (kid=2)
+    OtherService->>OtherService: Verify JWT using JWK (kid=2)
+```
 
 ## Implementing JWT Verification in Other Services
 
