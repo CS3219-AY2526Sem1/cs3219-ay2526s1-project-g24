@@ -1,7 +1,8 @@
 import { google } from "googleapis";
 import { config } from "../config";
 import axios from "axios";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, User } from "@prisma/client";
+import * as jose from 'jose';
 
 const prisma = new PrismaClient();
 
@@ -64,4 +65,29 @@ export const hasRole = async (
 
   const userRoles = user.roles.map((userRole) => userRole.role.name);
   return roles.some((role) => userRoles.includes(role));
+};
+
+export const generateJwtToken = async (user: User & { roles: any[] }) => {
+  const roles = user.roles.map((userRole) => userRole.role.name);
+  const permissions = user.roles.flatMap((userRole) =>
+    userRole.role.permissions.map(
+      (rolePermission: any) => rolePermission.permission.name
+    )
+  );
+  const scopes = [...new Set(permissions)]; // Remove duplicates
+
+  const privateKey = await jose.importPKCS8(config.jwt.privateKey, 'RS256');
+
+  const accessToken = await new jose.SignJWT({
+    userId: user.id,
+    email: user.email,
+    roles,
+    scopes,
+  })
+    .setProtectedHeader({ alg: 'RS256', kid: '1' })
+    .setIssuedAt()
+    .setExpirationTime('7d')
+    .sign(privateKey);
+
+  return accessToken;
 };

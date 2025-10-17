@@ -1,8 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { PrismaClient } from '@prisma/client';
 import axios from 'axios';
+import * as jose from 'jose';
 
 vi.mock('axios');
+vi.mock('jose');
 
 vi.mock('@prisma/client', () => {
   const mPrismaClient = {
@@ -69,5 +71,58 @@ describe('Auth Service', () => {
     vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
     const result = await authService.hasRole('1', ['admin']);
     expect(result).toBe(false);
+  });
+
+  describe('generateJwtToken', () => {
+    it('should generate a JWT token with correct user details', async () => {
+      const user = {
+        id: 'user-123',
+        email: 'test@example.com',
+        roles: [
+          {
+            role: {
+              name: 'admin',
+              permissions: [
+                { permission: { name: 'users:read' } },
+                { permission: { name: 'users:write' } },
+              ],
+            },
+          },
+          {
+            role: {
+              name: 'user',
+              permissions: [
+                { permission: { name: 'profile:read' } },
+                { permission: { name: 'profile:write' } },
+              ],
+            },
+          },
+        ],
+      };
+
+      const signJwtMock = {
+        setProtectedHeader: vi.fn().mockReturnThis(),
+        setIssuedAt: vi.fn().mockReturnThis(),
+        setExpirationTime: vi.fn().mockReturnThis(),
+        sign: vi.fn().mockResolvedValue('signed-jwt-token'),
+      };
+      vi.mocked(jose.SignJWT).mockImplementation(() => signJwtMock as any);
+      vi.mocked(jose.importPKCS8).mockResolvedValue('private_key' as any);
+
+      const token = await authService.generateJwtToken(user);
+
+      expect(jose.importPKCS8).toHaveBeenCalled();
+      expect(jose.SignJWT).toHaveBeenCalledWith({
+        userId: 'user-123',
+        email: 'test@example.com',
+        roles: ['admin', 'user'],
+        scopes: ['users:read', 'users:write', 'profile:read', 'profile:write'],
+      });
+      expect(signJwtMock.setProtectedHeader).toHaveBeenCalledWith({ alg: 'RS256', kid: '1' });
+      expect(signJwtMock.setIssuedAt).toHaveBeenCalled();
+      expect(signJwtMock.setExpirationTime).toHaveBeenCalledWith('7d');
+      expect(signJwtMock.sign).toHaveBeenCalledWith('private_key');
+      expect(token).toBe('signed-jwt-token');
+    });
   });
 });
