@@ -23,8 +23,8 @@ Authentication is handled centrally by the `user_service`, which issues JSON Web
 ### Authentication Flow
 
 1.  **Login**: A user logs in via the `user_service` (e.g., through a Google OAuth2 flow).
-2.  **Token Issuance**: Upon successful authentication, the `user_service` generates a JWT and sets it in a secure, `HttpOnly` cookie named `auth_token`.
-3.  **Authenticated Requests**: When the frontend makes a request to any microservice (e.g., `question_service`), the browser automatically includes the `auth_token` cookie.
+2.  **Token Issuance**: Upon successful authentication, the `user_service` generates a JWT and returns it to the client.
+3.  **Authenticated Requests**: When the client makes a request to any microservice (e.g., `question_service`), it includes the JWT in the `Authorization` header as a bearer token.
 4.  **Token Validation**: The receiving service is responsible for validating the JWT to authenticate the request.
 
 ### JWT Payload Structure
@@ -48,42 +48,37 @@ The JWT payload contains essential user information that other services can use 
 
 ### Implementing JWT Validation in Other Services
 
-To validate a JWT, a service needs access to the same secret key used by the `user_service` to sign the tokens.
+To validate a JWT, a service needs access to the public key corresponding to the private key used by the `user_service` to sign the tokens.
 
-**1. Shared Secret Configuration**
+**1. JWKS Endpoint**
 
-A `JWT_SECRET` must be securely shared across all services. This should be added to the root `.env` file and consumed by each service.
-
-```
-# .env
-JWT_SECRET="your-super-secret-and-long-random-string"
-QUESTION_DB_PASSWORD=...
-```
+The `user_service` exposes a JSON Web Key Set (JWKS) endpoint at `/.well-known/jwks.json`. This endpoint contains the public key that other services can use to verify the signature of the JWT.
 
 **2. Validation Logic (Example for `question_service`)**
 
 The `question_service` (built with FastAPI) can implement a dependency to verify the token and extract the user's identity.
 
-First, add `PyJWT` to the service's dependencies:
+First, add `python-jose` to the service's dependencies:
 
 ```bash
 # In apps/question_service
-poetry add pyjwt
+poetry add python-jose
 ```
 
 Next, create an authentication utility:
 
 ```python
 # In apps/question_service/app/core/auth.py
-import jwt
+from jose import jwt
 from fastapi import Depends, HTTPException, status
-from fastapi.security import APIKeyCookie
+from fastapi.security import OAuth2PasswordBearer
 from pydantic import BaseModel
+import requests
 
-from .config import settings # Assuming you have a config loader
+# This scheme will look for the 'Authorization' header
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
-# This scheme will look for the 'auth_token' cookie
-cookie_scheme = APIKeyCookie(name="auth_token")
+USER_SERVICE_JWKS_URL = "http://user_service:8001/.well-known/jwks.json"
 
 class User(BaseModel):
     id: str
@@ -91,27 +86,43 @@ class User(BaseModel):
     roles: list[str]
     scopes: list[str]
 
-def get_current_user(token: str = Depends(cookie_scheme)) -> User:
+def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
     if not token:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Not authenticated",
         )
     try:
-        payload = jwt.decode(
-            token, settings.JWT_SECRET, algorithms=["HS256"]
-        )
-        # You can add more validation here, e.g., check issuer
-        user_data = {"id": payload["userId"], **payload}
-        return User(**user_data)
+        jwks = requests.get(USER_SERVICE_JWKS_URL).json()
+        unverified_header = jwt.get_unverified_header(token)
+        rsa_key = {}
+        for key in jwks["keys"]:
+            if key["kid"] == unverified_header["kid"]:
+                rsa_key = {
+                    "kty": key["kty"],
+                    "kid": key["kid"],
+                    "use": key["use"],
+                    "n": key["n"],
+                    "e": key["e"],
+                }
+        if rsa_key:
+            payload = jwt.decode(
+                token, rsa_key, algorithms=["RS256"], audience="urn:example:audience", issuer="urn:example:issuer"
+            )
+            user_data = {"id": payload["userId"], **payload}
+            return User(**user_data)
+
     except jwt.ExpiredSignatureError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired"
         )
-    except jwt.InvalidTokenError:
+    except jwt.JWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
+    )
 
 ```
 
