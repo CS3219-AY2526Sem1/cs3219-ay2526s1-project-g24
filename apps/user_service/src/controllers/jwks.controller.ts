@@ -10,17 +10,18 @@ interface JwksResponse {
 @Tags('JWKS')
 export class JwksController extends Controller {
   @Get('jwks.json')
-  public async getJwks(): Promise<JwksResponse> {
-    const publicKey = await jose.importSPKI(config.jwt.publicKey, 'RS256');
-    const jwk = await jose.exportJWK(publicKey);
-
+  public async getJwks() {
+    // Import the private key
+    const privateKey = await jose.importPKCS8(config.jwt.privateKey, 'RS256');
+    // Export the public JWK from the private key
+    const jwk = await jose.exportJWK(privateKey);
     return {
       keys: [
         {
           ...jwk,
-          kid: '1', // Key ID, useful for key rotation
-          use: 'sig', // This key is for signing
-          alg: 'RS256', // The algorithm is RS256
+          kid: '1',
+          use: 'sig',
+          alg: 'RS256',
         },
       ],
     };

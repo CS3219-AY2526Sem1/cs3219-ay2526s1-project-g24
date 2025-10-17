@@ -7,7 +7,7 @@ vi.mock('jose');
 vi.mock('../../config', () => ({
   config: {
     jwt: {
-      publickey: 'test_public_key',
+      privateKey: 'test_private_key',
     },
   },
 }));
@@ -25,7 +25,7 @@ describe('jwkscontroller', () => {
 
   describe('getjwks', () => {
     it('should return a valid jwks response', async () => {
-      const publickey = 'test_public_key';
+      const privatekey = 'test_private_key';
       const jwk = {
         kty: 'rsa',
         n: 'test_n',
@@ -35,13 +35,13 @@ describe('jwkscontroller', () => {
         alg: 'RS256',
       };
 
-      vi.mocked(jose.importSPKI).mockResolvedValue(publickey as any);
+      vi.mocked(jose.importPKCS8).mockResolvedValue(privatekey as any);
       vi.mocked(jose.exportJWK).mockResolvedValue(jwk as any);
 
       const result = await jwkscontroller.getJwks();
 
-      expect(jose.importSPKI).toHaveBeenCalledWith(config.jwt.publicKey, 'RS256');
-      expect(jose.exportJWK).toHaveBeenCalledWith(publickey);
+      expect(jose.importPKCS8).toHaveBeenCalledWith(config.jwt.privateKey, 'RS256');
+      expect(jose.exportJWK).toHaveBeenCalledWith(privatekey);
       expect(result).toEqual({
         keys: [
           {
