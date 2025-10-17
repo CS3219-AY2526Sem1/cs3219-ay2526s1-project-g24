@@ -92,6 +92,7 @@ This service exposes a public JWKS (JSON Web Key Set) endpoint at `/.well-known/
 | `GET`  | `/google/url`        | None       | Get the URL to redirect the user to for Google authentication.              |
 | `GET`  | `/google/callback`   | None       | The callback endpoint for Google to redirect to after authentication.       |
 | `POST` | `/logout`            | None       | Clears the authentication cookie.                                           |
+| `POST` | `/refresh`           | `jwt`      | Refreshes the authentication token.                                         |
 | `GET`  | `/session`           | `jwt`      | Retrieves the session information for the currently authenticated user.     |
 
 ### User Profile (`/v1/users`)
@@ -114,13 +115,17 @@ This service exposes a public JWKS (JSON Web Key Set) endpoint at `/.well-known/
 
 ### Administration (Recommended Implementation)
 
-*These endpoints should be protected by a middleware that requires the `admin` role.*
+### Administrative Endpoints (`/v1/admin`)
 
-- `GET /`: Get a list of all users.
-- `POST /roles`: Create a new role.
-- `POST /permissions`: Create a new permission.
-- `POST /users/{userId}/roles`: Assign a role to a user.
-- `POST /roles/{roleId}/permissions`: Grant a permission to a role.
+*These endpoints should be protected by middleware requiring the `admin` role.*
+
+| Method | Endpoint                        | Protection           | Description                                 |
+| ------ | ------------------------------- | -------------------- | ------------------------------------------- |
+| `GET`  | `/users`                        | `jwt`, `admin`       | Get a list of all users.                    |
+| `POST` | `/roles`                        | `jwt`, `admin`       | Create a new role.                          |
+| `POST` | `/permissions`                  | `jwt`, `admin`       | Create a new permission.                    |
+| `POST` | `/users/{userId}/roles`         | `jwt`, `admin`       | Assign a role to a user.                    |
+| `POST` | `/roles/{roleId}/permissions`   | `jwt`, `admin`       | Grant a permission to a role.               |
 
 ---
 
