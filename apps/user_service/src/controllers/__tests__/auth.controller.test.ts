@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { AuthController } from '../auth.controller';
 import * as authService from '../../services/auth.service';
 import { PrismaClient } from '@prisma/client';
-import * as jose from 'jose';
 
 vi.mock('../../services/auth.service');
 vi.mock('@prisma/client', () => {
@@ -17,7 +16,6 @@ vi.mock('@prisma/client', () => {
   };
   return { PrismaClient: vi.fn(() => mPrismaClient) };
 });
-vi.mock('jose');
 
 describe('AuthController', () => {
   let authController: AuthController;
@@ -60,19 +58,10 @@ describe('AuthController', () => {
       vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
       vi.mocked(prisma.role.findUnique).mockResolvedValue(defaultRole as any);
       vi.mocked(prisma.user.create).mockResolvedValue(user as any);
-      
-      const signJwtMock = {
-        setProtectedHeader: vi.fn().mockReturnThis(),
-        setIssuedAt: vi.fn().mockReturnThis(),
-        setExpirationTime: vi.fn().mockReturnThis(),
-        sign: vi.fn().mockResolvedValue('test_token'),
-      };
-      vi.mocked(jose.SignJWT).mockImplementation(() => signJwtMock as any);
-      vi.mocked(jose.importPKCS8).mockResolvedValue('private_key' as any);
+      vi.spyOn(authService, 'generateJwtToken').mockResolvedValue('test_token');
 
       const tsoaRes = vi.fn();
-
-      await authController.handleGoogleCallback(code, tsoaRes);
+      const result = await authController.handleGoogleCallback(code, tsoaRes);
 
       expect(authService.getGoogleUser).toHaveBeenCalledWith(code);
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
@@ -86,12 +75,9 @@ describe('AuthController', () => {
         data: expect.any(Object),
         include: expect.any(Object),
       });
-      expect(jose.SignJWT).toHaveBeenCalledWith(expect.any(Object));
-      expect(tsoaRes).toHaveBeenCalledWith(
-        200,
-        { accessToken: 'test_token' },
-        { 'Set-Cookie': 'auth_token=test_token; HttpOnly; Path=/; Max-Age=604800' }
-      );
+      expect(authService.generateJwtToken).toHaveBeenCalledWith(user);
+      expect(tsoaRes).toHaveBeenCalledWith(200, { accessToken: 'test_token' }, { 'Set-Cookie': 'auth_token=test_token; HttpOnly; Path=/; Max-Age=604800' });
+      expect(result).toEqual({ accessToken: 'test_token' });
     });
 
     it('should not create a new user if user already exists', async () => {
@@ -111,19 +97,10 @@ describe('AuthController', () => {
 
       vi.spyOn(authService, 'getGoogleUser').mockResolvedValue(googleUser);
       vi.mocked(prisma.user.findUnique).mockResolvedValue(user as any);
-      
-      const signJwtMock = {
-        setProtectedHeader: vi.fn().mockReturnThis(),
-        setIssuedAt: vi.fn().mockReturnThis(),
-        setExpirationTime: vi.fn().mockReturnThis(),
-        sign: vi.fn().mockResolvedValue('test_token'),
-      };
-      vi.mocked(jose.SignJWT).mockImplementation(() => signJwtMock as any);
-      vi.mocked(jose.importPKCS8).mockResolvedValue('private_key' as any);
+      vi.spyOn(authService, 'generateJwtToken').mockResolvedValue('test_token');
 
       const tsoaRes = vi.fn();
-
-      await authController.handleGoogleCallback(code, tsoaRes);
+      const result = await authController.handleGoogleCallback(code, tsoaRes);
 
       expect(authService.getGoogleUser).toHaveBeenCalledWith(code);
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
@@ -131,12 +108,9 @@ describe('AuthController', () => {
         include: expect.any(Object),
       });
       expect(prisma.user.create).not.toHaveBeenCalled();
-      expect(jose.SignJWT).toHaveBeenCalledWith(expect.any(Object));
-      expect(tsoaRes).toHaveBeenCalledWith(
-        200,
-        { accessToken: 'test_token' },
-        { 'Set-Cookie': 'auth_token=test_token; HttpOnly; Path=/; Max-Age=604800' }
-      );
+      expect(authService.generateJwtToken).toHaveBeenCalledWith(user);
+      expect(tsoaRes).toHaveBeenCalledWith(200, { accessToken: 'test_token' }, { 'Set-Cookie': 'auth_token=test_token; HttpOnly; Path=/; Max-Age=604800' });
+      expect(result).toEqual({ accessToken: 'test_token' });
     });
   });
 
@@ -144,11 +118,27 @@ describe('AuthController', () => {
     it('should clear the auth token cookie', async () => {
       const tsoaRes = vi.fn();
       await authController.logout(tsoaRes);
-      expect(tsoaRes).toHaveBeenCalledWith(
-        200,
-        { message: 'Logged out successfully' },
-        { 'Set-Cookie': 'auth_token=; HttpOnly; Path=/; Max-Age=0' }
-      );
+      expect(tsoaRes).toHaveBeenCalledWith(200, { message: 'Logged out successfully' }, { 'Set-Cookie': 'auth_token=; HttpOnly; Path=/; Max-Age=0' });
+    });
+  });
+
+  describe('refresh', () => {
+    it('should refresh the token', async () => {
+      const user = {
+        id: 'user_id',
+        email: 'test@example.com',
+        roles: [{ role: { name: 'user', permissions: [] } }],
+      };
+      const req = { user };
+
+      vi.spyOn(authService, 'generateJwtToken').mockResolvedValue('new_test_token');
+
+      const tsoaRes = vi.fn();
+      const result = await authController.refresh(req as any, tsoaRes);
+
+      expect(authService.generateJwtToken).toHaveBeenCalledWith(user);
+      expect(tsoaRes).toHaveBeenCalledWith(200, { accessToken: 'new_test_token' }, { 'Set-Cookie': 'auth_token=new_test_token; HttpOnly; Path=/; Max-Age=604800' });
+      expect(result).toEqual({ accessToken: 'new_test_token' });
     });
   });
 

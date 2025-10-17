@@ -10,11 +10,8 @@ import {
   Security,
 } from 'tsoa';
 import type { TsoaResponse } from 'tsoa';
-import { getGoogleAuthUrl, getGoogleUser } from '../services/auth.service';
+import { getGoogleAuthUrl, getGoogleUser, generateJwtToken } from '../services/auth.service';
 import { PrismaClient } from '@prisma/client';
-import * as jose from 'jose';
-import { config } from '../config';
-import { getUserById } from '../services/user.service';
 
 const prisma = new PrismaClient();
 
@@ -29,13 +26,8 @@ export class AuthController extends Controller {
   @Get('google/callback')
   public async handleGoogleCallback(
     @Query() code: string,
-    @Res()
-    res: TsoaResponse<
-      200,
-      { accessToken: string },
-      { 'Set-Cookie'?: string }
-    >
-  ) {
+    @Res() res: TsoaResponse<200, { accessToken: string }, { 'Set-Cookie'?: string }>
+  ): Promise<{ accessToken: string }> {
     try {
       const googleUser = await getGoogleUser(code);
 
@@ -96,32 +88,10 @@ export class AuthController extends Controller {
         });
       }
 
-      const roles = user.roles.map((userRole) => userRole.role.name);
-      const permissions = user.roles.flatMap((userRole) =>
-        userRole.role.permissions.map(
-          (rolePermission) => rolePermission.permission.name
-        )
-      );
-      const scopes = [...new Set(permissions)]; // Remove duplicates
+      const accessToken = await generateJwtToken(user);
 
-      const privateKey = await jose.importPKCS8(config.jwt.privateKey, 'RS256');
-
-      const accessToken = await new jose.SignJWT({
-        userId: user.id,
-        email: user.email,
-        roles,
-        scopes,
-      })
-        .setProtectedHeader({ alg: 'RS256', kid: '1' })
-        .setIssuedAt()
-        .setExpirationTime('7d')
-        .sign(privateKey);
-
-      res(
-        200,
-        { accessToken },
-        { 'Set-Cookie': `auth_token=${accessToken}; HttpOnly; Path=/; Max-Age=604800` } // 7 days
-      );
+      res(200, { accessToken }, { 'Set-Cookie': `auth_token=${accessToken}; HttpOnly; Path=/; Max-Age=604800` });
+      return { accessToken };
     } catch (error: any) {
       console.error('Error during Google callback:', error.response?.data || error.message);
       this.setStatus(500);
@@ -133,7 +103,21 @@ export class AuthController extends Controller {
   public async logout(
     @Res() res: TsoaResponse<200, { message: string }, { 'Set-Cookie'?: string }>
   ) {
-    res(200, { message: 'Logged out successfully' }, { 'Set-Cookie': `auth_token=; HttpOnly; Path=/; Max-Age=0` });
+    res(200, { message: 'Logged out successfully' }, { 'Set-Cookie': 'auth_token=; HttpOnly; Path=/; Max-Age=0' });
+  }
+
+  @Security('jwt')
+  @Post('refresh')
+  public async refresh(
+    @Request() req: { user: any },
+    @Res() res: TsoaResponse<200, { accessToken: string }, { 'Set-Cookie'?: string }>
+  ): Promise<{ accessToken: string }> {
+    const user = req.user;
+
+    const accessToken = await generateJwtToken(user);
+
+    res(200, { accessToken }, { 'Set-Cookie': `auth_token=${accessToken}; HttpOnly; Path=/; Max-Age=604800` });
+    return { accessToken };
   }
 
   @Security('jwt')
