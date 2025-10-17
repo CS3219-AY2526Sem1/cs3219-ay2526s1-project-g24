@@ -112,8 +112,8 @@ Output: [0,1]
                 "Think about what data structure allows O(1) lookup",
                 "Use a hash map to store numbers you've seen and their indices",
             ],
-            "time_limit": 2,  # seconds
-            "memory_limit": 64000,  # KB (64 MB)
+            "time_limit": {"python": 3, "javascript": 3, "java": 5, "cpp": 2},
+            "memory_limit": {"python": 64000, "javascript": 64000, "java": 96000, "cpp": 48000},
             "acceptance_rate": 49,
             "total_submissions": 1234567,
             "total_accepted": 604958,
@@ -188,8 +188,8 @@ Output: []
                 "Can you solve it recursively?",
                 "Think about maintaining previous, current, and next pointers",
             ],
-            "time_limit": 3,  # seconds
-            "memory_limit": 64000,  # KB (64 MB)
+            "time_limit": {"python": 4, "javascript": 4, "java": 6, "cpp": 3},
+            "memory_limit": {"python": 64000, "javascript": 64000, "java": 96000, "cpp": 48000},
             "acceptance_rate": 72,
             "total_submissions": 890234,
             "total_accepted": 640968,
@@ -260,8 +260,8 @@ Explanation: The answer is "wke", with the length of 3.
                 "Keep track of characters seen in current window",
                 "When you find a repeat, move the left pointer",
             ],
-            "time_limit": 4,  # seconds
-            "memory_limit": 96000,  # KB (96 MB)
+            "time_limit": {"python": 5, "javascript": 5, "java": 8, "cpp": 3},
+            "memory_limit": {"python": 96000, "javascript": 96000, "java": 128000, "cpp": 64000},
             "acceptance_rate": 33,
             "total_submissions": 2345678,
             "total_accepted": 774173,
@@ -337,8 +337,8 @@ Explanation: merged array = [1,2,3,4] and median is (2 + 3) / 2 = 2.5.
                 "Think about partitioning both arrays",
                 "Ensure left partition elements <= right partition elements",
             ],
-            "time_limit": 8,  # seconds (harder problem)
-            "memory_limit": 128000,  # KB (128 MB)
+            "time_limit": {"python": 10, "javascript": 10, "java": 15, "cpp": 5},
+            "memory_limit": {"python": 128000, "javascript": 128000, "java": 196000, "cpp": 96000},
             "acceptance_rate": 35,
             "total_submissions": 567890,
             "total_accepted": 198761,
@@ -401,8 +401,8 @@ Output: false
             },
             "constraints": "* 1 <= s.length <= 10^4\n* s consists of parentheses only '()[]{}'.",
             "hints": ["Use a stack to keep track of opening brackets"],
-            "time_limit": 2,  # seconds
-            "memory_limit": 64000,  # KB (64 MB)
+            "time_limit": {"python": 3, "javascript": 3, "java": 5, "cpp": 2},
+            "memory_limit": {"python": 64000, "javascript": 64000, "java": 96000, "cpp": 48000},
             "acceptance_rate": 40,
             "total_submissions": 1567234,
             "total_accepted": 626893,
@@ -473,8 +473,8 @@ Output: []
             },
             "constraints": "* The number of nodes in both lists is in the range [0, 50]\n* -100 <= Node.val <= 100\n* Both list1 and list2 are sorted in non-decreasing order.",
             "hints": ["Use a dummy node to simplify edge cases"],
-            "time_limit": 3,  # seconds
-            "memory_limit": 64000,  # KB (64 MB)
+            "time_limit": {"python": 4, "javascript": 4, "java": 6, "cpp": 3},
+            "memory_limit": {"python": 64000, "javascript": 64000, "java": 96000, "cpp": 48000},
             "acceptance_rate": 61,
             "total_submissions": 789456,
             "total_accepted": 481568,
@@ -536,8 +536,8 @@ Output: 23
                 "Try using Kadane's algorithm",
                 "At each position, decide whether to extend the current subarray or start a new one",
             ],
-            "time_limit": 5,  # seconds
-            "memory_limit": 96000,  # KB (96 MB)
+            "time_limit": {"python": 6, "javascript": 6, "java": 10, "cpp": 4},
+            "memory_limit": {"python": 96000, "javascript": 96000, "java": 128000, "cpp": 64000},
             "acceptance_rate": 50,
             "total_submissions": 1890234,
             "total_accepted": 945117,
@@ -607,8 +607,8 @@ Explanation: There are three ways to climb to the top.
                 "This is actually a Fibonacci sequence!",
                 "Try dynamic programming or recursion with memoization",
             ],
-            "time_limit": 2,  # seconds
-            "memory_limit": 64000,  # KB (64 MB) - Increased for Java JVM
+            "time_limit": {"python": 3, "javascript": 3, "java": 5, "cpp": 2},
+            "memory_limit": {"python": 64000, "javascript": 64000, "java": 96000, "cpp": 48000},
             "acceptance_rate": 52,
             "total_submissions": 1456789,
             "total_accepted": 757530,

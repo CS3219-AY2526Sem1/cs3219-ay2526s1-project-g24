@@ -344,12 +344,16 @@ async def run_code(
             "return_type": question.function_signature["return_type"]
         }
         
+        # Extract language-specific limits
+        time_limit = question.time_limit.get(request.language, 5)  # default 5 seconds
+        memory_limit = question.memory_limit.get(request.language, 64000)  # default 64MB
+        
         execution_result = await code_execution_client.execute_code(
             language=request.language,
             source_code=request.code,
             test_cases=execution_test_cases,
-            time_limit=float(question.time_limit),
-            memory_limit=question.memory_limit,
+            time_limit=float(time_limit),
+            memory_limit=memory_limit,
             function_signature=function_signature_dict,
         )
         
@@ -433,12 +437,16 @@ async def submit_solution(
             "return_type": question.function_signature["return_type"]
         }
         
+        # Extract language-specific limits
+        time_limit = question.time_limit.get(request.language, 5)  # default 5 seconds
+        memory_limit = question.memory_limit.get(request.language, 64000)  # default 64MB
+        
         execution_result = await code_execution_client.execute_code(
             language=request.language,
             source_code=request.code,
             test_cases=execution_test_cases,
-            time_limit=float(question.time_limit),
-            memory_limit=question.memory_limit,
+            time_limit=float(time_limit),
+            memory_limit=memory_limit,
             function_signature=function_signature_dict,
         )
         
