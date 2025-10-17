@@ -1,8 +1,25 @@
 import prisma from '../prisma';
 import type { User } from '@prisma/client';
 
-export const getUserById = async (userId: string): Promise<User | null> => {
-  return prisma.user.findUnique({ where: { id: userId } });
+export const getUserById = async (userId: string) => {
+  return prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      roles: {
+        include: {
+          role: {
+            include: {
+              permissions: {
+                include: {
+                  permission: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
 };
 
 export const updateUser = async (
