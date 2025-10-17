@@ -1,4 +1,4 @@
-import { Controller, Get, Route } from 'tsoa';
+import { Controller, Get, Route, Tags } from 'tsoa';
 import * as jose from 'jose';
 import { config } from '../config';
 
@@ -7,6 +7,7 @@ interface JwksResponse {
 }
 
 @Route('.well-known')
+@Tags('JWKS')
 export class JwksController extends Controller {
   @Get('jwks.json')
   public async getJwks(): Promise<JwksResponse> {

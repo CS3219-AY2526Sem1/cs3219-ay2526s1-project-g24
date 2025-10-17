@@ -11,9 +11,7 @@ import {
 } from 'tsoa';
 import type { TsoaResponse } from 'tsoa';
 import { getGoogleAuthUrl, getGoogleUser, generateJwtToken } from '../services/auth.service';
-import { PrismaClient } from '@prisma/client';
-
-const prisma = new PrismaClient();
+import prisma from '../prisma';
 
 @Route('v1/auth')
 @Tags('Authentication')

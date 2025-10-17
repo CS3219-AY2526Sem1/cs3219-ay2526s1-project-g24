@@ -30,6 +30,9 @@ describe('jwkscontroller', () => {
         kty: 'rsa',
         n: 'test_n',
         e: 'test_e',
+        kid: '1',
+        use: 'sig',
+        alg: 'RS256',
       };
 
       vi.mocked(jose.importSPKI).mockResolvedValue(publickey as any);
@@ -42,7 +45,9 @@ describe('jwkscontroller', () => {
       expect(result).toEqual({
         keys: [
           {
-            ...jwk,
+            kty: 'rsa',
+            n: 'test_n',
+            e: 'test_e',
             kid: '1',
             use: 'sig',
             alg: 'RS256',
