@@ -142,7 +142,7 @@ Output: [0,1]
                     "order_index": 2,
                 },
                 {
-                    "input_data": {"nums": [1, 5, 3, 7, 9], "target": 12},
+                    "input_data": {"nums": [1, 5, 3, 8, 9], "target": 12},
                     "expected_output": [2, 4],
                     "visibility": TestCaseVisibilityEnum.PRIVATE,
                     "order_index": 3,
