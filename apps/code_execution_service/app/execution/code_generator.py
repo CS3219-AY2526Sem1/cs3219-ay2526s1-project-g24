@@ -7,8 +7,12 @@ Based on the approach from: https://medium.com/@atish.gaikwad/leetcode-coding-pl
 This eliminates the need for regex parsing and provides a robust, language-agnostic approach.
 """
 
+import base64
+import io
 import json
-from typing import Dict, Any, Tuple
+import os
+import zipfile
+from typing import Dict, Any, Tuple, Optional
 from enum import Enum
 
 
@@ -81,7 +85,7 @@ class CodeGenerator:
         user_code: str,
         function_signature: Dict[str, Any],
         input_data: Dict[str, Any]
-    ) -> Tuple[str, str]:
+    ) -> Tuple[str, str, Optional[str]]:
         """
         Generate complete executable code with stdin/stdout wrapper.
         
@@ -92,7 +96,9 @@ class CodeGenerator:
             input_data: Test case input data
             
         Returns:
-            Tuple of (complete_code, stdin_data)
+            Tuple of (complete_code, stdin_data, additional_files_base64)
+            - For Python/JS: (wrapped_code, stdin, None)
+            - For Java/C++: ("", stdin, base64_zip_with_libraries)
         """
         if language == LanguageEnum.PYTHON:
             return self._generate_python_wrapper(user_code, function_signature, input_data)
@@ -110,7 +116,7 @@ class CodeGenerator:
         user_code: str,
         function_signature: Dict[str, Any],
         input_data: Dict[str, Any]
-    ) -> Tuple[str, str]:
+    ) -> Tuple[str, str, None]:
         """Generate Python wrapper with stdin/stdout"""
         function_name = function_signature["function_name"]
         arguments = function_signature["arguments"]
@@ -132,14 +138,14 @@ if __name__ == "__main__":
 '''
         
         stdin_data = json.dumps(input_data)
-        return wrapper_code, stdin_data
+        return wrapper_code, stdin_data, None
     
     def _generate_javascript_wrapper(
         self,
         user_code: str,
         function_signature: Dict[str, Any],
         input_data: Dict[str, Any]
-    ) -> Tuple[str, str]:
+    ) -> Tuple[str, str, None]:
         """Generate JavaScript wrapper with stdin/stdout using readlineSync"""
         function_name = function_signature["function_name"]
         arguments = function_signature["arguments"]
@@ -159,15 +165,18 @@ console.log(JSON.stringify(result));
 '''
         
         stdin_data = json.dumps(input_data)
-        return wrapper_code, stdin_data
+        return wrapper_code, stdin_data, None
     
     def _generate_java_wrapper(
         self,
         user_code: str,
         function_signature: Dict[str, Any],
         input_data: Dict[str, Any]
-    ) -> Tuple[str, str]:
-        """Generate Java wrapper with stdin/stdout"""
+    ) -> Tuple[str, str, Optional[str]]:
+        """
+        Generate Java wrapper with GSON library bundled as additional_files.
+        Uses language_id 89 (Multi-file program) with compile and run scripts.
+        """
         function_name = function_signature["function_name"]
         arguments = function_signature["arguments"]
         return_type = function_signature["return_type"]
@@ -180,9 +189,11 @@ console.log(JSON.stringify(result));
             arg_type = arg["type"]
             arg_names.append(arg_name)
             
-            # Generate type-specific parsing
+            # Generate type-specific parsing with GSON
             if arg_type == "int":
-                arg_parsing.append(f'        int {arg_name} = json.get("{arg_name}").getAsInt();')
+                arg_parsing.append(
+                    f'        int {arg_name} = json.get("{arg_name}").getAsInt();'
+                )
             elif arg_type == "int[]":
                 arg_parsing.append(f'''        JsonArray {arg_name}Array = json.get("{arg_name}").getAsJsonArray();
         int[] {arg_name} = new int[{arg_name}Array.size()];
@@ -190,7 +201,21 @@ console.log(JSON.stringify(result));
             {arg_name}[i] = {arg_name}Array.get(i).getAsInt();
         }}''')
             elif arg_type == "string":
-                arg_parsing.append(f'        String {arg_name} = json.get("{arg_name}").getAsString();')
+                arg_parsing.append(
+                    f'        String {arg_name} = '
+                    f'json.get("{arg_name}").getAsString();'
+                )
+            elif arg_type == "string[]":
+                arg_parsing.append(f'''        JsonArray {arg_name}Array = json.get("{arg_name}").getAsJsonArray();
+        String[] {arg_name} = new String[{arg_name}Array.size()];
+        for (int i = 0; i < {arg_name}Array.size(); i++) {{
+            {arg_name}[i] = {arg_name}Array.get(i).getAsString();
+        }}''')
+            elif arg_type == "boolean":
+                arg_parsing.append(
+                    f'        boolean {arg_name} = '
+                    f'json.get("{arg_name}").getAsBoolean();'
+                )
         
         args_str = ", ".join(arg_names)
         parsing_code = "\n".join(arg_parsing)
@@ -198,7 +223,8 @@ console.log(JSON.stringify(result));
         # Map return type to Java
         java_return_type = TYPE_MAPPINGS.get(return_type, {}).get("java", return_type)
         
-        wrapper_code = f'''import com.google.gson.*;
+        # Create Main.java with user's Solution class
+        main_java = f'''import com.google.gson.*;
 import java.util.Scanner;
 
 {user_code}
@@ -206,7 +232,9 @@ import java.util.Scanner;
 public class Main {{
     public static void main(String[] args) {{
         Scanner scanner = new Scanner(System.in);
-        String input = scanner.nextLine();
+        scanner.useDelimiter("\\\\Z");
+        String input = scanner.next();
+        scanner.close();
         JsonObject json = JsonParser.parseString(input).getAsJsonObject();
         
 {parsing_code}
@@ -218,18 +246,158 @@ public class Main {{
 }}
 '''
         
+        # Create compile script
+        compile_script = '''#!/bin/bash
+/usr/local/openjdk13/bin/javac -classpath ".:gson-2.11.0.jar" Main.java
+'''
+        
+        # Create run script
+        run_script = '''#!/bin/bash
+/usr/local/openjdk13/bin/java -classpath ".:gson-2.11.0.jar" Main
+'''
+        
+        # Load GSON library
+        lib_path = os.path.join(
+            os.path.dirname(__file__), 
+            "libraries", 
+            "gson-2.11.0.jar"
+        )
+        with open(lib_path, 'rb') as f:
+            gson_jar = f.read()
+        
+        # Create zip file with all necessary files
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            zip_file.writestr('Main.java', main_java)
+            zip_file.writestr('compile', compile_script)
+            zip_file.writestr('run', run_script)
+            zip_file.writestr('gson-2.11.0.jar', gson_jar)
+        
+        # Encode as base64
+        additional_files_b64 = base64.b64encode(zip_buffer.getvalue()).decode('utf-8')
+        
         stdin_data = json.dumps(input_data)
-        return wrapper_code, stdin_data
+        # Return empty source_code since code is in additional_files
+        return "", stdin_data, additional_files_b64
     
     def _generate_cpp_wrapper(
         self,
         user_code: str,
         function_signature: Dict[str, Any],
         input_data: Dict[str, Any]
-    ) -> Tuple[str, str]:
-        """Generate C++ wrapper with stdin/stdout"""
-        # Placeholder for C++ implementation
-        raise NotImplementedError("C++ code generation not yet implemented")
+    ) -> Tuple[str, str, Optional[str]]:
+        """
+        Generate C++ wrapper with nlohmann/json library bundled as additional_files.
+        Uses language_id 89 (Multi-file program) with compile and run scripts.
+        """
+        function_name = function_signature["function_name"]
+        arguments = function_signature["arguments"]
+        return_type = function_signature["return_type"]
+        
+        # Generate argument parsing code
+        arg_parsing = []
+        arg_names = []
+        for arg in arguments:
+            arg_name = arg["name"]
+            arg_type = arg["type"]
+            arg_names.append(arg_name)
+            
+            # Generate type-specific parsing with nlohmann/json
+            if arg_type == "int":
+                arg_parsing.append(f'    int {arg_name} = j["{arg_name}"];')
+            elif arg_type == "int[]":
+                arg_parsing.append(f'''    vector<int> {arg_name};
+    for (auto& item : j["{arg_name}"]) {{
+        {arg_name}.push_back(item);
+    }}''')
+            elif arg_type == "string":
+                arg_parsing.append(f'    string {arg_name} = j["{arg_name}"];')
+            elif arg_type == "string[]":
+                arg_parsing.append(f'''    vector<string> {arg_name};
+    for (auto& item : j["{arg_name}"]) {{
+        {arg_name}.push_back(item);
+    }}''')
+            elif arg_type == "boolean":
+                arg_parsing.append(f'    bool {arg_name} = j["{arg_name}"];')
+        
+        args_str = ", ".join(arg_names)
+        parsing_code = "\n".join(arg_parsing)
+        
+        # Map return type to C++
+        cpp_return_type = TYPE_MAPPINGS.get(return_type, {}).get("cpp", return_type)
+        
+        # Determine result serialization based on return type
+        if return_type in ["int", "string", "boolean"]:
+            result_serialization = "result"
+        else:
+            result_serialization = "result"  # nlohmann/json handles vectors automatically
+        
+        # Create main.cpp with user's Solution class
+        main_cpp = f'''#include <iostream>
+#include <vector>
+#include <string>
+#include <stack>
+#include <queue>
+#include <unordered_map>
+#include <unordered_set>
+#include "json.hpp"
+
+using namespace std;
+using json = nlohmann::json;
+
+{user_code}
+
+int main() {{
+    // Read JSON input from stdin
+    json j;
+    cin >> j;
+    
+{parsing_code}
+    
+    Solution solution;
+    {cpp_return_type} result = solution.{function_name}({args_str});
+    
+    // Output result as JSON
+    json output = {result_serialization};
+    cout << output << endl;
+    
+    return 0;
+}}
+'''
+        
+        # Create compile script
+        compile_script = '''#!/bin/bash
+/usr/local/gcc-9.2.0/bin/g++ -std=c++14 -I. main.cpp -o main
+'''
+        
+        # Create run script
+        run_script = '''#!/bin/bash
+./main
+'''
+        
+        # Load nlohmann/json library
+        lib_path = os.path.join(
+            os.path.dirname(__file__), 
+            "libraries", 
+            "json.hpp"
+        )
+        with open(lib_path, 'rb') as f:
+            json_hpp = f.read()
+        
+        # Create zip file with all necessary files
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            zip_file.writestr('main.cpp', main_cpp)
+            zip_file.writestr('compile', compile_script)
+            zip_file.writestr('run', run_script)
+            zip_file.writestr('json.hpp', json_hpp)
+        
+        # Encode as base64
+        additional_files_b64 = base64.b64encode(zip_buffer.getvalue()).decode('utf-8')
+        
+        stdin_data = json.dumps(input_data)
+        # Return empty source_code since code is in additional_files
+        return "", stdin_data, additional_files_b64
     
     def get_template_code(
         self,
@@ -306,8 +474,26 @@ public class Main {{
     
     def _get_cpp_template(self, function_signature: Dict[str, Any]) -> str:
         """Generate C++ template code"""
-        # Placeholder for C++ implementation
-        raise NotImplementedError("C++ template generation not yet implemented")
+        function_name = function_signature["function_name"]
+        arguments = function_signature["arguments"]
+        return_type = function_signature["return_type"]
+        
+        # Generate parameter list
+        params = []
+        for arg in arguments:
+            arg_name = arg["name"]
+            cpp_type = TYPE_MAPPINGS.get(arg["type"], {}).get("cpp", arg["type"])
+            params.append(f"{cpp_type} {arg_name}")
+        
+        params_str = ", ".join(params)
+        cpp_return_type = TYPE_MAPPINGS.get(return_type, {}).get("cpp", return_type)
+        
+        return f'''class Solution {{
+public:
+    {cpp_return_type} {function_name}({params_str}) {{
+        
+    }}
+}};'''
 
 
 # Singleton instance

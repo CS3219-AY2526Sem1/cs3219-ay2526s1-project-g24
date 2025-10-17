@@ -30,8 +30,8 @@ logging.basicConfig(
 LANGUAGE_IDS = {
     LanguageEnum.PYTHON: 71,  # Python 3.8.1
     LanguageEnum.JAVASCRIPT: 63,  # JavaScript (Node.js 12.14.0)
-    LanguageEnum.JAVA: 62,  # Java (OpenJDK 13.0.1)
-    LanguageEnum.CPP: 54,  # C++ (GCC 9.2.0)
+    LanguageEnum.JAVA: 89,  # Multi-file program (for GSON support)
+    LanguageEnum.CPP: 89,  # Multi-file program (for nlohmann/json support)
 }
 
 
@@ -57,33 +57,24 @@ class Judge0Service:
         source_code: str, 
         input_data: Dict[str, Any],
         function_signature: Optional[Dict[str, Any]] = None
-    ) -> tuple[str, str]:
+    ) -> tuple[str, str, Optional[str]]:
         """
         Prepare code and stdin for execution based on language.
         Uses the new CodeGenerator for robust, language-agnostic code generation.
         
-        Returns (code_to_execute, stdin)
+        Returns (code_to_execute, stdin, additional_files_base64)
+        - For Python/JS: (wrapped_code, stdin, None)
+        - For Java/C++: ("", stdin, base64_zip)
         """
         if function_signature:
             # Use new code generator approach (preferred)
-            wrapper_code, stdin_data = code_generator.generate_wrapper(
+            wrapper_code, stdin_data, additional_files = code_generator.generate_wrapper(
                 language=GeneratorLanguageEnum(language.value),
                 user_code=source_code,
                 function_signature=function_signature,
                 input_data=input_data
             )
-            # Debug logging to see what's being generated
-            logger.info("="*70)
-            logger.info(f"GENERATED CODE FOR {language.value.upper()}")
-            logger.info(f"Function: {function_signature.get('function_name')}")
-            logger.info("="*70)
-            logger.info(f"Wrapper Code:\n{wrapper_code}")
-            logger.info("="*70)
-            logger.info("STDIN DATA:")
-            logger.info("="*70)
-            logger.info(f"Stdin: {stdin_data}")
-            logger.info("="*70)
-            return wrapper_code, stdin_data
+            return wrapper_code, stdin_data, additional_files
         else:
             # Fallback to old approach if function_signature not provided
             # (for backward compatibility during migration)
@@ -110,7 +101,7 @@ if methods:
     result = getattr(solution, methods[0])(**input_data)
     print(json.dumps(result))
 """
-                return wrapper, stdin
+                return wrapper, stdin, None
 
             elif language == LanguageEnum.JAVASCRIPT:
                 wrapper = f"""
@@ -136,7 +127,7 @@ if (functionMatch) {{
     console.error('No function found');
 }}
 """
-                return wrapper, stdin
+                return wrapper, stdin, None
 
             elif language == LanguageEnum.JAVA:
                 # Java not fully implemented in fallback
@@ -152,7 +143,7 @@ public class Main {{
     }}
 }}
 """
-                return wrapper, stdin
+                return wrapper, stdin, None
 
             elif language == LanguageEnum.CPP:
                 # C++ not fully implemented in fallback
@@ -166,9 +157,9 @@ int main() {{
     return 0;
 }}
 """
-                return wrapper, stdin
+                return wrapper, stdin, None
 
-            return source_code, stdin
+            return source_code, stdin, None
 
     async def submit_code(
         self,
@@ -178,6 +169,7 @@ int main() {{
         expected_output: Optional[str] = None,
         time_limit: Optional[float] = None,
         memory_limit: Optional[int] = None,
+        additional_files: Optional[str] = None,
     ) -> str:
         """
         Submit code to Judge0 for execution.
@@ -193,6 +185,7 @@ int main() {{
             cpu_time_limit=time_limit or self.default_time_limit,
             memory_limit=memory_limit or self.default_memory_limit,
             wall_time_limit=(time_limit or self.default_time_limit) * 2,
+            additional_files=additional_files,
         )
 
         async with httpx.AsyncClient() as client:
@@ -272,7 +265,7 @@ int main() {{
         for test_case in request.test_cases:
             try:
                 # Prepare code with test case
-                code, stdin = self._prepare_code(
+                code, stdin, additional_files = self._prepare_code(
                     request.language, 
                     request.source_code, 
                     test_case.input_data,
@@ -287,22 +280,12 @@ int main() {{
                     expected_output=None,  # Don't pass to Judge0, we'll do our own comparison
                     time_limit=request.time_limit,
                     memory_limit=request.memory_limit,
+                    additional_files=additional_files,
                 )
 
                 # Get result
                 judge0_result = await self.get_submission_result(token)
                 status = self._parse_status(judge0_result)
-                
-                # Debug: Log Judge0 response for JavaScript
-                if request.language == LanguageEnum.JAVASCRIPT:
-                    logger.info("="*70)
-                    logger.info(f"JUDGE0 RESULT FOR JAVASCRIPT")
-                    logger.info(f"Status: {status}")
-                    logger.info(f"Stdout: {judge0_result.stdout}")
-                    logger.info(f"Stderr: {judge0_result.stderr}")
-                    logger.info(f"Compile Output: {judge0_result.compile_output}")
-                    logger.info(f"Message: {judge0_result.message}")
-                    logger.info("="*70)
 
                 # Handle compilation errors (affects all test cases)
                 if status == ExecutionStatus.COMPILATION_ERROR:

@@ -80,6 +80,10 @@ class Judge0SubmissionRequest(BaseModel):
     cpu_time_limit: Optional[float] = None
     memory_limit: Optional[int] = None
     wall_time_limit: Optional[float] = None
+    additional_files: Optional[str] = Field(
+        None, 
+        description="Base64 encoded zip file with additional files (for language_id 89)"
+    )
 
 
 class Judge0SubmissionResponse(BaseModel):
