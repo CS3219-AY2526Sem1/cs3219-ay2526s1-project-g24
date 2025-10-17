@@ -1,7 +1,5 @@
-import { PrismaClient } from '@prisma/client';
+import prisma from '../prisma';
 import type { User } from '@prisma/client';
-
-const prisma = new PrismaClient();
 
 export const getUserById = async (userId: string): Promise<User | null> => {
   return prisma.user.findUnique({ where: { id: userId } });

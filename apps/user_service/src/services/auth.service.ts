@@ -1,10 +1,10 @@
 import { google } from "googleapis";
 import { config } from "../config";
 import axios from "axios";
-import { PrismaClient, User } from "@prisma/client";
+import prisma from '../prisma';
+import type { User } from '@prisma/client';
 import * as jose from 'jose';
 
-const prisma = new PrismaClient();
 
 const oauth2Client = new google.auth.OAuth2(
   config.google.clientId,
@@ -68,11 +68,9 @@ export const hasRole = async (
 };
 
 export const generateJwtToken = async (user: User & { roles: any[] }) => {
-  const roles = user.roles.map((userRole) => userRole.role.name);
-  const permissions = user.roles.flatMap((userRole) =>
-    userRole.role.permissions.map(
-      (rolePermission: any) => rolePermission.permission.name
-    )
+  const roles = user.roles.map((userRole: any) => userRole.role.name);
+  const permissions = user.roles.flatMap((userRole: any) =>
+    userRole.role.permissions.map((rolePermission: any) => rolePermission.permission.name)
   );
   const scopes = [...new Set(permissions)]; // Remove duplicates
 
