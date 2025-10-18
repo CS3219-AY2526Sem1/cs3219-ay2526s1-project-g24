@@ -42,7 +42,7 @@ async function start() {
 
     // Start workers
   startMatcher();
-  // Start timeout worker (uses Redis key expiration to detect timeouts)
+  // Start timeout worker (uses sorted set scanning to detect timeouts)
   startTimeoutWorker();
 
     logger.info("Workers started");
