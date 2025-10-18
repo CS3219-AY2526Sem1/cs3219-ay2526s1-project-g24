@@ -120,20 +120,134 @@ class CodeGenerator:
         """Generate Python wrapper with stdin/stdout"""
         function_name = function_signature["function_name"]
         arguments = function_signature["arguments"]
+        return_type = function_signature["return_type"]
         
-        # Generate argument extraction from input_data
-        arg_names = [arg["name"] for arg in arguments]
-        args_str = ", ".join([f'input_data["{name}"]' for name in arg_names])
+        # Check if we need ListNode or TreeNode classes
+        needs_listnode = any(arg["type"] == "ListNode" for arg in arguments) or return_type == "ListNode"
+        needs_treenode = any(arg["type"] == "TreeNode" for arg in arguments) or return_type == "TreeNode"
         
-        wrapper_code = f'''{user_code}
+        # Generate helper classes and functions
+        helper_code = ""
+        if needs_listnode:
+            helper_code += """
+class ListNode:
+    def __init__(self, val=0, next=None):
+        self.val = val
+        self.next = next
+
+"""
+        
+        if needs_treenode:
+            helper_code += """
+class TreeNode:
+    def __init__(self, val=0, left=None, right=None):
+        self.val = val
+        self.left = left
+        self.right = right
+
+"""
+        
+        # Generate conversion functions (after class definitions)
+        conversion_functions = ""
+        if needs_listnode:
+            conversion_functions += """
+def array_to_listnode(arr):
+    if not arr:
+        return None
+    head = ListNode(arr[0])
+    current = head
+    for val in arr[1:]:
+        current.next = ListNode(val)
+        current = current.next
+    return head
+
+def listnode_to_array(head):
+    result = []
+    current = head
+    while current:
+        result.append(current.val)
+        current = current.next
+    return result
+
+"""
+        
+        if needs_treenode:
+            conversion_functions += """
+def array_to_treenode(arr):
+    if not arr:
+        return None
+    root = TreeNode(arr[0])
+    queue = [root]
+    i = 1
+    while queue and i < len(arr):
+        node = queue.pop(0)
+        if i < len(arr) and arr[i] is not None:
+            node.left = TreeNode(arr[i])
+            queue.append(node.left)
+        i += 1
+        if i < len(arr) and arr[i] is not None:
+            node.right = TreeNode(arr[i])
+            queue.append(node.right)
+        i += 1
+    return root
+
+def treenode_to_array(root):
+    if not root:
+        return []
+    result = []
+    queue = [root]
+    while queue:
+        node = queue.pop(0)
+        if node:
+            result.append(node.val)
+            queue.append(node.left)
+            queue.append(node.right)
+        else:
+            result.append(None)
+    # Remove trailing None values
+    while result and result[-1] is None:
+        result.pop()
+    return result
+
+"""
+        
+        # Generate argument extraction and conversion
+        arg_conversions = []
+        arg_names = []
+        for arg in arguments:
+            arg_name = arg["name"]
+            arg_type = arg["type"]
+            arg_names.append(arg_name)
+            
+            if arg_type == "ListNode":
+                arg_conversions.append(f'    {arg_name} = array_to_listnode(input_data["{arg_name}"])')
+            elif arg_type == "TreeNode":
+                arg_conversions.append(f'    {arg_name} = array_to_treenode(input_data["{arg_name}"])')
+            else:
+                arg_conversions.append(f'    {arg_name} = input_data["{arg_name}"]')
+        
+        args_str = ", ".join(arg_names)
+        conversion_code = "\n".join(arg_conversions)
+        
+        # Generate result conversion
+        if return_type == "ListNode":
+            result_conversion = "result = listnode_to_array(result)"
+        elif return_type == "TreeNode":
+            result_conversion = "result = treenode_to_array(result)"
+        else:
+            result_conversion = ""
+        
+        wrapper_code = f'''{helper_code}{conversion_functions}{user_code}
 
 if __name__ == "__main__":
     import json
     import sys
     
     input_data = json.loads(sys.stdin.read())
+{conversion_code}
     solution = Solution()
     result = solution.{function_name}({args_str})
+    {result_conversion}
     print(json.dumps(result))
 '''
         
@@ -146,21 +260,164 @@ if __name__ == "__main__":
         function_signature: Dict[str, Any],
         input_data: Dict[str, Any]
     ) -> Tuple[str, str, None]:
-        """Generate JavaScript wrapper with stdin/stdout using readlineSync"""
+        """Generate JavaScript wrapper with stdin/stdout"""
         function_name = function_signature["function_name"]
         arguments = function_signature["arguments"]
+        return_type = function_signature["return_type"]
         
-        # Generate argument extraction from input_data
-        arg_names = [arg["name"] for arg in arguments]
-        args_str = ", ".join([f'inputData.{name}' for name in arg_names])
+        # Check if we need ListNode or TreeNode classes
+        needs_listnode = (
+            any(arg["type"] == "ListNode" for arg in arguments) or
+            return_type == "ListNode"
+        )
+        needs_treenode = (
+            any(arg["type"] == "TreeNode" for arg in arguments) or
+            return_type == "TreeNode"
+        )
         
-        # Use process.stdin with synchronous reading
-        wrapper_code = f'''{user_code}
+        # Generate helper classes and functions
+        helper_code = ""
+        if needs_listnode:
+            helper_code += """
+class ListNode {
+    constructor(val = 0, next = null) {
+        this.val = val;
+        this.next = next;
+    }
+}
+
+"""
+        
+        if needs_treenode:
+            helper_code += """
+class TreeNode {
+    constructor(val = 0, left = null, right = null) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+
+"""
+        
+        # Generate conversion functions
+        conversion_functions = ""
+        if needs_listnode:
+            conversion_functions += """
+function arrayToListNode(arr) {
+    if (!arr || arr.length === 0) return null;
+    const head = new ListNode(arr[0]);
+    let current = head;
+    for (let i = 1; i < arr.length; i++) {
+        current.next = new ListNode(arr[i]);
+        current = current.next;
+    }
+    return head;
+}
+
+function listNodeToArray(head) {
+    const result = [];
+    let current = head;
+    while (current) {
+        result.push(current.val);
+        current = current.next;
+    }
+    return result;
+}
+
+"""
+        
+        if needs_treenode:
+            conversion_functions += """
+function arrayToTreeNode(arr) {
+    if (!arr || arr.length === 0) return null;
+    const root = new TreeNode(arr[0]);
+    const queue = [root];
+    let i = 1;
+    while (queue.length > 0 && i < arr.length) {
+        const node = queue.shift();
+        if (i < arr.length && arr[i] !== null) {
+            node.left = new TreeNode(arr[i]);
+            queue.push(node.left);
+        }
+        i++;
+        if (i < arr.length && arr[i] !== null) {
+            node.right = new TreeNode(arr[i]);
+            queue.push(node.right);
+        }
+        i++;
+    }
+    return root;
+}
+
+function treeNodeToArray(root) {
+    if (!root) return [];
+    const result = [];
+    const queue = [root];
+    while (queue.length > 0) {
+        const node = queue.shift();
+        if (node) {
+            result.push(node.val);
+            queue.push(node.left);
+            queue.push(node.right);
+        } else {
+            result.push(null);
+        }
+    }
+    // Remove trailing null values
+    while (result.length > 0 && result[result.length - 1] === null) {
+        result.pop();
+    }
+    return result;
+}
+
+"""
+        
+        # Generate argument extraction and conversion
+        arg_conversions = []
+        arg_names = []
+        for arg in arguments:
+            arg_name = arg["name"]
+            arg_type = arg["type"]
+            arg_names.append(arg_name)
+            
+            if arg_type == "ListNode":
+                arg_conversions.append(
+                    f'const {arg_name} = '
+                    f'arrayToListNode(inputData.{arg_name});'
+                )
+            elif arg_type == "TreeNode":
+                arg_conversions.append(
+                    f'const {arg_name} = '
+                    f'arrayToTreeNode(inputData.{arg_name});'
+                )
+            else:
+                arg_conversions.append(f'const {arg_name} = inputData.{arg_name};')
+        
+        args_str = ", ".join(arg_names)
+        conversion_code = "\n".join(arg_conversions)
+        
+        # Generate result conversion
+        if return_type == "ListNode":
+            result_line = (
+                f'let result = {function_name}({args_str});\n'
+                f'result = listNodeToArray(result);'
+            )
+        elif return_type == "TreeNode":
+            result_line = (
+                f'let result = {function_name}({args_str});\n'
+                f'result = treeNodeToArray(result);'
+            )
+        else:
+            result_line = f'const result = {function_name}({args_str});'
+        
+        wrapper_code = f'''{helper_code}{conversion_functions}{user_code}
 
 // Read all stdin synchronously
 const input = require('fs').readFileSync('/dev/stdin', 'utf-8');
 const inputData = JSON.parse(input);
-const result = {function_name}({args_str});
+{conversion_code}
+{result_line}
 console.log(JSON.stringify(result));
 '''
         
@@ -181,6 +438,122 @@ console.log(JSON.stringify(result));
         arguments = function_signature["arguments"]
         return_type = function_signature["return_type"]
         
+        # Check if we need ListNode or TreeNode classes
+        needs_listnode = (
+            any(arg["type"] == "ListNode" for arg in arguments) or
+            return_type == "ListNode"
+        )
+        needs_treenode = (
+            any(arg["type"] == "TreeNode" for arg in arguments) or
+            return_type == "TreeNode"
+        )
+        
+        # Generate helper classes
+        helper_classes = ""
+        if needs_listnode:
+            helper_classes += """
+class ListNode {
+    int val;
+    ListNode next;
+    ListNode() {}
+    ListNode(int val) { this.val = val; }
+    ListNode(int val, ListNode next) { this.val = val; this.next = next; }
+}
+
+"""
+        
+        if needs_treenode:
+            helper_classes += """
+class TreeNode {
+    int val;
+    TreeNode left;
+    TreeNode right;
+    TreeNode() {}
+    TreeNode(int val) { this.val = val; }
+    TreeNode(int val, TreeNode left, TreeNode right) {
+        this.val = val;
+        this.left = left;
+        this.right = right;
+    }
+}
+
+"""
+        
+        # Generate helper methods
+        helper_methods = ""
+        if needs_listnode:
+            helper_methods += """
+    static ListNode arrayToListNode(JsonArray arr) {
+        if (arr == null || arr.size() == 0) return null;
+        ListNode head = new ListNode(arr.get(0).getAsInt());
+        ListNode current = head;
+        for (int i = 1; i < arr.size(); i++) {
+            current.next = new ListNode(arr.get(i).getAsInt());
+            current = current.next;
+        }
+        return head;
+    }
+    
+    static JsonArray listNodeToArray(ListNode head) {
+        JsonArray result = new JsonArray();
+        ListNode current = head;
+        while (current != null) {
+            result.add(current.val);
+            current = current.next;
+        }
+        return result;
+    }
+
+"""
+        
+        if needs_treenode:
+            helper_methods += """
+    static TreeNode arrayToTreeNode(JsonArray arr) {
+        if (arr == null || arr.size() == 0) return null;
+        TreeNode root = new TreeNode(arr.get(0).getAsInt());
+        java.util.Queue<TreeNode> queue = new java.util.LinkedList<>();
+        queue.add(root);
+        int i = 1;
+        while (!queue.isEmpty() && i < arr.size()) {
+            TreeNode node = queue.poll();
+            if (i < arr.size() && !arr.get(i).isJsonNull()) {
+                node.left = new TreeNode(arr.get(i).getAsInt());
+                queue.add(node.left);
+            }
+            i++;
+            if (i < arr.size() && !arr.get(i).isJsonNull()) {
+                node.right = new TreeNode(arr.get(i).getAsInt());
+                queue.add(node.right);
+            }
+            i++;
+        }
+        return root;
+    }
+    
+    static JsonArray treeNodeToArray(TreeNode root) {
+        if (root == null) return new JsonArray();
+        JsonArray result = new JsonArray();
+        java.util.Queue<TreeNode> queue = new java.util.LinkedList<>();
+        queue.add(root);
+        while (!queue.isEmpty()) {
+            TreeNode node = queue.poll();
+            if (node != null) {
+                result.add(node.val);
+                queue.add(node.left);
+                queue.add(node.right);
+            } else {
+                result.add((Integer) null);
+            }
+        }
+        // Remove trailing nulls
+        while (result.size() > 0 && result.get(result.size() - 1).isJsonNull()) {
+            result.remove(result.size() - 1);
+        }
+        return result;
+    }
+
+"""
+        
         # Generate argument parsing code
         arg_parsing = []
         arg_names = []
@@ -195,33 +568,73 @@ console.log(JSON.stringify(result));
                     f'        int {arg_name} = json.get("{arg_name}").getAsInt();'
                 )
             elif arg_type == "int[]":
-                arg_parsing.append(f'''        JsonArray {arg_name}Array = json.get("{arg_name}").getAsJsonArray();
-        int[] {arg_name} = new int[{arg_name}Array.size()];
-        for (int i = 0; i < {arg_name}Array.size(); i++) {{
-            {arg_name}[i] = {arg_name}Array.get(i).getAsInt();
-        }}''')
+                arg_parsing.append(
+                    f'        JsonArray {arg_name}Array = '
+                    f'json.get("{arg_name}").getAsJsonArray();\n'
+                    f'        int[] {arg_name} = new int[{arg_name}Array.size()];\n'
+                    f'        for (int i = 0; i < {arg_name}Array.size(); i++) {{\n'
+                    f'            {arg_name}[i] = {arg_name}Array.get(i).getAsInt();\n'
+                    f'        }}'
+                )
             elif arg_type == "string":
                 arg_parsing.append(
                     f'        String {arg_name} = '
                     f'json.get("{arg_name}").getAsString();'
                 )
             elif arg_type == "string[]":
-                arg_parsing.append(f'''        JsonArray {arg_name}Array = json.get("{arg_name}").getAsJsonArray();
-        String[] {arg_name} = new String[{arg_name}Array.size()];
-        for (int i = 0; i < {arg_name}Array.size(); i++) {{
-            {arg_name}[i] = {arg_name}Array.get(i).getAsString();
-        }}''')
+                arg_parsing.append(
+                    f'        JsonArray {arg_name}Array = '
+                    f'json.get("{arg_name}").getAsJsonArray();\n'
+                    f'        String[] {arg_name} = '
+                    f'new String[{arg_name}Array.size()];\n'
+                    f'        for (int i = 0; i < {arg_name}Array.size(); i++) {{\n'
+                    f'            {arg_name}[i] = '
+                    f'{arg_name}Array.get(i).getAsString();\n'
+                    f'        }}'
+                )
             elif arg_type == "boolean":
                 arg_parsing.append(
                     f'        boolean {arg_name} = '
                     f'json.get("{arg_name}").getAsBoolean();'
+                )
+            elif arg_type == "ListNode":
+                arg_parsing.append(
+                    f'        ListNode {arg_name} = '
+                    f'arrayToListNode(json.get("{arg_name}").getAsJsonArray());'
+                )
+            elif arg_type == "TreeNode":
+                arg_parsing.append(
+                    f'        TreeNode {arg_name} = '
+                    f'arrayToTreeNode(json.get("{arg_name}").getAsJsonArray());'
                 )
         
         args_str = ", ".join(arg_names)
         parsing_code = "\n".join(arg_parsing)
         
         # Map return type to Java
-        java_return_type = TYPE_MAPPINGS.get(return_type, {}).get("java", return_type)
+        java_return_type = (
+            TYPE_MAPPINGS.get(return_type, {}).get("java", return_type)
+        )
+        
+        # Generate result conversion
+        if return_type == "ListNode":
+            result_conversion = (
+                f'        {java_return_type} result = '
+                f'solution.{function_name}({args_str});\n'
+                f'        JsonElement output = listNodeToArray(result);'
+            )
+        elif return_type == "TreeNode":
+            result_conversion = (
+                f'        {java_return_type} result = '
+                f'solution.{function_name}({args_str});\n'
+                f'        JsonElement output = treeNodeToArray(result);'
+            )
+        else:
+            result_conversion = (
+                f'        {java_return_type} result = '
+                f'solution.{function_name}({args_str});\n'
+                f'        JsonElement output = new Gson().toJsonTree(result);'
+            )
         
         # Create Main.java with user's Solution class
         main_java = f'''import com.google.gson.*;
@@ -229,9 +642,10 @@ import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.IOException;
 
-{user_code}
+{helper_classes}{user_code}
 
 public class Main {{
+{helper_methods}
     public static void main(String[] args) throws IOException {{
         BufferedReader reader = new BufferedReader(new InputStreamReader(System.in));
         String input = reader.readLine();
@@ -241,8 +655,8 @@ public class Main {{
 {parsing_code}
         
         Solution solution = new Solution();
-        {java_return_type} result = solution.{function_name}({args_str});
-        System.out.println(new Gson().toJson(result));
+{result_conversion}
+        System.out.println(new Gson().toJson(output));
     }}
 }}
 '''
@@ -295,6 +709,120 @@ public class Main {{
         arguments = function_signature["arguments"]
         return_type = function_signature["return_type"]
         
+        # Check if we need ListNode or TreeNode classes
+        needs_listnode = (
+            any(arg["type"] == "ListNode" for arg in arguments) or
+            return_type == "ListNode"
+        )
+        needs_treenode = (
+            any(arg["type"] == "TreeNode" for arg in arguments) or
+            return_type == "TreeNode"
+        )
+        
+        # Generate helper classes and functions
+        helper_code = ""
+        if needs_listnode:
+            helper_code += """
+struct ListNode {
+    int val;
+    ListNode *next;
+    ListNode() : val(0), next(nullptr) {}
+    ListNode(int x) : val(x), next(nullptr) {}
+    ListNode(int x, ListNode *next) : val(x), next(next) {}
+};
+
+"""
+        
+        if needs_treenode:
+            helper_code += """
+struct TreeNode {
+    int val;
+    TreeNode *left;
+    TreeNode *right;
+    TreeNode() : val(0), left(nullptr), right(nullptr) {}
+    TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}
+    TreeNode(int x, TreeNode *left, TreeNode *right) : val(x), left(left), right(right) {}
+};
+
+"""
+        
+        # Generate conversion functions
+        conversion_functions = ""
+        if needs_listnode:
+            conversion_functions += """
+ListNode* arrayToListNode(const json& arr) {
+    if (arr.empty()) return nullptr;
+    ListNode* head = new ListNode(arr[0]);
+    ListNode* current = head;
+    for (size_t i = 1; i < arr.size(); i++) {
+        current->next = new ListNode(arr[i]);
+        current = current->next;
+    }
+    return head;
+}
+
+json listNodeToArray(ListNode* head) {
+    json result = json::array();
+    ListNode* current = head;
+    while (current) {
+        result.push_back(current->val);
+        current = current->next;
+    }
+    return result;
+}
+
+"""
+        
+        if needs_treenode:
+            conversion_functions += """
+TreeNode* arrayToTreeNode(const json& arr) {
+    if (arr.empty()) return nullptr;
+    TreeNode* root = new TreeNode(arr[0]);
+    queue<TreeNode*> q;
+    q.push(root);
+    size_t i = 1;
+    while (!q.empty() && i < arr.size()) {
+        TreeNode* node = q.front();
+        q.pop();
+        if (i < arr.size() && !arr[i].is_null()) {
+            node->left = new TreeNode(arr[i]);
+            q.push(node->left);
+        }
+        i++;
+        if (i < arr.size() && !arr[i].is_null()) {
+            node->right = new TreeNode(arr[i]);
+            q.push(node->right);
+        }
+        i++;
+    }
+    return root;
+}
+
+json treeNodeToArray(TreeNode* root) {
+    if (!root) return json::array();
+    json result = json::array();
+    queue<TreeNode*> q;
+    q.push(root);
+    while (!q.empty()) {
+        TreeNode* node = q.front();
+        q.pop();
+        if (node) {
+            result.push_back(node->val);
+            q.push(node->left);
+            q.push(node->right);
+        } else {
+            result.push_back(nullptr);
+        }
+    }
+    // Remove trailing nulls
+    while (!result.empty() && result.back().is_null()) {
+        result.erase(result.end() - 1);
+    }
+    return result;
+}
+
+"""
+        
         # Generate argument parsing code
         arg_parsing = []
         arg_names = []
@@ -320,6 +848,16 @@ public class Main {{
     }}''')
             elif arg_type == "boolean":
                 arg_parsing.append(f'    bool {arg_name} = j["{arg_name}"];')
+            elif arg_type == "ListNode":
+                arg_parsing.append(
+                    f'    ListNode* {arg_name} = '
+                    f'arrayToListNode(j["{arg_name}"]);'
+                )
+            elif arg_type == "TreeNode":
+                arg_parsing.append(
+                    f'    TreeNode* {arg_name} = '
+                    f'arrayToTreeNode(j["{arg_name}"]);'
+                )
         
         args_str = ", ".join(arg_names)
         parsing_code = "\n".join(arg_parsing)
@@ -327,11 +865,16 @@ public class Main {{
         # Map return type to C++
         cpp_return_type = TYPE_MAPPINGS.get(return_type, {}).get("cpp", return_type)
         
-        # Determine result serialization based on return type
-        if return_type in ["int", "string", "boolean"]:
-            result_serialization = "result"
+        # Generate result handling based on return type
+        if return_type == "ListNode":
+            result_code = f'''    {cpp_return_type} result = solution.{function_name}({args_str});
+    json output = listNodeToArray(result);'''
+        elif return_type == "TreeNode":
+            result_code = f'''    {cpp_return_type} result = solution.{function_name}({args_str});
+    json output = treeNodeToArray(result);'''
         else:
-            result_serialization = "result"  # nlohmann/json handles vectors automatically
+            result_code = f'''    {cpp_return_type} result = solution.{function_name}({args_str});
+    json output = result;'''
         
         # Create main.cpp with user's Solution class
         main_cpp = f'''#include <iostream>
@@ -346,7 +889,7 @@ public class Main {{
 using namespace std;
 using json = nlohmann::json;
 
-{user_code}
+{helper_code}{conversion_functions}{user_code}
 
 int main() {{
     // Read JSON input from stdin
@@ -356,10 +899,7 @@ int main() {{
 {parsing_code}
     
     Solution solution;
-    {cpp_return_type} result = solution.{function_name}({args_str});
-    
-    // Output result as JSON
-    json output = {result_serialization};
+{result_code}
     cout << output << endl;
     
     return 0;
