@@ -1,29 +1,21 @@
-import { describe, it, expect, beforeAll, afterAll } from "vitest";
+import { describe, it, expect, beforeAll, afterAll, vi } from "vitest";
 import request from "supertest";
-import prisma from "../../prisma";
-import {
-  PostgreSqlContainer,
-  StartedPostgreSqlContainer,
-} from "@testcontainers/postgresql";
+import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { execSync } from "child_process";
-import { createServer } from "../../server";
-import * as jose from "jose";
-import { vi } from "vitest";
+import { PrismaClient } from "@prisma/client";
 
-let dbContainer: StartedPostgreSqlContainer;
-let server: any;
-
+let publicKey: any;
 let user1Token: string;
 let admin1Token: string;
+let prisma: any;
+let dbContainer: any;
+let server: any;
 
-let publicKey: jose.CryptoKey | undefined;
-
-vi.mock("jose", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("jose")>();
-  return {
-    ...actual,
+vi.doMock("jose", async (importOriginal) => {
+  const actual = await importOriginal();
+  return Object.assign({}, actual, {
     createRemoteJWKSet: vi.fn(() => async () => publicKey),
-  };
+  });
 });
 
 describe("User Controller Integration (Testcontainers)", () => {
@@ -31,9 +23,19 @@ describe("User Controller Integration (Testcontainers)", () => {
     dbContainer = await new PostgreSqlContainer("postgres:15-alpine").start();
     const databaseUrl = dbContainer.getConnectionUri();
     process.env.DATABASE_URL = databaseUrl;
+
+    // Dynamically import PrismaClient and jose after mocking
+    prisma = new PrismaClient();
+    const jose = await import("jose");
+
+    // Generate keypair and set publicKey BEFORE creating the server
     const { publicKey: pubKey, privateKey: privKey } =
       await jose.generateKeyPair("RS256");
     publicKey = pubKey;
+
+    // Dynamically import server after mocking
+    const { createServer } = await import("../../server.js");
+    server = createServer().listen(9010);
 
     execSync("pnpm --filter user_service exec prisma migrate deploy");
 
@@ -100,14 +102,18 @@ describe("User Controller Integration (Testcontainers)", () => {
       .setIssuedAt()
       .setExpirationTime("2h")
       .sign(privKey);
-
-    server = createServer().listen(9010);
   }, 60000);
 
   afterAll(async () => {
-    await prisma.$disconnect();
-    await dbContainer.stop();
-    server.close();
+    if (prisma) {
+      await prisma.$disconnect();
+    }
+    if (dbContainer) {
+      await dbContainer.stop();
+    }
+    if (server && typeof server.close === "function") {
+      server.close();
+    }
   });
 
   it("should have public user in the prisma db", async () => {

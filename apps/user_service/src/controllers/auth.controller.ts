@@ -8,24 +8,29 @@ import {
   Res,
   Request,
   Security,
-} from 'tsoa';
-import type { TsoaResponse } from 'tsoa';
-import { getGoogleAuthUrl, getGoogleUser, generateJwtToken } from '../services/auth.service';
-import prisma from '../prisma';
+} from "tsoa";
+import type { TsoaResponse } from "tsoa";
+import { AuthResponse } from "../models/auth-response.model";
+import {
+  getGoogleAuthUrl,
+  getGoogleUser,
+  generateJwtToken,
+} from "../services/auth.service";
+import prisma from "../prisma";
 
-@Route('v1/auth')
-@Tags('Authentication')
+@Route("v1/auth")
+@Tags("Authentication")
 export class AuthController extends Controller {
-  @Get('google/url')
+  @Get("google/url")
   public async getGoogleAuthUrl() {
     return { url: getGoogleAuthUrl() };
   }
 
-  @Get('google/callback')
+  @Get("google/callback")
   public async handleGoogleCallback(
     @Query() code: string,
-    @Res() res: TsoaResponse<200, { accessToken: string }, { 'Set-Cookie'?: string }>
-  ): Promise<{ accessToken: string }> {
+    @Res() res: TsoaResponse<200, AuthResponse, { "Set-Cookie"?: string }>
+  ): Promise<AuthResponse> {
     try {
       const googleUser = await getGoogleUser(code);
 
@@ -50,10 +55,10 @@ export class AuthController extends Controller {
 
       if (!user) {
         const defaultRole = await prisma.role.findUnique({
-          where: { name: 'user' },
+          where: { name: "user" },
         });
         if (!defaultRole) {
-          throw new Error('Default user role not found.');
+          throw new Error("Default user role not found.");
         }
 
         user = await prisma.user.create({
@@ -88,38 +93,58 @@ export class AuthController extends Controller {
 
       const accessToken = await generateJwtToken(user);
 
-      res(200, { accessToken }, { 'Set-Cookie': `auth_token=${accessToken}; HttpOnly; Path=/; Max-Age=604800` });
+      res(
+        200,
+        { accessToken },
+        {
+          "Set-Cookie": `auth_token=${accessToken}; HttpOnly; Path=/; Max-Age=604800`,
+        }
+      );
       return { accessToken };
     } catch (error: any) {
-      console.error('Error during Google callback:', error.response?.data || error.message);
+      console.error(
+        "Error during Google callback:",
+        error.response?.data || error.message
+      );
       this.setStatus(500);
-      return { accessToken: '' };
+      return { accessToken: "" };
     }
   }
 
-  @Post('logout')
+  @Post("logout")
   public async logout(
-    @Res() res: TsoaResponse<200, { message: string }, { 'Set-Cookie'?: string }>
+    @Res()
+    res: TsoaResponse<200, { message: string }, { "Set-Cookie"?: string }>
   ) {
-    res(200, { message: 'Logged out successfully' }, { 'Set-Cookie': 'auth_token=; HttpOnly; Path=/; Max-Age=0' });
+    res(
+      200,
+      { message: "Logged out successfully" },
+      { "Set-Cookie": "auth_token=; HttpOnly; Path=/; Max-Age=0" }
+    );
   }
 
-  @Security('jwt')
-  @Post('refresh')
+  @Security("jwt")
+  @Post("refresh")
   public async refresh(
     @Request() req: { user: any },
-    @Res() res: TsoaResponse<200, { accessToken: string }, { 'Set-Cookie'?: string }>
-  ): Promise<{ accessToken: string }> {
+    @Res() res: TsoaResponse<200, AuthResponse, { "Set-Cookie"?: string }>
+  ): Promise<AuthResponse> {
     const user = req.user;
 
     const accessToken = await generateJwtToken(user);
 
-    res(200, { accessToken }, { 'Set-Cookie': `auth_token=${accessToken}; HttpOnly; Path=/; Max-Age=604800` });
+    res(
+      200,
+      { accessToken },
+      {
+        "Set-Cookie": `auth_token=${accessToken}; HttpOnly; Path=/; Max-Age=604800`,
+      }
+    );
     return { accessToken };
   }
 
-  @Security('jwt')
-  @Get('session')
+  @Security("jwt")
+  @Get("session")
   public async getSession(@Request() req: { user: any }) {
     return req.user;
   }

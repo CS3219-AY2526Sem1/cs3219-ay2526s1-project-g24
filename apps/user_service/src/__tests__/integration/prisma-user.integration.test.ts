@@ -8,7 +8,6 @@ let prisma: PrismaClient;
 let dbContainer: StartedPostgreSqlContainer;
 
 describe('Prisma User Integration (Testcontainers)', () => {
-  let userId: string;
 
   beforeAll(async () => {
     dbContainer = await new PostgreSqlContainer('postgres:15-alpine').start();
@@ -33,7 +32,7 @@ describe('Prisma User Integration (Testcontainers)', () => {
         display_name: 'Integration Test User',
       },
     });
-    userId = user.id;
+    let userId = user.id;
     expect(user.email).toBe('integration-test@example.com');
     expect(user.display_name).toBe('Integration Test User');
 
@@ -52,4 +51,31 @@ describe('Prisma User Integration (Testcontainers)', () => {
     const shouldBeNull = await prisma.user.findUnique({ where: { id: userId } });
     expect(shouldBeNull).toBeNull();
   });
+
+  it('should create 5 users', async () => {
+    const usersData = Array.from({ length: 5 }).map((_, i) => ({
+      email: `integration-test-${i}@example.com`,
+      display_name: `Integration Test User ${i}`,
+    }));
+
+    await prisma.user.createMany({ data: usersData });
+
+    const users = await prisma.user.findMany({
+      where: {
+        email: {
+          in: usersData.map((u) => u.email),
+        },
+      },
+    });
+
+    expect(users.length).toBe(5);
+  });
+
+  it('should find user by ID', async () => {
+    const user = await prisma.user.findUnique({ where: { email: "integration-test-1@example.com" } });
+    expect(user).not.toBeNull();
+    expect(user!.email).toBe('integration-test-1@example.com');
+    expect(user!.display_name).toBe('Integration Test User 1');
+  });
+
 });
