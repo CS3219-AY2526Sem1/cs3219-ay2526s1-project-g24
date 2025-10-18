@@ -8,7 +8,7 @@ Pairs users for coding practice based on difficulty, topics, and programming lan
 The matching service queues users for matches based on their criteria. Users remain in the queue until matched or until they disconnect/cancel.
 
 ### Key Features
-- ✅ **No automatic timeout** - Requests persist until matched or connection is lost
+- ⏱️ **Configurable timeout** - Requests timeout after MATCH_TIMEOUT_SECONDS (default: 30s) if not matched
 - 🔄 **Real-time updates** - SSE connection provides live status and elapsed time
 - ❌ **Auto-cancellation on disconnect** - Closing the SSE connection automatically cancels the request
 - 🎯 **Manual cancellation** - Users can also cancel anytime via API
@@ -59,7 +59,7 @@ Opens SSE connection (/match/:reqId/events)
 | F1.1 | Accept matching request with difficulty, topics, languages |
 | F1.2 | Find compatible peer (same difficulty, topic overlap, language overlap) |
 | F1.3 | Allocate session on successful match |
-| F1.4 | ~~Timeout after 30 seconds if no match~~ (Disabled - indefinite queueing) |
+| F1.4 | Timeout after 30 seconds if no match |
 | F1.5 | Allow cancellation before match |
 | F1.6 | Show timer in queue |
 
@@ -207,8 +207,8 @@ Compatible if:
 - Checks compatibility
 - Creates session or re-queues
 
-### ~~Timeout~~ (Disabled)
-The timeout worker is disabled. Requests persist indefinitely until matched or cancelled.
+### Timeout Worker
+The timeout worker monitors requests and automatically cancels them after MATCH_TIMEOUT_SECONDS (configurable via environment variable, default: 30 seconds) if they haven't been matched.
 
 ## Client-Side Implementation
 
