@@ -1,0 +1,22 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: cs3219
+data:
+  # Matching Service Config
+  MATCH_TIMEOUT_SECONDS: "30"
+  REQUEST_TTL_SECONDS: "60"
+  LOG_LEVEL: "info"
+  
+  # Question Service Config
+  QUESTION_SERVICE_ENV: "production"
+  
+  # User Service Config
+  USER_SERVICE_ENV: "production"
+  
+  # Service URLs (internal cluster DNS)
+  COLLABORATION_SERVICE_URL: "http://collaboration-service:4000"
+  QUESTION_SERVICE_URL: "http://question-service:8000"
+  USER_SERVICE_URL: "http://user-service:8000"
+  MATCHING_SERVICE_URL: "http://matching-service:3000"

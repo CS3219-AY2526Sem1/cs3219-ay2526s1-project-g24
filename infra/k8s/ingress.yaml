@@ -1,0 +1,74 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: cs3219-ingress
+  namespace: cs3219
+  annotations:
+    # AWS ALB Ingress Controller annotations
+    kubernetes.io/ingress.class: alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/success-codes: "200"
+    # Enable SSL redirect (uncomment when SSL certificate is configured)
+    # alb.ingress.kubernetes.io/ssl-redirect: "443"
+    # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/xxx
+    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}, {"HTTPS": 443}]'
+spec:
+  rules:
+  - http:
+      paths:
+      # Frontend - Next.js web app
+      - path: /
+        pathType: Prefix
+        backend:
+          service:
+            name: web
+            port:
+              number: 3000
+      
+      # API Gateway
+      - path: /api
+        pathType: Prefix
+        backend:
+          service:
+            name: api
+            port:
+              number: 3001
+      
+      # Question Service
+      - path: /questions
+        pathType: Prefix
+        backend:
+          service:
+            name: question-service
+            port:
+              number: 8000
+      
+      # User Service
+      - path: /users
+        pathType: Prefix
+        backend:
+          service:
+            name: user-service
+            port:
+              number: 8000
+      
+      # Auth endpoints (User Service)
+      - path: /auth
+        pathType: Prefix
+        backend:
+          service:
+            name: user-service
+            port:
+              number: 8000
+      
+      # Matching Service
+      - path: /match
+        pathType: Prefix
+        backend:
+          service:
+            name: matching-service
+            port:
+              number: 3000

@@ -1,0 +1,109 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: question-db-pvc
+  namespace: cs3219
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: gp3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: question-db
+  namespace: cs3219
+  labels:
+    app: question-db
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: question-db
+  template:
+    metadata:
+      labels:
+        app: question-db
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: question-db-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: question-db-password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: question-db-name
+        - name: PGDATA
+          value: /var/lib/postgresql/data/pgdata
+        volumeMounts:
+        - name: postgres-storage
+          mountPath: /var/lib/postgresql/data
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - questionuser
+            - -d
+            - questiondb
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          exec:
+            command:
+            - pg_isready
+            - -U
+            - questionuser
+            - -d
+            - questiondb
+          initialDelaySeconds: 5
+          periodSeconds: 5
+          timeoutSeconds: 3
+      volumes:
+      - name: postgres-storage
+        persistentVolumeClaim:
+          claimName: question-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: question-db
+  namespace: cs3219
+  labels:
+    app: question-db
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+  selector:
+    app: question-db

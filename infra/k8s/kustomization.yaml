@@ -1,0 +1,47 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cs3219
+
+resources:
+  - namespace.yaml
+  # NOTE: secrets.yaml is a TEMPLATE ONLY - create secrets manually!
+  # See SECRETS_GUIDE.md for instructions
+  # - secrets.yaml  # ← DO NOT UNCOMMENT - use kubectl create instead
+  - configmap.yaml
+  - resource-quota.yaml
+  - network-policy.yaml
+  - postgres-question.yaml
+  - postgres-user.yaml
+  - redis.yaml
+  - question-service.yaml
+  - user-service.yaml
+  - matching-service.yaml
+  - api.yaml
+  - web.yaml
+  - hpa.yaml
+  - ingress.yaml
+
+# Common labels for all resources
+commonLabels:
+  project: cs3219
+  managed-by: kustomize
+
+# Images can be updated here for all deployments
+# Uncomment and set after building images
+# images:
+#   - name: REPLACE_WITH_ECR_QUESTION_SERVICE_IMAGE
+#     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/question-service
+#     newTag: latest
+#   - name: REPLACE_WITH_ECR_USER_SERVICE_IMAGE
+#     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/user-service
+#     newTag: latest
+#   - name: REPLACE_WITH_ECR_MATCHING_SERVICE_IMAGE
+#     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/matching-service
+#     newTag: latest
+#   - name: REPLACE_WITH_ECR_WEB_IMAGE
+#     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/web
+#     newTag: latest
+#   - name: REPLACE_WITH_ECR_API_IMAGE
+#     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/api
+#     newTag: latest

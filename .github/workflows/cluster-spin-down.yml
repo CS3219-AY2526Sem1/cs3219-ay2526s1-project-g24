@@ -1,0 +1,73 @@
+name: Cluster Spin Down
+
+on:
+  workflow_dispatch:  # Manual trigger from GitHub UI
+  # Optional: Uncomment to schedule automatic spin-down
+  # schedule:
+  #   - cron: '0 20 * * 1-5'  # 8 PM weekdays (Mon-Fri)
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  spin-down:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/cs3219-eks-gha-deployer
+          aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --name cs3219-eks --region ${{ secrets.AWS_REGION || 'ap-southeast-1' }} || echo "Cluster may not exist"
+
+      - name: Backup Databases
+        continue-on-error: true
+        run: |
+          # Create S3 bucket if it doesn't exist
+          aws s3 mb s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }} || echo "Bucket already exists"
+          
+          echo "💾 Backing up databases..."
+          
+          # Backup Question DB
+          kubectl exec -n cs3219 deployment/question-db -- \
+            pg_dump -U questionuser questiondb | gzip > /tmp/question-db.sql.gz
+          aws s3 cp /tmp/question-db.sql.gz s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/question-db-latest.sql.gz
+          aws s3 cp /tmp/question-db.sql.gz s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/question-db-$(date +%Y%m%d-%H%M%S).sql.gz
+          
+          # Backup User DB
+          kubectl exec -n cs3219 deployment/user-db -- \
+            pg_dump -U user userdb | gzip > /tmp/user-db.sql.gz
+          aws s3 cp /tmp/user-db.sql.gz s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/user-db-latest.sql.gz
+          aws s3 cp /tmp/user-db.sql.gz s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/user-db-$(date +%Y%m%d-%H%M%S).sql.gz
+          
+          echo "✅ Database backups complete"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init
+        working-directory: infra/terraform/eks
+        run: terraform init
+
+      - name: Terraform Destroy
+        working-directory: infra/terraform/eks
+        run: terraform destroy -auto-approve
+
+      - name: Summary
+        run: |
+          echo "✅ Cluster destroyed successfully!"
+          echo "💰 Estimated savings: ~\$3-4/day"
+          echo ""
+          echo "📦 Backups stored in: s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}"
+          echo "🔐 Secrets preserved in: AWS Parameter Store (/cs3219/*)"
+          echo ""
+          echo "To spin up again, run the 'Cluster Spin Up' workflow"

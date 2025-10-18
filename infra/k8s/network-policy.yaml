@@ -1,0 +1,232 @@
+# Network policies to add security within the namespace
+# Even in a single namespace, we can control traffic flow
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny-all
+  namespace: cs3219
+spec:
+  podSelector: {}
+  policyTypes:
+  - Ingress
+  - Egress
+---
+# Allow DNS resolution
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: cs3219
+spec:
+  podSelector: {}
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: kube-system
+    ports:
+    - protocol: UDP
+      port: 53
+---
+# Allow web frontend to access all backend services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: web-egress
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: web
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: api
+    ports:
+    - protocol: TCP
+      port: 3001
+  - to:
+    - podSelector:
+        matchLabels:
+          app: user-service
+    ports:
+    - protocol: TCP
+      port: 8000
+  - to:
+    - podSelector:
+        matchLabels:
+          app: question-service
+    ports:
+    - protocol: TCP
+      port: 8000
+  - to:
+    - podSelector:
+        matchLabels:
+          app: matching-service
+    ports:
+    - protocol: TCP
+      port: 3000
+---
+# Allow API gateway to access backend services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-egress
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: user-service
+    ports:
+    - protocol: TCP
+      port: 8000
+  - to:
+    - podSelector:
+        matchLabels:
+          app: question-service
+    ports:
+    - protocol: TCP
+      port: 8000
+  - to:
+    - podSelector:
+        matchLabels:
+          app: matching-service
+    ports:
+    - protocol: TCP
+      port: 3000
+---
+# Allow services to access their databases
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: question-service-to-db
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: question-service
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: question-db
+    ports:
+    - protocol: TCP
+      port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: user-service-to-db
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: user-service
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: user-db
+    ports:
+    - protocol: TCP
+      port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: matching-service-to-redis
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: matching-service
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: matching-redis
+    ports:
+    - protocol: TCP
+      port: 6379
+---
+# Allow ingress from ALB to web and services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-services
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: web
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 3000
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-api
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: api
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 3001
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-backends
+  namespace: cs3219
+spec:
+  podSelector:
+    matchExpressions:
+    - key: app
+      operator: In
+      values:
+      - user-service
+      - question-service
+      - matching-service
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector: {}
+    ports:
+    - protocol: TCP
+      port: 8000
+    - protocol: TCP
+      port: 3000
