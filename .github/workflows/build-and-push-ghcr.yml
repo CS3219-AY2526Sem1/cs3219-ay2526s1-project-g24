@@ -19,6 +19,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Set lowercase repository owner
+        id: repo
+        run: echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v2
 
@@ -39,8 +43,8 @@ jobs:
           file: ./apps/web/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/cs3219-web:latest
-            ghcr.io/${{ github.repository_owner }}/cs3219-web:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:latest
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:${{ github.sha }}
 
       - name: Build and push api
         uses: docker/build-push-action@v4
@@ -49,8 +53,8 @@ jobs:
           file: ./apps/api/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/cs3219-api:latest
-            ghcr.io/${{ github.repository_owner }}/cs3219-api:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:latest
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:${{ github.sha }}
 
       - name: Build and push question-service
         uses: docker/build-push-action@v4
@@ -59,8 +63,8 @@ jobs:
           file: ./apps/question_service/dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/cs3219-question-service:latest
-            ghcr.io/${{ github.repository_owner }}/cs3219-question-service:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:latest
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:${{ github.sha }}
 
       - name: Build and push user-service
         uses: docker/build-push-action@v4
@@ -69,8 +73,8 @@ jobs:
           file: ./apps/user_service/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/cs3219-user-service:latest
-            ghcr.io/${{ github.repository_owner }}/cs3219-user-service:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:latest
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:${{ github.sha }}
 
       - name: Build and push matching-service
         uses: docker/build-push-action@v4
@@ -79,13 +83,13 @@ jobs:
           file: ./apps/matching-service/Dockerfile
           push: true
           tags: |
-            ghcr.io/${{ github.repository_owner }}/cs3219-matching-service:latest
-            ghcr.io/${{ github.repository_owner }}/cs3219-matching-service:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:latest
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:${{ github.sha }}
 
       - name: Output image tags
         run: |
-          echo "WEB=ghcr.io/${GITHUB_REPOSITORY_OWNER}/cs3219-web:${GITHUB_SHA}" >> $GITHUB_OUTPUT
-          echo "API=ghcr.io/${GITHUB_REPOSITORY_OWNER}/cs3219-api:${GITHUB_SHA}" >> $GITHUB_OUTPUT
-          echo "QUESTION=ghcr.io/${GITHUB_REPOSITORY_OWNER}/cs3219-question-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
-          echo "USER=ghcr.io/${GITHUB_REPOSITORY_OWNER}/cs3219-user-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
-          echo "MATCHING=ghcr.io/${GITHUB_REPOSITORY_OWNER}/cs3219-matching-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "WEB=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "API=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "QUESTION=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "USER=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "MATCHING=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT

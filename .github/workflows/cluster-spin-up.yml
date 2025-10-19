@@ -185,10 +185,14 @@ jobs:
             echo "ℹ️ No backup bucket found, skipping restore"
           fi
 
+      - name: Set lowercase repository owner
+        id: repo
+        run: echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
       - name: Deploy Application Services
         env:
           SHA: latest
-          OWNER: ${{ github.repository_owner }}
+          OWNER: ${{ steps.repo.outputs.owner_lc }}
         run: |
           echo "📦 Deploying application services..."
           
