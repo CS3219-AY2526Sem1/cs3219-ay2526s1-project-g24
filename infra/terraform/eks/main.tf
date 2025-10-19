@@ -120,11 +120,48 @@ resource "aws_iam_role_policy_attachment" "gha_attach" {
   policy_arn = aws_iam_policy.gha_perm.arn
 }
 
-# Grant full permissions for Terraform to provision infrastructure
-# In production, restrict this to specific resources
-resource "aws_iam_role_policy_attachment" "gha_admin_attach" {
+# Grant least-privileged permissions for GitHub Actions deployer role
+data "aws_iam_policy_document" "gha_least_priv" {
+  statement {
+    actions = [
+      "eks:DescribeCluster",
+      "eks:ListClusters",
+      "eks:UpdateClusterConfig",
+      "eks:UpdateClusterVersion",
+      "eks:AccessKubernetesApi"
+    ]
+    resources = ["*"]
+  }
+  statement {
+    actions = [
+      "ecr:GetAuthorizationToken",
+      "ecr:BatchCheckLayerAvailability",
+      "ecr:GetDownloadUrlForLayer",
+      "ecr:PutImage",
+      "ecr:InitiateLayerUpload",
+      "ecr:UploadLayerPart",
+      "ecr:CompleteLayerUpload"
+    ]
+    resources = ["*"]
+  }
+  statement {
+    actions = [
+      "iam:PassRole"
+    ]
+    resources = [
+      aws_iam_role.gha_deployer.arn,
+      module.eks.eks_managed_node_groups["ng"].iam_role_arn,
+      aws_iam_role.karpenter_node.arn
+    ]
+  }
+}
+resource "aws_iam_policy" "gha_least_priv" {
+  name   = "${var.cluster_name}-gha-least-priv"
+  policy = data.aws_iam_policy_document.gha_least_priv.json
+}
+resource "aws_iam_role_policy_attachment" "gha_least_priv_attach" {
   role       = aws_iam_role.gha_deployer.name
-  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+  policy_arn = aws_iam_policy.gha_least_priv.arn
 }
 
 # Map the GH role as admin, including node roles
