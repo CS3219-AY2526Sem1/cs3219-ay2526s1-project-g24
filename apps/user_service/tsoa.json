@@ -8,7 +8,7 @@
     "securityDefinitions": {
       "jwt": {
         "type": "apiKey",
-        "name": "auth_token",
+        "name": "access_token",
         "in": "cookie"
       }
     }

@@ -37,7 +37,13 @@ The User Service is a central component responsible for user authentication, aut
 2.  **User Provisioning:**
     - If the user is new, a new record is created in the database, and they are assigned the default `user` role.
     - If the user exists, their profile information is retrieved.
-3.  **JWT Generation:** A JWT is generated and signed using an RSA private key (RS256). This token contains the following payload:
+3.  **Token Generation:** Two tokens are generated and sent to the client as secure, `HttpOnly` cookies:
+    -   **Access Token:** A short-lived JWT (15 minutes) that grants access to protected resources. It is stored in an `access_token` cookie.
+    -   **Refresh Token:** A long-lived token (14 days) used to obtain a new access token without requiring the user to log in again. It is stored in a `refresh_token` cookie.
+
+    Both cookies are configured with `HttpOnly`, `SameSite=Strict`, and `Path=/` to enhance security.
+
+4.  **Access Token Payload:** The access token is a JWT signed with an RSA private key (RS256) and contains the following payload:
     ```json
     {
       "userId": "c1a2b3d4-e5f6-...",
@@ -45,12 +51,14 @@ The User Service is a central component responsible for user authentication, aut
       "roles": ["user", "editor"],
       "scopes": ["questions:create", "questions:read", "users:read:self"],
       "iat": 1678886400,
-      "exp": 1679491200
+      "exp": 1678887300
     }
     ```
     - `userId`: The unique identifier for the user.
     - `roles`: An array of role names assigned to the user.
-    - `scopes`: A consolidated list of all permissions (scopes) granted by the user's roles. This is used by downstream services for authorization checks.
+    - `scopes`: A consolidated list of all permissions (scopes) granted by the user's roles.
+
+5.  **Token Refresh:** When the access token expires, the client can send the refresh token to the `/v1/auth/refresh` endpoint to get a new access token.
 
 ### JWT Claims and Scope Generation
 
@@ -109,7 +117,7 @@ This service exposes a public JWKS (JSON Web Key Set) endpoint at `/.well-known/
 | `GET`  | `/google/url`        | None       | Get the URL to redirect the user to for Google authentication.              |
 | `GET`  | `/google/callback`   | None       | The callback endpoint for Google to redirect to after authentication.       |
 | `POST` | `/logout`            | None       | Clears the authentication cookie.                                           |
-| `POST` | `/refresh`           | `jwt`      | Refreshes the authentication token.                                         |
+| `POST` | `/refresh`           | None       | Refreshes the authentication token.                                         |
 | `GET`  | `/session`           | `jwt`      | Retrieves the session information for the currently authenticated user.     |
 
 ### User Profile (`/v1/users`)

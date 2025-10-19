@@ -1,3 +1,5 @@
+import * as jose from "jose";
+import { config } from "../config";
 import {
   Controller,
   Get,
@@ -14,7 +16,7 @@ import { AuthResponse } from "../models/auth-response.model";
 import {
   getGoogleAuthUrl,
   getGoogleUser,
-  generateJwtToken,
+  generateTokens,
 } from "../services/auth.service";
 import prisma from "../prisma";
 
@@ -29,7 +31,7 @@ export class AuthController extends Controller {
   @Get("google/callback")
   public async handleGoogleCallback(
     @Query() code: string,
-    @Res() res: TsoaResponse<200, AuthResponse, { "Set-Cookie"?: string }>
+    @Res() res: TsoaResponse<200, AuthResponse, { "Set-Cookie"?: string[] }>
   ): Promise<AuthResponse> {
     try {
       const googleUser = await getGoogleUser(code);
@@ -91,13 +93,16 @@ export class AuthController extends Controller {
         });
       }
 
-      const accessToken = await generateJwtToken(user);
+      const { accessToken, refreshToken } = await generateTokens(user);
 
       res(
         200,
         { accessToken },
         {
-          "Set-Cookie": `auth_token=${accessToken}; HttpOnly; Path=/; Max-Age=604800`,
+          "Set-Cookie": [
+            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=900`,
+            `refresh_token=${refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600`,
+          ],
         }
       );
       return { accessToken };
@@ -114,33 +119,76 @@ export class AuthController extends Controller {
   @Post("logout")
   public async logout(
     @Res()
-    res: TsoaResponse<200, { message: string }, { "Set-Cookie"?: string }>
+    res: TsoaResponse<200, { message: string }, { "Set-Cookie"?: string[] }>
   ) {
     res(
       200,
       { message: "Logged out successfully" },
-      { "Set-Cookie": "auth_token=; HttpOnly; Path=/; Max-Age=0" }
+      {
+        "Set-Cookie": [
+          `access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`,
+          `refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`,
+        ],
+      }
     );
   }
 
-  @Security("jwt")
   @Post("refresh")
   public async refresh(
-    @Request() req: { user: any },
+    @Request() req: any,
     @Res() res: TsoaResponse<200, AuthResponse, { "Set-Cookie"?: string }>
   ): Promise<AuthResponse> {
-    const user = req.user;
+    const refreshToken = req.cookies.refresh_token;
 
-    const accessToken = await generateJwtToken(user);
+    if (!refreshToken) {
+      this.setStatus(401);
+      return { accessToken: "" };
+    }
 
-    res(
-      200,
-      { accessToken },
-      {
-        "Set-Cookie": `auth_token=${accessToken}; HttpOnly; Path=/; Max-Age=604800`,
+    try {
+      const JWKS = jose.createRemoteJWKSet(new URL(config.jwt.jwksUri));
+      const { payload } = await jose.jwtVerify(refreshToken, JWKS, {
+        algorithms: ["RS256"],
+      });
+
+      const user = await prisma.user.findUnique({
+        where: { id: payload.userId as string },
+        include: {
+          roles: {
+            include: {
+              role: {
+                include: {
+                  permissions: {
+                    include: {
+                      permission: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        this.setStatus(401);
+        return { accessToken: "" };
       }
-    );
-    return { accessToken };
+
+      const { accessToken } = await generateTokens(user);
+
+      res(
+        200,
+        { accessToken },
+        {
+          "Set-Cookie": `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=900`,
+        }
+      );
+      return { accessToken };
+    } catch (error) {
+      this.setStatus(401);
+      return { accessToken: "" };
+    }
   }
 
   @Security("jwt")

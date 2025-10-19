@@ -11,10 +11,10 @@ interface JwksResponse {
 export class JwksController extends Controller {
   @Get('jwks.json')
   public async getJwks() {
-    // Import the private key
-    const privateKey = await jose.importPKCS8(config.jwt.privateKey, 'RS256');
-    // Export the public JWK from the private key
-    const jwk = await jose.exportJWK(privateKey);
+    // Import the public key
+    const publicKey = await jose.importSPKI(config.jwt.publicKey, 'RS256');
+    // Export the public JWK from the public key
+    const jwk = await jose.exportJWK(publicKey);
     return {
       keys: [
         {

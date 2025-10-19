@@ -1,15 +1,14 @@
 import { google } from "googleapis";
 import { config } from "../config";
 import axios from "axios";
-import prisma from '../prisma';
-import type { User } from '@prisma/client';
-import * as jose from 'jose';
-
+import prisma from "../prisma";
+import type { User } from "@prisma/client";
+import * as jose from "jose";
 
 const oauth2Client = new google.auth.OAuth2(
   config.google.clientId,
   config.google.clientSecret,
-  config.google.redirectUri,
+  config.google.redirectUri
 );
 
 export const getGoogleAuthUrl = () => {
@@ -38,7 +37,7 @@ export const getGoogleUser = async (code: string) => {
       headers: {
         Authorization: `Bearer ${tokens.access_token}`,
       },
-    },
+    }
   );
 
   return data;
@@ -46,7 +45,7 @@ export const getGoogleUser = async (code: string) => {
 
 export const hasRole = async (
   userId: string,
-  roles: string[],
+  roles: string[]
 ): Promise<boolean> => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -67,15 +66,17 @@ export const hasRole = async (
   return roles.some((role) => userRoles.includes(role));
 };
 
-export const generateJwtToken = async (user: User & { roles: any[] }) => {
+export const generateTokens = async (user: User & { roles: any[] }) => {
   const roles = user.roles.map((userRole: any) => userRole.role.name);
   const permissions = user.roles.flatMap((userRole: any) =>
-    userRole.role.permissions.map((rolePermission: any) => rolePermission.permission.name)
+    userRole.role.permissions.map(
+      (rolePermission: any) => rolePermission.permission.name
+    )
   );
   const scopes = [...new Set(permissions)]; // Remove duplicates
 
   // We sign the JWT with the private key (This should be the most recently rotated key)
-  const privateKey = await jose.importPKCS8(config.jwt.privateKey, 'RS256');
+  const privateKey = await jose.importPKCS8(config.jwt.privateKey, "RS256");
 
   const accessToken = await new jose.SignJWT({
     userId: user.id,
@@ -83,10 +84,18 @@ export const generateJwtToken = async (user: User & { roles: any[] }) => {
     roles,
     scopes,
   })
-    .setProtectedHeader({ alg: 'RS256', kid: '1' })
+    .setProtectedHeader({ alg: "RS256", kid: "1" })
     .setIssuedAt()
-    .setExpirationTime('7d')
+    .setExpirationTime("15m")
     .sign(privateKey);
 
-  return accessToken;
+  const refreshToken = await new jose.SignJWT({
+    userId: user.id,
+  })
+    .setProtectedHeader({ alg: "RS256", kid: "1" })
+    .setIssuedAt()
+    .setExpirationTime("14d")
+    .sign(privateKey);
+
+  return { accessToken, refreshToken };
 };

@@ -6,6 +6,7 @@ export const config = {
   },
   jwt: {
     privateKey: process.env.RSA_PRIVATE_KEY || '',
+    publicKey: process.env.RSA_PUBLIC_KEY || '',
     jwksUri: process.env.JWKS_URI || 'http://localhost:8001/.well-known/jwks.json',
   },
 };
