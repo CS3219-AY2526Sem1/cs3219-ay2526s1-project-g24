@@ -16,7 +16,11 @@ class TestQuestionModel:
             description="Test description",
             difficulty=DifficultyEnum.EASY,
             code_templates={"python": "def solution():\n    pass"},
-            function_signature={"function_name": "solution"},
+            function_signature={
+                "function_name": "solution",
+                "arguments": [],
+                "return_type": "void"
+            },
         )
         db.add(question)
         db.commit()
@@ -280,7 +284,11 @@ class TestModelRelationships:
             description="Has all relationships",
             difficulty=DifficultyEnum.MEDIUM,
             code_templates={"python": "def solution(): pass"},
-            function_signature={"function_name": "solution"},
+            function_signature={
+                "function_name": "solution",
+                "arguments": [],
+                "return_type": "void"
+            },
         )
         question.topics = [sample_topics[0], sample_topics[1]]
         question.companies = [sample_companies[0]]

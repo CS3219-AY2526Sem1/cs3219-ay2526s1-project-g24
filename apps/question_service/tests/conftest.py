@@ -120,7 +120,7 @@ def sample_question(db, sample_topics, sample_companies):
         },
         function_signature={
             "function_name": "twoSum",
-            "params": [{"name": "nums", "type": "int[]"}, {"name": "target", "type": "int"}],
+            "arguments": [{"name": "nums", "type": "int[]"}, {"name": "target", "type": "int"}],
             "return_type": "int[]",
         },
         constraints="2 <= nums.length <= 10^4",
@@ -180,7 +180,11 @@ def sample_questions(db, sample_topics, sample_companies):
             description="Reverse a singly linked list",
             difficulty=DifficultyEnum.EASY,
             code_templates={"python": "def reverseList(head):\n    pass"},
-            function_signature={"function_name": "reverseList"},
+            function_signature={
+                "function_name": "reverseList",
+                "arguments": [{"name": "head", "type": "ListNode"}],
+                "return_type": "ListNode"
+            },
             acceptance_rate=70,
             total_submissions=500,
             total_accepted=350,
@@ -190,7 +194,11 @@ def sample_questions(db, sample_topics, sample_companies):
             description="Find the longest substring without repeating characters",
             difficulty=DifficultyEnum.MEDIUM,
             code_templates={"python": "def lengthOfLongestSubstring(s):\n    pass"},
-            function_signature={"function_name": "lengthOfLongestSubstring"},
+            function_signature={
+                "function_name": "lengthOfLongestSubstring",
+                "arguments": [{"name": "s", "type": "string"}],
+                "return_type": "int"
+            },
             acceptance_rate=35,
             total_submissions=2000,
             total_accepted=700,
@@ -200,7 +208,11 @@ def sample_questions(db, sample_topics, sample_companies):
             description="Find the median of two sorted arrays",
             difficulty=DifficultyEnum.HARD,
             code_templates={"python": "def findMedianSortedArrays(nums1, nums2):\n    pass"},
-            function_signature={"function_name": "findMedianSortedArrays"},
+            function_signature={
+                "function_name": "findMedianSortedArrays",
+                "arguments": [{"name": "nums1", "type": "int[]"}, {"name": "nums2", "type": "int[]"}],
+                "return_type": "double"
+            },
             acceptance_rate=30,
             total_submissions=1000,
             total_accepted=300,
@@ -212,6 +224,21 @@ def sample_questions(db, sample_topics, sample_companies):
         q.companies = [sample_companies[i % len(sample_companies)]]
         db.add(q)
 
+    db.commit()
+    for q in questions:
+        db.refresh(q)
+    
+    # Add at least one test case to each question for submission tests
+    for q in questions:
+        test_case = TestCase(
+            question_id=q.id,
+            input_data={"test": 1},
+            expected_output=1,
+            visibility=TestCaseVisibilityEnum.SAMPLE,
+            order_index=0,
+        )
+        db.add(test_case)
+    
     db.commit()
     for q in questions:
         db.refresh(q)
@@ -234,3 +261,50 @@ def sample_user_attempt(db, sample_question):
     db.commit()
     db.refresh(attempt)
     return attempt
+
+
+@pytest.fixture(autouse=True)
+def mock_code_execution_client(monkeypatch):
+    """Mock the code execution service client for all tests"""
+    from unittest.mock import AsyncMock, MagicMock
+    
+    async def mock_execute_code(*args, **kwargs):
+        """Mock successful code execution"""
+        # Get test_cases from kwargs to build proper response
+        test_cases = kwargs.get('test_cases', [])
+        
+        # Build results based on the test cases passed in
+        # The router expects to use order_index as array index: test_cases[result["order_index"]]
+        # So we need to return order_index values that match array positions (0, 1, 2...)
+        results = []
+        for array_idx, tc in enumerate(test_cases):
+            results.append({
+                "order_index": array_idx,  # Use enumerate index for array lookup
+                "input_data": tc.get("input_data", {}),
+                "expected_output": tc.get("expected_output"),
+                "actual_output": tc.get("expected_output"),  # Mock returns expected output
+                "passed": True,
+                "runtime_ms": 45.0 + array_idx,
+                "memory_kb": 12500.0 + (array_idx * 100),
+                "error_message": None
+            })
+        
+        return {
+        "passed_test_cases": len(results),
+        "total_test_cases": len(results),
+        "overall_passed": True,
+        "results": results,
+        "avg_runtime_ms": 46,
+        "avg_memory_kb": 12550.0,
+        "compilation_error": None
+    }
+        return result
+    
+    # Create a mock client object with execute_code method
+    mock_client = MagicMock()
+    mock_client.execute_code = AsyncMock(side_effect=mock_execute_code)
+    
+    # Patch the code_execution_client in the router module
+    monkeypatch.setattr("app.questions.router.code_execution_client", mock_client)
+    
+    return mock_execute_code

@@ -97,8 +97,14 @@ class QuestionBase(BaseModel):
     function_signature: Dict[str, Any]  # Stored as JSON, validated as FunctionSignature structure
     constraints: Optional[str] = None
     hints: Optional[List[str]] = None
-    time_limit: int = Field(5, ge=1, le=30, description="Time limit in seconds")
-    memory_limit: int = Field(128000, ge=32000, le=512000, description="Memory limit in KB")
+    time_limit: Dict[str, int] = Field(
+        default={"python": 5, "javascript": 5, "java": 10, "cpp": 3},
+        description="Time limit in seconds per language"
+    )
+    memory_limit: Dict[str, int] = Field(
+        default={"python": 64000, "javascript": 64000, "java": 128000, "cpp": 32000},
+        description="Memory limit in KB per language"
+    )
     
     @validator('function_signature')
     def validate_function_signature(cls, v):
@@ -131,10 +137,8 @@ class QuestionUpdate(BaseModel):
     code_templates: Optional[Dict[str, str]] = None
     constraints: Optional[str] = None
     hints: Optional[List[str]] = None
-    time_limit: Optional[int] = Field(None, ge=1, le=30, description="Time limit in seconds")
-    memory_limit: Optional[int] = Field(
-        None, ge=32000, le=512000, description="Memory limit in KB"
-    )
+    time_limit: Optional[Dict[str, int]] = Field(None, description="Time limit in seconds per language")
+    memory_limit: Optional[Dict[str, int]] = Field(None, description="Memory limit in KB per language")
     topic_ids: Optional[List[int]] = None
     company_ids: Optional[List[int]] = None
 

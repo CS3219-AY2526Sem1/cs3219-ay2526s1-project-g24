@@ -119,7 +119,11 @@ class TestQuestionEndpoints:
             "description": "Test description",
             "difficulty": "easy",
             "code_templates": {"python": "def solution():\n    pass"},
-            "function_signature": {"function_name": "solution"},
+            "function_signature": {
+                "function_name": "solution",
+                "arguments": [],
+                "return_type": "void"
+            },
             "topic_ids": [sample_topics[0].id],
             "company_ids": [sample_companies[0].id],
             "test_cases": [
@@ -330,7 +334,8 @@ class TestCodeExecutionEndpoints:
 
         response = client.post(f"/api/questions/{sample_question.id}/run", json=run_data)
 
-        assert response.status_code == 200
+        # If it fails, the error detail will be in the assertion message
+        assert response.status_code == 200, f"Error: {response.text}"
         data = response.json()
         assert "results" in data
         assert "total_test_cases" in data
