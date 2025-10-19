@@ -3,8 +3,12 @@ name: Build and Push to GHCR
 on:
   push:
     branches:
-      - main
-      - setup-infra
+      - master
+      - dev
+  pull_request:
+    branches:
+      - master
+      - dev
   workflow_dispatch: {}
 
 permissions:
@@ -41,7 +45,7 @@ jobs:
         with:
           context: .
           file: ./apps/web/Dockerfile
-          push: true
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
           tags: |
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:latest
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:${{ github.sha }}
@@ -51,7 +55,7 @@ jobs:
         with:
           context: .
           file: ./apps/api/Dockerfile
-          push: true
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
           tags: |
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:latest
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:${{ github.sha }}
@@ -61,7 +65,7 @@ jobs:
         with:
           context: ./apps/question_service
           file: ./apps/question_service/dockerfile
-          push: true
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
           tags: |
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:latest
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:${{ github.sha }}
