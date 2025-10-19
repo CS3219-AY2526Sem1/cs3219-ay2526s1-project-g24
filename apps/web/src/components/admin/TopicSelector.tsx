@@ -46,9 +46,11 @@ export default function TopicSelector({
                     type="button"
                     onClick={() => toggleTopic(topic)}
                     className={`px-4 py-2 font-montserrat text-xs rounded-full transition-colors ${selectedTopics.includes(topic)
-                            ? "bg-[#DCC8FE] text-black"
-                            : "bg-white text-gray-500 hover:bg-gray-200"
+                        ? "bg-[#DCC8FE] text-black"
+                        : "bg-white text-gray-500 hover:bg-gray-200"
                         }`}
+                    aria-pressed={selectedTopics.includes(topic)}
+                    aria-label={`Toggle topic ${topic}`}
                 >
                     {topic}
                 </button>
