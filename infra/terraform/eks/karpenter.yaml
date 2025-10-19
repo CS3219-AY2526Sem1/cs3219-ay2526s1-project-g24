@@ -30,6 +30,9 @@ spec:
         operator: In
         # prioritize spots instances of any of these before fallback on on-demand instances
         values: ["t4g.medium","t4g.large","t3a.medium"] 
+      - key: "kubernetes.io/arch"
+        operator: In
+        values: ["amd64"]
   limits:
     # Limited at 2 nodes
     cpu: "4"
