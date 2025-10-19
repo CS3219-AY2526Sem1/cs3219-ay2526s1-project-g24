@@ -24,7 +24,6 @@ export default function Onboarding() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
-        console.log({ fullName, codingLanguage, proficiency });
         router.push('/home');
     };
 
