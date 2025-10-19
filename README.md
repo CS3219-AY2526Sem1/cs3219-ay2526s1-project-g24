@@ -3,7 +3,7 @@
 ## Group: Gxx
 ---
 ## Overview
-PeerPrep is a technical interview preparation and peer-matching platform where users can practice coding interview questions together in real time.  
+PeerPrep is a technical interview preparation and peer-matching platform where users can practice coding interview questions together in real time.
 It is built using a **microservices architecture**, where each service runs independently and communicates through internal APIs.
 ---
 ## Architecture
