@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.code_execution_client import code_execution_client
 from app.core.database import get_db
 from app.questions import crud, models, schemas
+from app.questions.data_structure_utils import prepend_data_structure_comments
 
 router = APIRouter(prefix="/questions", tags=["Questions"])
 
@@ -590,12 +591,18 @@ def _build_question_detail(db: Session, question: models.Question, user_id: Opti
             is_solved = attempt.is_solved
             user_attempts_count = attempt.attempts_count
     
+    # Prepend data structure definitions to code templates
+    code_templates_with_comments = prepend_data_structure_comments(
+        question.code_templates,
+        question.function_signature
+    )
+    
     return schemas.QuestionDetail(
         id=question.id,
         title=question.title,
         description=question.description,
         difficulty=schemas.DifficultyEnum(question.difficulty.value),
-        code_templates=question.code_templates,
+        code_templates=code_templates_with_comments,
         function_signature=question.function_signature,
         constraints=question.constraints,
         hints=question.hints,

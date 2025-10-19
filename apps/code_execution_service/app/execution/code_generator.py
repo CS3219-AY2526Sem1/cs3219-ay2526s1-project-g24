@@ -940,6 +940,173 @@ int main() {{
         # Return empty source_code since code is in additional_files
         return "", stdin_data, additional_files_b64
     
+    def get_helper_definitions(
+        self,
+        language: LanguageEnum,
+        function_signature: Dict[str, Any]
+    ) -> str:
+        """
+        Generate commented helper class definitions (like LeetCode) that show users
+        what data structures are available for use.
+        
+        Returns empty string if no helper classes are needed.
+        """
+        arguments = function_signature.get("arguments", [])
+        return_type = function_signature.get("return_type", "")
+        
+        # Check if we need ListNode or TreeNode
+        needs_listnode = (
+            any(arg.get("type") == "ListNode" for arg in arguments) or
+            return_type == "ListNode"
+        )
+        needs_treenode = (
+            any(arg.get("type") == "TreeNode" for arg in arguments) or
+            return_type == "TreeNode"
+        )
+        
+        if not needs_listnode and not needs_treenode:
+            return ""
+        
+        if language == LanguageEnum.PYTHON:
+            return self._get_python_helper_definitions(needs_listnode, needs_treenode)
+        elif language == LanguageEnum.JAVASCRIPT:
+            return self._get_javascript_helper_definitions(needs_listnode, needs_treenode)
+        elif language == LanguageEnum.JAVA:
+            return self._get_java_helper_definitions(needs_listnode, needs_treenode)
+        elif language == LanguageEnum.CPP:
+            return self._get_cpp_helper_definitions(needs_listnode, needs_treenode)
+        else:
+            raise ValueError(f"Unsupported language: {language}")
+    
+    def _get_python_helper_definitions(self, needs_listnode: bool, needs_treenode: bool) -> str:
+        """Generate Python helper class definitions as comments"""
+        definitions = []
+        
+        if needs_listnode:
+            definitions.append(
+                "# Definition for singly-linked list.\n"
+                "# class ListNode:\n"
+                "#     def __init__(self, val=0, next=None):\n"
+                "#         self.val = val\n"
+                "#         self.next = next"
+            )
+        
+        if needs_treenode:
+            definitions.append(
+                "# Definition for a binary tree node.\n"
+                "# class TreeNode:\n"
+                "#     def __init__(self, val=0, left=None, right=None):\n"
+                "#         self.val = val\n"
+                "#         self.left = left\n"
+                "#         self.right = right"
+            )
+        
+        return "\n".join(definitions)
+    
+    def _get_javascript_helper_definitions(self, needs_listnode: bool, needs_treenode: bool) -> str:
+        """Generate JavaScript helper class definitions as comments"""
+        definitions = []
+        
+        if needs_listnode:
+            definitions.append(
+                "/**\n"
+                " * Definition for singly-linked list.\n"
+                " * function ListNode(val, next) {\n"
+                " *     this.val = (val===undefined ? 0 : val)\n"
+                " *     this.next = (next===undefined ? null : next)\n"
+                " * }\n"
+                " */"
+            )
+        
+        if needs_treenode:
+            definitions.append(
+                "/**\n"
+                " * Definition for a binary tree node.\n"
+                " * function TreeNode(val, left, right) {\n"
+                " *     this.val = (val===undefined ? 0 : val)\n"
+                " *     this.left = (left===undefined ? null : left)\n"
+                " *     this.right = (right===undefined ? null : right)\n"
+                " * }\n"
+                " */"
+            )
+        
+        return "\n".join(definitions)
+    
+    def _get_java_helper_definitions(self, needs_listnode: bool, needs_treenode: bool) -> str:
+        """Generate Java helper class definitions as comments"""
+        definitions = []
+        
+        if needs_listnode:
+            definitions.append(
+                "/**\n"
+                " * Definition for singly-linked list.\n"
+                " * public class ListNode {\n"
+                " *     int val;\n"
+                " *     ListNode next;\n"
+                " *     ListNode() {}\n"
+                " *     ListNode(int val) { this.val = val; }\n"
+                " *     ListNode(int val, ListNode next) { this.val = val; this.next = next; }\n"
+                " * }\n"
+                " */"
+            )
+        
+        if needs_treenode:
+            definitions.append(
+                "/**\n"
+                " * Definition for a binary tree node.\n"
+                " * public class TreeNode {\n"
+                " *     int val;\n"
+                " *     TreeNode left;\n"
+                " *     TreeNode right;\n"
+                " *     TreeNode() {}\n"
+                " *     TreeNode(int val) { this.val = val; }\n"
+                " *     TreeNode(int val, TreeNode left, TreeNode right) {\n"
+                " *         this.val = val;\n"
+                " *         this.left = left;\n"
+                " *         this.right = right;\n"
+                " *     }\n"
+                " * }\n"
+                " */"
+            )
+        
+        return "\n".join(definitions)
+    
+    def _get_cpp_helper_definitions(self, needs_listnode: bool, needs_treenode: bool) -> str:
+        """Generate C++ helper class definitions as comments"""
+        definitions = []
+        
+        if needs_listnode:
+            definitions.append(
+                "/**\n"
+                " * Definition for singly-linked list.\n"
+                " * struct ListNode {\n"
+                " *     int val;\n"
+                " *     ListNode *next;\n"
+                " *     ListNode() : val(0), next(nullptr) {}\n"
+                " *     ListNode(int x) : val(x), next(nullptr) {}\n"
+                " *     ListNode(int x, ListNode *next) : val(x), next(next) {}\n"
+                " * };\n"
+                " */"
+            )
+        
+        if needs_treenode:
+            definitions.append(
+                "/**\n"
+                " * Definition for a binary tree node.\n"
+                " * struct TreeNode {\n"
+                " *     int val;\n"
+                " *     TreeNode *left;\n"
+                " *     TreeNode *right;\n"
+                " *     TreeNode() : val(0), left(nullptr), right(nullptr) {}\n"
+                " *     TreeNode(int x) : val(x), left(nullptr), right(nullptr) {}\n"
+                " *     TreeNode(int x, TreeNode *left, TreeNode *right) :\n"
+                " *         val(x), left(left), right(right) {}\n"
+                " * };\n"
+                " */"
+            )
+        
+        return "\n".join(definitions)
+    
     def get_template_code(
         self,
         language: LanguageEnum,
@@ -973,10 +1140,12 @@ int main() {{
             params.append(f"{arg_name}: {arg_type_hint}")
         
         params_str = ", ".join(params)
-        return_type = TYPE_MAPPINGS.get(function_signature["return_type"], {}).get("python", function_signature["return_type"])
+        return_type_hint = TYPE_MAPPINGS.get(
+            function_signature["return_type"], {}
+        ).get("python", function_signature["return_type"])
         
         return f'''class Solution:
-    def {function_name}(self, {params_str}) -> {return_type}:
+    def {function_name}(self, {params_str}) -> {return_type_hint}:
         '''
     
     def _get_javascript_template(self, function_signature: Dict[str, Any]) -> str:
