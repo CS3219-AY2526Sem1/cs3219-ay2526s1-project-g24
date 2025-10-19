@@ -78,6 +78,12 @@ jobs:
             --policy-name AWSLoadBalancerControllerIAMPolicy \
             --policy-document file:///tmp/iam-policy.json 2>/dev/null || echo "Policy already exists"
           
+          # Install eksctl
+          echo "📦 Installing eksctl..."
+          curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+          sudo mv /tmp/eksctl /usr/local/bin
+          eksctl version
+          
           # Create service account with IRSA
           eksctl create iamserviceaccount \
             --cluster=cs3219-eks \

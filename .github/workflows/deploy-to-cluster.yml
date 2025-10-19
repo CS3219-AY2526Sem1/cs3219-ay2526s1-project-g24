@@ -37,6 +37,15 @@ jobs:
         run: |
           echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
 
+      - name: Create imagePullSecret for GHCR in cluster
+        run: |
+          kubectl create secret docker-registry ghcr-pull-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GITHUB_TOKEN }} \
+            --namespace=cs3219 \
+            --dry-run=client -o yaml | kubectl apply -f -
+
       - name: Deploy manifests (namespace, config, dbs, etc.)
         run: |
           kubectl apply -f infra/k8s/namespace.yaml
@@ -79,6 +88,19 @@ jobs:
           kubectl apply -f infra/k8s/matching-service.yaml
           kubectl apply -f infra/k8s/api.yaml
           kubectl apply -f infra/k8s/web.yaml
+
+      - name: Update deployments to GHCR images (post-apply)
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+          OWNER: ${{ steps.repo.outputs.owner_lc }}
+        run: |
+          echo "Updating deployments to images with SHA=${SHA} (post-apply)"
+          
+          # Update or create deployments
+          for service in web api question-service user-service matching-service; do
+            echo "Setting image for $service"
+            kubectl set image deployment/${service} ${service}=ghcr.io/${OWNER}/cs3219-${service}:${SHA} -n cs3219 --record || true
+          done
 
       - name: Apply HPA and ingress
         run: |

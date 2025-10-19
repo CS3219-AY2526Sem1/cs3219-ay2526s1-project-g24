@@ -16,9 +16,9 @@ module "vpc" {
 
   name = "${var.cluster_name}-vpc"
   cidr = "10.42.0.0/16"
-  azs = ["${var.aws_region}a"]
+  azs = ["${var.aws_region}a", "${var.aws_region}b"]
 
-  public_subnets = ["10.42.0.0/20"]
+  public_subnets = ["10.42.0.0/20", "10.42.16.0/20"]
   enable_nat_gateway = false
   map_public_ip_on_launch = true
 
@@ -75,7 +75,10 @@ provider "kubernetes" {
 resource "aws_iam_openid_connect_provider" "github" {
   url = "https://token.actions.githubusercontent.com"
   client_id_list = ["sts.amazonaws.com"]
-  thumbprint_list = ["6938fd4d98bab03faadb97b34396831e3780aea1"]
+  thumbprint_list = [
+    "6938fd4d98bab03faadb97b34396831e3780aea1",
+    "9e99a48a9960b14926bb7f3b02e22da2b0ab7280"
+  ]
 }
 
 data "aws_iam_policy_document" "gha_assume" {
@@ -88,7 +91,11 @@ data "aws_iam_policy_document" "gha_assume" {
     condition {
       test = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values = ["repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/main"]
+      values = [
+        "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/main",
+        "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/master",
+        "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/dev"
+      ]
     }
   }
 }
@@ -121,31 +128,36 @@ resource "aws_iam_role_policy_attachment" "gha_admin_attach" {
 }
 
 # Map the GH role as admin, including node roles
-resource "kubernetes_config_map_v1" "aws_auth" {
+# Note: Using separate ConfigMap instead of EKS module's aws-auth management
+# to maintain explicit control over IAM role mappings
+resource "kubernetes_config_map_v1_data" "aws_auth" {
   metadata {
     name = "aws-auth"
     namespace = "kube-system"
   }
+  force = true
+  
   data = {
-    mapRoles = yamlencode([
-      {
+    mapRoles = yamlencode(concat(
+      # GitHub Actions deployer role
+      [{
         rolearn = aws_iam_role.gha_deployer.arn,
         username = "gha-deployer",
         groups = ["system:masters"]
-      },
+      }],
       # EKS managed node group role
-      {
+      [{
         rolearn = module.eks.eks_managed_node_groups["ng"].iam_role_arn,
         username = "system:node:{{EC2PrivateDNSName}}",
         groups = ["system:bootstrappers", "system:nodes"]
-      },
+      }],
       # Karpenter node role
-      {
+      [{
         rolearn = aws_iam_role.karpenter_node.arn,
         username = "system:node:{{EC2PrivateDNSName}}",
         groups = ["system:bootstrappers", "system:nodes"]
-      }
-    ])
+      }]
+    ))
   }
   depends_on = [module.eks]
 }
@@ -220,15 +232,6 @@ resource "kubernetes_namespace" "karpenter" {
   }
 }
 
-resource "kubernetes_service_account" "karpenter" {
-  metadata {
-    name = "karpenter"
-    namespace = kubernetes_namespace.karpenter.metadata[0].name
-    annotations = {
-      "eks.amazonaws.com/role-arn" = aws_iam_role.karpenter_controller.arn
-    }
-  }
-}
 resource "helm_release" "karpenter" {
   name = "karpenter"
   chart = "karpenter"
@@ -239,9 +242,15 @@ resource "helm_release" "karpenter" {
   values = [
     yamlencode({
       serviceAccount = {
+        create = false
+        name = "karpenter"
         annotations = {
           "eks.amazonaws.com/role-arn" = aws_iam_role.karpenter_controller.arn
         }
+      }
+      settings = {
+        clusterName = module.eks.cluster_name
+        clusterEndpoint = data.aws_eks_cluster.this.endpoint
       }
     })
   ]
@@ -250,4 +259,14 @@ resource "helm_release" "karpenter" {
     aws_iam_role_policy_attachment.karpenter_controller_attach,
     kubernetes_service_account.karpenter
   ]
+}
+
+resource "kubernetes_service_account" "karpenter" {
+  metadata {
+    name = "karpenter"
+    namespace = kubernetes_namespace.karpenter.metadata[0].name
+    annotations = {
+      "eks.amazonaws.com/role-arn" = aws_iam_role.karpenter_controller.arn
+    }
+  }
 }

@@ -368,7 +368,7 @@ kubectl get pods -n cs3219
 
 That's it — GHCR builds are wired into CI and deploys update the running services automatically with comprehensive health checks.
 
-## �📊 Resource Specifications
+## 📊 Resource Specifications
 
 **Persistent Volumes:**
 - Question DB: 5Gi (gp3)
