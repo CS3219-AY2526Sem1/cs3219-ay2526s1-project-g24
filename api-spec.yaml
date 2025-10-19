@@ -11,8 +11,6 @@ servers:
     description: Matching Service
   - url: http://localhost:8003
     description: Question Service
-  - url: http://localhost:8004
-    description: Admin Service
   - url: http://localhost:8005
     description: Collaboration Service
   - url: http://localhost:8006
@@ -23,11 +21,13 @@ tags:
     description: Google OAuth and session management
   - name: Users
     description: User profile management
+  - name: Users - Admin
+    description: Admin-only user management
   - name: Matching
     description: Peer matching service with SSE
   - name: Questions
     description: Question retrieval (public)
-  - name: Admin
+  - name: Questions - Admin
     description: Admin-only question management
   - name: Collaboration
     description: Real-time collaboration sessions
@@ -566,11 +566,80 @@ paths:
                   type: string
                 example: ["Arrays", "Hash Table", "Strings", "Dynamic Programming", "Binary Search", "DFS", "BFS", "Tree", "Graph", "Sorting"]
 
-  # ========== ADMIN SERVICE ==========
+  # ========== QUESTION SERVICE - ADMIN ENDPOINTS ==========
   /v1/admin/questions:
+    get:
+      tags:
+        - Questions - Admin
+      summary: Get all questions with admin details (Admin)
+      description: Retrieve all questions including soft-deleted ones and additional metadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          description: Search by question title or topic keywords
+          schema:
+            type: string
+        - name: difficulty
+          in: query
+          description: Filter by difficulty level
+          schema:
+            type: string
+            enum: [EASY, MEDIUM, HARD]
+        - name: topics
+          in: query
+          description: Filter by one or more topics
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: includeDeleted
+          in: query
+          description: Include soft-deleted questions
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Number of questions per page
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Questions list with admin metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminQuestionSummary'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
     post:
       tags:
-        - Admin
+        - Questions - Admin
       summary: Create new question (Admin)
       security:
         - bearerAuth: []
@@ -587,11 +656,43 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Question'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '400':
+          description: Invalid input
 
   /v1/admin/questions/{qid}:
+    get:
+      tags:
+        - Questions - Admin
+      summary: Get question by ID with admin details (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Question details with admin metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQuestion'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Question not found
+
     put:
       tags:
-        - Admin
+        - Questions - Admin
       summary: Update question (Admin)
       security:
         - bearerAuth: []
@@ -610,11 +711,20 @@ paths:
       responses:
         '200':
           description: Question updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Question not found
 
-  /v1/questions/admin/{qid}:
     delete:
       tags:
-        - Admin
+        - Questions - Admin
       summary: Delete question (Admin)
       security:
         - bearerAuth: []
@@ -630,15 +740,427 @@ paths:
             type: string
             enum: [soft, hard]
             default: soft
+          description: Soft delete (marks as deleted) or hard delete (permanently removes)
       responses:
         '204':
           description: Question deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Question not found
 
-  /v1/questions/admin/images:presign:
+  /v1/admin/questions/{qid}/restore:
     post:
       tags:
-        - Admin
-      summary: Get presigned URL for question image upload
+        - Questions - Admin
+      summary: Restore soft-deleted question (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Question restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Question not found
+
+  /v1/admin/questions/{qid}/validate:
+    post:
+      tags:
+        - Questions - Admin
+      summary: Validate question test cases (Admin)
+      description: Run test cases through the executor service to verify they work correctly
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                language:
+                  type: string
+                  enum: [python, javascript, java, cpp]
+                  description: Language to validate test cases in
+      responses:
+        '200':
+          description: Validation results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        testCaseIndex:
+                          type: integer
+                        passed:
+                          type: boolean
+                        error:
+                          type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/test-cases:
+    get:
+      tags:
+        - Questions - Admin
+      summary: Get all test cases for a question (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: questionId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Test cases list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestCase'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Questions - Admin
+      summary: Add test case to question (Admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - questionId
+                - input
+                - expectedOutput
+              properties:
+                questionId:
+                  type: string
+                input:
+                  type: string
+                expectedOutput:
+                  type: string
+                isPublic:
+                  type: boolean
+                  default: false
+                  description: Whether users can see this test case (public) or it's hidden
+      responses:
+        '201':
+          description: Test case created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestCase'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/test-cases/{tcid}:
+    put:
+      tags:
+        - Questions - Admin
+      summary: Update test case (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tcid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                input:
+                  type: string
+                expectedOutput:
+                  type: string
+                isPublic:
+                  type: boolean
+      responses:
+        '200':
+          description: Test case updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestCase'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    delete:
+      tags:
+        - Questions - Admin
+      summary: Delete test case (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tcid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Test case deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/topics:
+    get:
+      tags:
+        - Questions - Admin
+      summary: Get all topics with usage stats (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Topics list with usage stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    questionCount:
+                      type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Questions - Admin
+      summary: Create new topic (Admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Topic created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/topics/{topicName}:
+    delete:
+      tags:
+        - Questions - Admin
+      summary: Delete topic (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: topicName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Topic deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ========== USER SERVICE - ADMIN ENDPOINTS ==========
+  /v1/admin/users:
+    get:
+      tags:
+        - Users - Admin
+      summary: Get all users (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          description: Search by name or email
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminUserProfile'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/users/{uid}:
+    get:
+      tags:
+        - Users - Admin
+      summary: Get user by ID (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User profile with admin metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserProfile'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    patch:
+      tags:
+        - Users - Admin
+      summary: Update user role (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [USER, ADMIN]
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserProfile'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    delete:
+      tags:
+        - Users - Admin
+      summary: Delete user account (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: User deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/images:presign:
+    post:
+      tags:
+        - Questions - Admin
+      summary: Get presigned URL for image upload (Admin)
       security:
         - bearerAuth: []
       requestBody:
@@ -646,9 +1168,12 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - contentType
               properties:
                 contentType:
                   type: string
+                  example: "image/png"
       responses:
         '200':
           description: Presigned URL generated
@@ -659,8 +1184,51 @@ paths:
                 properties:
                   uploadUrl:
                     type: string
+                    format: uri
                   imageUrl:
                     type: string
+                    format: uri
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/stats:
+    get:
+      tags:
+        - Questions - Admin
+      summary: Get system statistics (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: System statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalUsers:
+                    type: integer
+                  totalQuestions:
+                    type: integer
+                  questionsByDifficulty:
+                    type: object
+                    properties:
+                      EASY:
+                        type: integer
+                      MEDIUM:
+                        type: integer
+                      HARD:
+                        type: integer
+                  totalSessions:
+                    type: integer
+                  activeSessions:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
 
   # ========== COLLABORATION SERVICE ==========
   /v1/sessions:
@@ -1169,6 +1737,79 @@ components:
         executionTime:
           type: number
 
+    TestCase:
+      type: object
+      properties:
+        id:
+          type: string
+        questionId:
+          type: string
+        input:
+          type: string
+        expectedOutput:
+          type: string
+        isPublic:
+          type: boolean
+          description: Whether this test case is visible to users
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AdminQuestionSummary:
+      allOf:
+        - $ref: '#/components/schemas/QuestionSummary'
+        - type: object
+          properties:
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            isDeleted:
+              type: boolean
+            totalTestCases:
+              type: integer
+
+    AdminQuestion:
+      allOf:
+        - $ref: '#/components/schemas/Question'
+        - type: object
+          properties:
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            createdBy:
+              type: string
+              description: User ID of the admin who created this question
+            isDeleted:
+              type: boolean
+
+    AdminUserProfile:
+      allOf:
+        - $ref: '#/components/schemas/UserProfile'
+        - type: object
+          properties:
+            role:
+              type: string
+              enum: [USER, ADMIN]
+            createdAt:
+              type: string
+              format: date-time
+            lastLogin:
+              type: string
+              format: date-time
+            totalSessions:
+              type: integer
+            totalSubmissions:
+              type: integer
+
     Error:
       type: object
       properties:
@@ -1182,6 +1823,13 @@ components:
   responses:
     UnauthorizedError:
       description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ForbiddenError:
+      description: Insufficient permissions (Admin access required)
       content:
         application/json:
           schema:
