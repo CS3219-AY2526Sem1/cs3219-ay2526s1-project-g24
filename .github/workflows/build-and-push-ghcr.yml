@@ -75,7 +75,7 @@ jobs:
         with:
           context: .
           file: ./apps/user_service/Dockerfile
-          push: true
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
           tags: |
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:latest
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:${{ github.sha }}
@@ -85,7 +85,7 @@ jobs:
         with:
           context: .
           file: ./apps/matching-service/Dockerfile
-          push: true
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
           tags: |
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:latest
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:${{ github.sha }}
