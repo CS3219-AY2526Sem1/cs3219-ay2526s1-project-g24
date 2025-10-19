@@ -41,17 +41,17 @@ export default function Landing() {
                             <span className="font-edu-tas text-[#b4b4b4] text-base md:text-lg">#JoinPeerPrep</span>
                         </div>
 
-                        <div className="mb-8 fade-in-up-delayed">
+                        <div className="mb-8 fade-in-up-delayed-1">
                             <h2 className="font-montserrat text-3xl md:text-4xl lg:text-5xl font-medium leading-tight text-white mb-1">
                                 Master coding
                             </h2>
                             <h2 className="font-montserrat text-3xl md:text-4xl lg:text-5xl font-medium leading-tight text-white mb-1">
                                 interview with
                             </h2>
-                            <h2 className="font-montserrat text-3xl md:text-4xl lg:text-5xl font-bold leading-tight text-[#f1fcac] mb-1">
+                            <h2 className="font-montserrat text-3xl md:text-4xl lg:text-5xl font-bold leading-tight text-profile-avatar mb-1">
                                 peer-to-peer
                             </h2>
-                            <h2 className="font-montserrat text-3xl md:text-4xl lg:text-5xl font-bold leading-tight text-[#f1fcac]">
+                            <h2 className="font-montserrat text-3xl md:text-4xl lg:text-5xl font-bold leading-tight text-profile-avatar">
                                 collaboration
                             </h2>
                         </div>

@@ -29,7 +29,7 @@ export default function SignIn() {
                     </div>
                 </div>
             </div>
-
+ 
             <div className="w-full md:w-2/3 bg-[#3d3d3d] flex items-center justify-center relative min-h-screen md:min-h-0">
                 <div className="absolute top-8 left-1/2 transform -translate-x-1/2 z-10">
                     <Link href="/landing">

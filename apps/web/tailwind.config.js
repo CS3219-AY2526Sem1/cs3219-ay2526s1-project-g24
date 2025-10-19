@@ -5,6 +5,7 @@ module.exports = {
 		"./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
 		"./src/components/**/*.{js,ts,jsx,tsx,mdx}",
 		"./src/app/**/*.{js,ts,jsx,tsx,mdx}",
+		"./src/lib/**/*.{js,ts,jsx,tsx}",
 	],
 	theme: {
 		extend: {
@@ -48,7 +49,9 @@ module.exports = {
 					'3': 'hsl(var(--chart-3))',
 					'4': 'hsl(var(--chart-4))',
 					'5': 'hsl(var(--chart-5))'
-				}
+				},
+				'profile-avatar': '#F1FCAC',
+				'profile-avatar-hover': '#e5f099',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
