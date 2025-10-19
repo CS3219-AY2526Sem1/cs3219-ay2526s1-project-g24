@@ -18,7 +18,7 @@ servers:
 
 tags:
   - name: Authentication
-    description: Google OAuth and session management
+    description: Google OAuth and session management + JWKS
   - name: Users
     description: User profile management
   - name: Users - Admin
@@ -38,6 +38,40 @@ tags:
 
 paths:
   # ========== USER SERVICE ==========
+  # User Service: JWKS Endnpoint (Public Token)
+  /.well-known/jwks.json:
+    get:
+      tags:
+        - Authentication
+      summary: Get JWKS public keys (All services need this to verify JWTs)
+      description: Returns the JSON Web Key Set (JWKS) for JWT verification.
+      responses:
+        "200":
+          description: JWKS response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kty:
+                          type: string
+                        alg:
+                          type: string
+                        use:
+                          type: string
+                        kid:
+                          type: string
+                        n:
+                          type: string
+                        e:
+                          type: string
+
+  # User Service: Authentication Endpoints
   /v1/auth/google/url:
     get:
       tags:
@@ -45,7 +79,7 @@ paths:
       summary: Get Google OAuth URL
       description: Returns the Google OAuth authorization URL for login
       responses:
-        '200':
+        "200":
           description: OAuth URL generated
           content:
             application/json:
@@ -61,7 +95,7 @@ paths:
       tags:
         - Authentication
       summary: Google OAuth callback
-      description: Handles the OAuth callback from Google
+      description: Handles the OAuth callback from Google. Sets auth_token cookie and returns accessToken.
       parameters:
         - name: code
           in: query
@@ -73,15 +107,22 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Authentication successful
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/AuthResponse'
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
-
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+          headers:
+            Set-Cookie:
+              description: HttpOnly cookie with JWT access token
+              schema:
+                type: string
+        "500":
+          description: Internal server error
   /v1/auth/refresh:
     post:
       tags:
@@ -89,8 +130,9 @@ paths:
       summary: Refresh access token
       security:
         - bearerAuth: []
+      description: Issues a new JWT and sets auth_token cookie.
       responses:
-        '200':
+        "200":
           description: Token refreshed
           content:
             application/json:
@@ -99,18 +141,33 @@ paths:
                 properties:
                   accessToken:
                     type: string
+          headers:
+            Set-Cookie:
+              description: HttpOnly cookie with new JWT access token
+              schema:
+                type: string
 
   /v1/auth/logout:
     post:
       tags:
         - Authentication
       summary: Logout user
-      security:
-        - bearerAuth: []
+      description: Clears the auth_token cookie.
       responses:
-        '200':
+        "200":
           description: Logout successful
-
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+          headers:
+            Set-Cookie:
+              description: Clears auth_token cookie
+              schema:
+                type: string
   /v1/auth/session:
     get:
       tags:
@@ -118,14 +175,19 @@ paths:
       summary: Get current session
       security:
         - bearerAuth: []
+      description: Returns the current authenticated user object from JWT.
       responses:
-        '200':
+        "200":
           description: Session retrieved
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Session'
+                type: object
+                description: The authenticated user object (same as JWT payload)
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
 
+  # User Service: User Profile Management
   /v1/users/me:
     get:
       tags:
@@ -134,12 +196,14 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '200':
+        "200":
           description: User profile
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserProfile'
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
 
     patch:
       tags:
@@ -153,19 +217,27 @@ paths:
             schema:
               type: object
               properties:
-                fullName:
+                username:
                   type: string
-                language:
+                display_name:
                   type: string
-                proficiency:
+                description:
                   type: string
+                programming_proficiency:
+                  type: string
+                  enum: [beginner, intermediate, advanced]
+                avatar_url:
+                  type: string
+                  format: uri
       responses:
-        '200':
+        "200":
           description: Profile updated
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UserProfile'
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
 
     delete:
       tags:
@@ -174,60 +246,289 @@ paths:
       security:
         - bearerAuth: []
       responses:
-        '204':
+        "204":
           description: User deleted
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
 
-  /v1/users/me/avatar:presign:
-    post:
+  /v1/users/{userId}:
+    get:
       tags:
         - Users
-      summary: Get presigned URL for avatar upload
-      description: Returns a presigned S3 URL for direct file upload
+      summary: Get user profile by ID (Admin)
       security:
         - bearerAuth: []
-      requestBody:
-        content:
-          application/json:
-            schema:
-              type: object
-              properties:
-                contentType:
-                  type: string
-                  example: "image/jpeg"
+      description: Requires scope `users:read`.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
       responses:
-        '200':
-          description: Presigned URL generated
+        "200":
+          description: User profile
           content:
             application/json:
               schema:
-                type: object
-                properties:
-                  uploadUrl:
-                    type: string
-                    format: uri
-                  imageUrl:
-                    type: string
-                    format: uri
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          description: User not found
 
-  /v1/users/me/avatar:
-    put:
+    patch:
       tags:
         - Users
-      summary: Update avatar URL after upload
+      summary: Update user profile by ID (Admin)
       security:
         - bearerAuth: []
+      description: Requires scope `admin:users:edit`.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
       requestBody:
         content:
           application/json:
             schema:
               type: object
               properties:
-                avatarUrl:
+                username:
                   type: string
-                  format: uri
+                display_name:
+                  type: string
+                description:
+                  type: string
+                programming_proficiency:
+                  type: string
+                  enum: [beginner, intermediate, advanced]
       responses:
-        '200':
-          description: Avatar updated
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          description: User not found
+
+    delete:
+      tags:
+        - Users
+      summary: Delete user by ID (Admin)
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:users:delete`.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: User deleted
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          description: User not found
+
+  # User Service: Admin User Management
+
+  /v1/admin/users:
+    get:
+      tags:
+        - Admin
+      summary: Get all users (Admin)
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:users:read`.
+      responses:
+        "200":
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /v1/admin/roles:
+    post:
+      tags:
+        - Admin
+      summary: Create a new role
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:roles:create`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: Role created
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+    get:
+      tags:
+        - Admin
+      summary: Get all roles
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:roles:read`.
+      responses:
+        "200":
+          description: List of roles
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /v1/admin/permissions:
+    post:
+      tags:
+        - Admin
+      summary: Create a new permission
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:permissions:create`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: Permission created
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+    get:
+      tags:
+        - Admin
+      summary: Get all permissions
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:permissions:read`.
+      responses:
+        "200":
+          description: List of permissions
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /v1/admin/users/{userId}/roles:
+    post:
+      tags:
+        - Admin
+      summary: Assign role to user
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:users:edit-roles`.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roleId:
+                  type: integer
+      responses:
+        "200":
+          description: Role assigned
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /v1/admin/users/{userId}/roles/{roleId}:
+    delete:
+      tags:
+        - Admin
+      summary: Remove role from user
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:users:edit-roles`.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Role removed
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /v1/admin/roles/{roleId}/permissions:
+    post:
+      tags:
+        - Admin
+      summary: Grant permission to role
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:roles:edit-permissions`.
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                permissionId:
+                  type: integer
+      responses:
+        "200":
+          description: Permission granted
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /v1/admin/roles/{roleId}/permissions/{permissionId}:
+    delete:
+      tags:
+        - Admin
+      summary: Revoke permission from role
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:roles:edit-permissions`.
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: permissionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Permission revoked
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
 
   # ========== MATCHING SERVICE ==========
   /v1/match/requests:
@@ -259,7 +560,7 @@ paths:
                   items:
                     type: string
       responses:
-        '201':
+        "201":
           description: Match request created
           content:
             application/json:
@@ -283,12 +584,12 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Match request details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/MatchRequest'
+                $ref: "#/components/schemas/MatchRequest"
 
     delete:
       tags:
@@ -303,7 +604,7 @@ paths:
           schema:
             type: string
       responses:
-        '204':
+        "204":
           description: Match request cancelled
 
   /v1/match/requests/{reqId}/extend:
@@ -321,7 +622,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Timeout reset successfully
           content:
             application/json:
@@ -349,7 +650,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: SSE stream
           content:
             text/event-stream:
@@ -403,7 +704,7 @@ paths:
             type: integer
             default: 20
       responses:
-        '200':
+        "200":
           description: Questions list
           content:
             application/json:
@@ -413,7 +714,7 @@ paths:
                   data:
                     type: array
                     items:
-                      $ref: '#/components/schemas/QuestionSummary'
+                      $ref: "#/components/schemas/QuestionSummary"
                   total:
                     type: integer
                   page:
@@ -434,13 +735,13 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Question details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Question'
-        '404':
+                $ref: "#/components/schemas/Question"
+        "404":
           description: Question not found
 
   /v1/questions/{qid}/execute:
@@ -485,16 +786,16 @@ paths:
                       expectedOutput:
                         type: string
       responses:
-        '200':
+        "200":
           description: Code execution completed
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExecutionResult'
-        '400':
+                $ref: "#/components/schemas/ExecutionResult"
+        "400":
           description: Invalid code or language
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
 
   /v1/questions/{qid}/submit:
     post:
@@ -526,7 +827,7 @@ paths:
                   type: string
                   enum: [python, javascript, java, cpp]
       responses:
-        '200':
+        "200":
           description: Submission recorded
           content:
             application/json:
@@ -546,8 +847,8 @@ paths:
                   timestamp:
                     type: string
                     format: date-time
-        '401':
-          $ref: '#/components/responses/UnauthorizedError'
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
 
   /v1/topics:
     get:
@@ -556,7 +857,7 @@ paths:
       summary: Get all available topics
       description: Retrieve list of all question topics for filter dropdown
       responses:
-        '200':
+        "200":
           description: Topics list
           content:
             application/json:
@@ -564,7 +865,19 @@ paths:
                 type: array
                 items:
                   type: string
-                example: ["Arrays", "Hash Table", "Strings", "Dynamic Programming", "Binary Search", "DFS", "BFS", "Tree", "Graph", "Sorting"]
+                example:
+                  [
+                    "Arrays",
+                    "Hash Table",
+                    "Strings",
+                    "Dynamic Programming",
+                    "Binary Search",
+                    "DFS",
+                    "BFS",
+                    "Tree",
+                    "Graph",
+                    "Sorting",
+                  ]
 
   # ========== QUESTION SERVICE - ADMIN ENDPOINTS ==========
   /v1/admin/questions:
@@ -648,9 +961,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/QuestionInput'
+              $ref: "#/components/schemas/QuestionInput"
       responses:
-        '201':
+        "201":
           description: Question created
           content:
             application/json:
@@ -707,9 +1020,9 @@ paths:
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/QuestionInput'
+              $ref: "#/components/schemas/QuestionInput"
       responses:
-        '200':
+        "200":
           description: Question updated
           content:
             application/json:
@@ -742,7 +1055,7 @@ paths:
             default: soft
           description: Soft delete (marks as deleted) or hard delete (permanently removes)
       responses:
-        '204':
+        "204":
           description: Question deleted
         '401':
           $ref: '#/components/responses/UnauthorizedError'
@@ -1175,7 +1488,7 @@ paths:
                   type: string
                   example: "image/png"
       responses:
-        '200':
+        "200":
           description: Presigned URL generated
           content:
             application/json:
@@ -1254,12 +1567,12 @@ paths:
                   items:
                     type: string
       responses:
-        '201':
+        "201":
           description: Session created
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CollabSession'
+                $ref: "#/components/schemas/CollabSession"
 
   /v1/sessions/{sessionId}:
     get:
@@ -1275,12 +1588,12 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Session details
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/CollabSession'
+                $ref: "#/components/schemas/CollabSession"
 
   /v1/sessions/{sessionId}:terminate:
     post:
@@ -1296,7 +1609,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Session terminated
 
   /v1/sessions/{sessionId}:rejoin:
@@ -1313,7 +1626,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Rejoined session
 
   /v1/sessions/{sessionId}/keepalive:
@@ -1331,7 +1644,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Session timeout reset successfully
           content:
             application/json:
@@ -1358,7 +1671,7 @@ paths:
           schema:
             type: string
       responses:
-        '200':
+        "200":
           description: Code snapshot
           content:
             application/json:
@@ -1406,12 +1719,12 @@ paths:
                       expectedOutput:
                         type: string
       responses:
-        '200':
+        "200":
           description: Execution result
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ExecutionResult'
+                $ref: "#/components/schemas/ExecutionResult"
 
   /v1/ws/sessions/{sessionId}:
     get:
@@ -1426,7 +1739,7 @@ paths:
           schema:
             type: string
       responses:
-        '101':
+        "101":
           description: WebSocket connection established
 
   # ========== QUEUE SERVICE (INTERNAL) ==========
@@ -1441,7 +1754,7 @@ paths:
             schema:
               type: object
       responses:
-        '201':
+        "201":
           description: Item enqueued
 
   /internal/queue/dequeue:
@@ -1450,7 +1763,7 @@ paths:
         - Queue
       summary: Remove item from queue (Internal)
       responses:
-        '200':
+        "200":
           description: Item dequeued
 
   /internal/queue/peek:
@@ -1459,7 +1772,7 @@ paths:
         - Queue
       summary: Peek at queue (Internal)
       responses:
-        '200':
+        "200":
           description: Queue head
 
   /internal/queue/stats:
@@ -1468,7 +1781,7 @@ paths:
         - Queue
       summary: Get queue statistics (Internal)
       responses:
-        '200':
+        "200":
           description: Queue stats
 
   # ========== HEALTH CHECKS (ALL SERVICES) ==========
@@ -1478,7 +1791,7 @@ paths:
         - Health
       summary: Health check (User Service)
       responses:
-        '200':
+        "200":
           description: Service healthy
 
   /ready:
@@ -1487,7 +1800,7 @@ paths:
         - Health
       summary: Readiness check (User Service)
       responses:
-        '200':
+        "200":
           description: Service ready
 
   /metrics:
@@ -1496,7 +1809,7 @@ paths:
         - Health
       summary: Prometheus metrics (User Service)
       responses:
-        '200':
+        "200":
           description: Metrics data
           content:
             text/plain:
@@ -1509,7 +1822,7 @@ paths:
         - Health
       summary: Health check (Matching/Question/Admin/Collab Services)
       responses:
-        '200':
+        "200":
           description: Service healthy
 
   /-/ready:
@@ -1518,7 +1831,7 @@ paths:
         - Health
       summary: Readiness check (Matching/Question/Admin/Collab Services)
       responses:
-        '200':
+        "200":
           description: Service ready
 
   /-/metrics:
@@ -1527,7 +1840,7 @@ paths:
         - Health
       summary: Prometheus metrics (Matching/Question/Admin/Collab Services)
       responses:
-        '200':
+        "200":
           description: Metrics data
           content:
             text/plain:
@@ -1560,7 +1873,7 @@ components:
 
     Question:
       allOf:
-        - $ref: '#/components/schemas/QuestionSummary'
+        - $ref: "#/components/schemas/QuestionSummary"
         - type: object
           properties:
             description:
@@ -1639,10 +1952,6 @@ components:
       properties:
         accessToken:
           type: string
-        refreshToken:
-          type: string
-        user:
-          $ref: '#/components/schemas/UserProfile'
 
     Session:
       type: object
@@ -1659,18 +1968,29 @@ components:
       properties:
         id:
           type: string
-        fullName:
+        username:
+          type: string
+        display_name:
           type: string
         email:
           type: string
           format: email
-        language:
-          type: string
-        proficiency:
-          type: string
-        avatarUrl:
+        avatar_url:
           type: string
           format: uri
+        google_id:
+          type: string
+        description:
+          type: string
+        programming_proficiency:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
 
     MatchRequest:
       type: object
