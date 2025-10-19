@@ -12,8 +12,8 @@ import io
 import json
 import os
 import zipfile
-from typing import Dict, Any, Tuple, Optional
 from enum import Enum
+from typing import Any, Dict, Optional, Tuple
 
 
 class LanguageEnum(str, Enum):
@@ -123,8 +123,10 @@ class CodeGenerator:
         return_type = function_signature["return_type"]
         
         # Check if we need ListNode or TreeNode classes
-        needs_listnode = any(arg["type"] == "ListNode" for arg in arguments) or return_type == "ListNode"
-        needs_treenode = any(arg["type"] == "TreeNode" for arg in arguments) or return_type == "TreeNode"
+        needs_listnode = (any(arg["type"] == "ListNode" for arg in arguments) 
+                          or return_type == "ListNode")
+        needs_treenode = (any(arg["type"] == "TreeNode" for arg in arguments) 
+                          or return_type == "TreeNode")
         
         # Generate helper classes and functions
         helper_code = ""

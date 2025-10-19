@@ -9,7 +9,7 @@ from io import BytesIO
 
 import pytest
 
-from app.execution.code_generator import CodeGenerator, LanguageEnum
+from app.execution.code_generator import LanguageEnum
 from tests.conftest import SAMPLE_FUNCTION_SIGNATURES, SAMPLE_TEST_DATA, SAMPLE_USER_CODE
 
 

@@ -6,7 +6,8 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from app.core.config import settings
-from app.execution.code_generator import code_generator, LanguageEnum as GeneratorLanguageEnum
+from app.execution.code_generator import LanguageEnum as GeneratorLanguageEnum
+from app.execution.code_generator import code_generator
 from app.execution.schemas import (
     CodeExecutionRequest,
     CodeExecutionResponse,

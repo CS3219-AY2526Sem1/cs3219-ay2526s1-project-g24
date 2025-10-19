@@ -8,7 +8,6 @@ import pytest
 
 from app.execution.schemas import (
     CodeExecutionRequest,
-    ExecutionStatus,
     LanguageEnum,
     TestCaseInput,
 )

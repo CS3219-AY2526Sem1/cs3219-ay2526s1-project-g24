@@ -6,7 +6,6 @@ from unittest.mock import MagicMock
 import pytest
 from fastapi.testclient import TestClient
 
-
 # Sample Function Signatures for Testing
 SAMPLE_FUNCTION_SIGNATURES = {
     "two_sum": {
