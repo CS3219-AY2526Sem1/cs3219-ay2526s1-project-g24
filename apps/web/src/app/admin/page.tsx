@@ -49,7 +49,7 @@ export default function AdminDashboard() {
                             Users
                         </Link>
                         <Link
-                            href="/home"
+                            href="/admin/login"
                             className="font-montserrat font-medium text-sm text-gray-500 hover:text-black transition-colors"
                         >
                             Exit Admin
