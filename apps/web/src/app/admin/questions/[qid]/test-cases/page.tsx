@@ -24,30 +24,20 @@ export default function ManageTestCases() {
     const [isAdding, setIsAdding] = useState(false);
 
     const handleAddTestCase = async () => {
-        // TODO: API call to add test case
-        console.log("Adding test case:", newTestCase);
         setNewTestCase({ input: "", expectedOutput: "", isPublic: false });
         setIsAdding(false);
     };
 
     const handleUpdateTestCase = async (id: string, updates: Partial<TestCase>) => {
-        // TODO: API call to update test case
-        console.log("Updating test case:", id, updates);
     };
 
     const handleDeleteTestCase = async (id: string) => {
-        // TODO: API call to delete test case
-        console.log("Deleting test case:", id);
     };
 
     const handleValidateTestCase = async (id: string) => {
-        // TODO: API call to validate single test case
-        console.log("Validating test case:", id);
     };
 
     const handleValidateAll = async () => {
-        // TODO: API call to validate all test cases
-        console.log("Validating all test cases for question:", questionId);
     };
 
     return (

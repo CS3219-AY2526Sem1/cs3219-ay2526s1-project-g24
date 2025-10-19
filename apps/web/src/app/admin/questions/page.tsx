@@ -111,14 +111,10 @@ export default function AdminQuestions() {
     };
 
     const confirmDelete = async () => {
-        // TODO: API call to delete question
-        console.log(`Delete question ${deleteConfirm.questionId}`);
         setDeleteConfirm({ show: false, questionId: "", questionTitle: "" });
     };
 
     const handleRestoreQuestion = async (id: string) => {
-        // TODO: API call to restore question
-        console.log(`Restore question ${id}`);
     };
 
     return (

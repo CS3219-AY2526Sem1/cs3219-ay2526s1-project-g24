@@ -103,12 +103,9 @@ export default function CreateQuestion() {
             constraints: constraints.filter((c) => c.trim()),
             testCases: testCases.filter((tc) => tc.input || tc.expectedOutput),
         };
-        console.log("Creating question:", questionData);
     };
 
     const handleValidateTestCases = async () => {
-        // TODO: API call to validate test cases
-        console.log("Validating test cases...");
     };
 
     return (

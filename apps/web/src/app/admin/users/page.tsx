@@ -104,13 +104,9 @@ export default function AdminUsers() {
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
     const handleUpdateRole = async (userId: string, newRole: "USER" | "ADMIN") => {
-        // TODO: API call to update user role
-        console.log(`Updating user ${userId} role to ${newRole}`);
     };
 
     const handleDeleteUser = async (userId: string) => {
-        // TODO: API call to delete user
-        console.log(`Deleting user ${userId}`);
     };
 
     return (

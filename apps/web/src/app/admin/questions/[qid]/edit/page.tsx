@@ -58,8 +58,6 @@ export default function EditQuestion() {
     ];
 
     useEffect(() => {
-        // TODO: Fetch question data
-        console.log("Loading question:", questionId);
     }, [questionId]);
 
     const toggleTopic = (topic: string) => {
@@ -122,7 +120,6 @@ export default function EditQuestion() {
             examples: examples.filter((ex) => ex.input || ex.output),
             constraints: constraints.filter((c) => c.trim()),
         };
-        console.log("Updating question:", questionData);
     };
 
     return (
