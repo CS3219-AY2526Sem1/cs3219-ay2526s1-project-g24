@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
+import { getDifficultyStyles } from "@/lib/difficulty";
 
 const topics = [
     { name: "Arrays &\nHashing", subtitle: "Two pointers, Sliding window" },
@@ -161,12 +162,7 @@ export default function Match() {
                                 >
                                     <div className="mb-3">
                                         <span
-                                            className={`font-montserrat text-xs px-3 py-1 rounded-full ${diff.tag === "EASY"
-                                                ? "bg-[#4a5a3a] text-[#a8d08d]"
-                                                : diff.tag === "MEDIUM"
-                                                    ? "bg-[#5a4a3a] text-[#f4c542]"
-                                                    : "bg-[#5a3a3a] text-[#f47c7c]"
-                                                }`}
+                                            className={`font-montserrat text-xs px-3 py-1 rounded-full ${getDifficultyStyles(diff.tag)}`}
                                         >
                                             {diff.tag}
                                         </span>

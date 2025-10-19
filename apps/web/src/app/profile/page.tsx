@@ -26,9 +26,6 @@ export default function Profile() {
     ];
 
     const handleEditToggle = () => {
-        if (isEditing) {
-            console.log('Saving profile data:', formData);
-        }
         setIsEditing(!isEditing);
     };
 
@@ -44,12 +41,10 @@ export default function Profile() {
                 setProfileImage(reader.result as string);
             };
             reader.readAsDataURL(file);
-            console.log('Image file selected:', file.name);
         }
     };
 
     const handleLogout = () => {
-        console.log('Logging out...');
         router.push('/landing');
     };
 
@@ -92,7 +87,7 @@ export default function Profile() {
                     {/* Profile Avatar and Name */}
                     <div className="flex flex-col items-center mb-12">
                         <div className="relative mb-8">
-                            <div className="w-44 h-44 rounded-full bg-[#F1FCAC] flex items-center justify-center overflow-hidden border-4 border-[#F1FCAC]">
+                            <div className="w-44 h-44 rounded-full bg-profile-avatar flex items-center justify-center overflow-hidden border-4 border-profile-avatar">
                                 <Image
                                     src={profileImage}
                                     alt="Profile"

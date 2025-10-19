@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { getDifficultyStyles } from "@/lib/difficulty";
 
 const mockQuestions = [
     { id: 1, title: 'Two Sum', topics: ['Arrays', 'Hash Table'], difficulty: 'EASY' },
@@ -39,19 +40,6 @@ export default function Questions() {
         const matchesDifficulty = difficultyFilter === 'All difficulty' || q.difficulty === difficultyFilter;
         return matchesSearch && matchesTopic && matchesDifficulty;
     });
-
-    const getDifficultyStyles = (difficulty: string) => {
-        switch (difficulty) {
-            case 'EASY':
-                return 'bg-[#4a5a3a] text-[#a8d08d]';
-            case 'MEDIUM':
-                return 'bg-[#5a4a3a] text-[#f4b942]';
-            case 'HARD':
-                return 'bg-[#5a3a3a] text-[#f4a2a2]';
-            default:
-                return 'bg-gray-700 text-gray-400';
-        }
-    };
 
     const handleQuestionClick = (questionId: number) => {
         router.push(`/practice/${questionId}`);
@@ -164,29 +152,29 @@ export default function Questions() {
                     </div>
 
                     {/* Questions List */}
-                    <div className="space-y-3">
-                        {filteredQuestions.map((question) => (
-                            <div
-                                key={question.id}
-                                onClick={() => handleQuestionClick(question.id)}
-                                className="bg-[#3a3a3a] border border-[#4a4a4a] rounded-lg px-6 py-5 flex items-center justify-between hover:bg-[#404040] transition-colors cursor-pointer"
-                            >
-                                <div className="flex-1">
-                                    <h3 className="text-white text-lg font-medium">{question.title}</h3>
+                    {filteredQuestions.length > 0 ? (
+                        <div className="space-y-3">
+                            {filteredQuestions.map((question) => (
+                                <div
+                                    key={question.id}
+                                    onClick={() => handleQuestionClick(question.id)}
+                                    className="bg-[#3a3a3a] border border-[#4a4a4a] rounded-lg px-6 py-5 flex items-center justify-between hover:bg-[#404040] transition-colors cursor-pointer"
+                                >
+                                    <div className="flex-1">
+                                        <h3 className="text-white text-lg font-medium">{question.title}</h3>
+                                    </div>
+                                    <div className="flex-1 text-center">
+                                        <p className="text-[#9e9e9e] text-sm">{question.topics.join(', ')}</p>
+                                    </div>
+                                    <div className="flex-1 flex justify-end">
+                                        <span className={`text-xs px-4 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
+                                            {question.difficulty}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="flex-1 text-center">
-                                    <p className="text-[#9e9e9e] text-sm">{question.topics.join(', ')}</p>
-                                </div>
-                                <div className="flex-1 flex justify-end">
-                                    <span className={`text-xs px-4 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
-                                        {question.difficulty}
-                                    </span>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
-
-                    {filteredQuestions.length === 0 && (
+                            ))}
+                        </div>
+                    ) : (
                         <div className="text-center py-16">
                             <p className="text-[#9e9e9e] text-lg">No questions found</p>
                         </div>

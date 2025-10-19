@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Editor from '@monaco-editor/react';
+import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
 
 const questions = [
     {
@@ -37,8 +38,8 @@ Return the quotient after dividing dividend by divisor.`,
 export default function CollaborativeCodingPage() {
     const router = useRouter();
     const [currentQuestion] = useState(0);
-    const [leftWidth, setLeftWidth] = useState(40);
-    const [codeHeight, setCodeHeight] = useState(60);
+    const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
+    const [codeHeight, setCodeHeight] = useState<number>(LAYOUT_DEFAULTS.CODE_HEIGHT_PERCENT);
     const [isDraggingVertical, setIsDraggingVertical] = useState(false);
     const [isDraggingHorizontal, setIsDraggingHorizontal] = useState(false);
     const [activeTab, setActiveTab] = useState<'testResults' | 'customInput'>('testResults');
@@ -76,14 +77,14 @@ export default function CollaborativeCodingPage() {
                 const containerRect = containerRef.current.getBoundingClientRect();
                 const offsetX = e.clientX - containerRect.left;
                 const newWidthPercent = (offsetX / containerRect.width) * 100;
-                setLeftWidth(Math.min(Math.max(newWidthPercent, 20), 80));
+                setLeftWidth(Math.min(Math.max(newWidthPercent, LAYOUT_DEFAULTS.MIN_PANEL_WIDTH_PERCENT), LAYOUT_DEFAULTS.MAX_PANEL_WIDTH_PERCENT));
             }
 
             if (isDraggingHorizontal && rightPanelRef.current) {
                 const panelRect = rightPanelRef.current.getBoundingClientRect();
                 const offsetY = e.clientY - panelRect.top;
                 const newHeightPercent = (offsetY / panelRect.height) * 100;
-                setCodeHeight(Math.min(Math.max(newHeightPercent, 30), 80));
+                setCodeHeight(Math.min(Math.max(newHeightPercent, LAYOUT_DEFAULTS.MIN_PANEL_HEIGHT_PERCENT), LAYOUT_DEFAULTS.MAX_PANEL_HEIGHT_PERCENT));
             }
         };
 
@@ -231,7 +232,7 @@ export default function CollaborativeCodingPage() {
                                     <button className="px-4 py-1.5 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors">
                                         Run Code
                                     </button>
-                                    <button className="px-4 py-1.5 bg-[#F1FCAC] hover:bg-[#e5f099] text-black text-sm font-medium transition-colors">
+                                    <button className="px-4 py-1.5 bg-profile-avatar hover:bg-profile-avatar-hover text-black text-sm font-medium transition-colors">
                                         Run Test
                                     </button>
                                 </div>
@@ -245,17 +246,17 @@ export default function CollaborativeCodingPage() {
                                     onChange={(value) => setCode(value || '')}
                                     theme="vs-dark"
                                     options={{
-                                        fontSize: 14,
+                                        fontSize: EDITOR_CONFIG.FONT_SIZE,
                                         minimap: { enabled: false },
                                         scrollBeyondLastLine: false,
                                         automaticLayout: true,
-                                        tabSize: 4,
+                                        tabSize: EDITOR_CONFIG.TAB_SIZE,
                                         wordWrap: 'on',
                                         lineNumbers: 'on',
                                         glyphMargin: false,
                                         folding: true,
-                                        lineDecorationsWidth: 10,
-                                        lineNumbersMinChars: 3,
+                                        lineDecorationsWidth: EDITOR_CONFIG.LINE_DECORATIONS_WIDTH,
+                                        lineNumbersMinChars: EDITOR_CONFIG.LINE_NUMBERS_MIN_CHARS,
                                         renderLineHighlight: 'line',
                                         bracketPairColorization: {
                                             enabled: true
@@ -312,7 +313,7 @@ export default function CollaborativeCodingPage() {
                                             onClick={() => setSelectedTestCase(1)}
                                             className={`flex items-center gap-1 ${selectedTestCase === 1 ? '' : 'opacity-50'}`}
                                         >
-                                            <span className="w-5 h-5 flex items-center justify-center rounded-full bg-[#F1FCAC] text-black text-xs font-bold">
+                                            <span className="w-5 h-5 flex items-center justify-center rounded-full bg-profile-avatar text-black text-xs font-bold">
                                                 ✓
                                             </span>
                                             <span className="text-white text-sm font-medium ml-1">Test 1</span>

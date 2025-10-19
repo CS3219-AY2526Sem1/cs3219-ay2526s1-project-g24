@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { MATCHING_TIMEOUT_SECONDS, TIMER_INTERVAL_MS, TIME_FORMAT } from "@/lib/constants";
 
 export default function Wait() {
     const router = useRouter();
@@ -11,13 +12,13 @@ export default function Wait() {
     useEffect(() => {
         const timer = setInterval(() => {
             setSeconds((prev) => prev + 1);
-        }, 1000);
+        }, TIMER_INTERVAL_MS);
 
         return () => clearInterval(timer);
     }, []);
 
     useEffect(() => {
-        if (seconds >= 5) {
+        if (seconds >= MATCHING_TIMEOUT_SECONDS) {
             router.push("/collaborative-coding");
         }
     }, [seconds, router]);
@@ -54,7 +55,7 @@ export default function Wait() {
             </button>
 
             <p className="font-montserrat text-[#9e9e9e] text-sm">
-                wait time {Math.floor(seconds / 60)}:{(seconds % 60).toString().padStart(2, "0")}
+                wait time {Math.floor(seconds / TIME_FORMAT.SECONDS_PER_MINUTE)}:{(seconds % TIME_FORMAT.SECONDS_PER_MINUTE).toString().padStart(TIME_FORMAT.PAD_LENGTH, TIME_FORMAT.PAD_CHAR)}
             </p>
         </div>
     );
