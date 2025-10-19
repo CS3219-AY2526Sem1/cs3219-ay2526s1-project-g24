@@ -142,7 +142,7 @@ Internet → ALB (Ingress) → Services → Databases
 
 **All resources in single `cs3219` namespace with NetworkPolicies for security.**
 
-## � Secrets Management
+## 🔐 Secrets Management
 
 **All secrets are stored in AWS Parameter Store** (FREE tier, persists when cluster is destroyed).
 
@@ -299,7 +299,46 @@ terraform destroy
 - **[../SETUP_GUIDE.md](../SETUP_GUIDE.md)** - Complete first-time setup walkthrough
 - **[../terraform/eks/](../terraform/eks/)** - EKS cluster infrastructure
 
-## 📊 Resource Specifications
+## � CI/CD with GHCR (GitHub Container Registry)
+
+We added two GitHub Actions workflows to build images and deploy them to your cluster using GHCR:
+
+- `.github/workflows/build-and-push-ghcr.yml` — builds container images for all services and pushes them to `ghcr.io/${{ github.repository_owner }}/...` with both `latest` and `${{ github.sha }}` tags.
+- `.github/workflows/deploy-to-cluster.yml` — runs after a successful build (or manually). It updates deployments (`kubectl set image`) to use the `ghcr.io/...:${SHA}` image tags and reapplies HPA/Ingress.
+
+What you need to configure:
+
+1. Add repository secrets:
+  - `AWS_ACCOUNT_ID` — your AWS account id (used by deploy workflow role ARN)
+  - `AWS_REGION` — `ap-southeast-1` (or your region)
+  - Optional: `GHCR_PAT` — personal access token with `write:packages` if your GHCR requires it (public org owners typically can use the built-in GITHUB_TOKEN)
+
+2. Triggering:
+  - Push to `main` or `setup-infra` triggers the build workflow.
+  - After a successful build, the deploy workflow runs automatically. You can also trigger it manually from the Actions UI.
+
+3. Image naming convention used by the workflows:
+  - `ghcr.io/<owner>/cs3219-web:<sha>`
+  - `ghcr.io/<owner>/cs3219-api:<sha>`
+  - `ghcr.io/<owner>/cs3219-question-service:<sha>`
+  - `ghcr.io/<owner>/cs3219-user-service:<sha>`
+  - `ghcr.io/<owner>/cs3219-matching-service:<sha>`
+
+4. If you prefer GHCR images in your manifests (instead of `kubectl set image`), update the `image:` fields in the deployment YAMLs to point to the GHCR tags (use placeholder `${IMAGE_TAG}` or commit after replacing with your account/sha).
+
+Quick manual deploy example (useful for testing):
+
+```bash
+# After a build completes and you have the SHA (e.g. $SHA)
+kubectl set image deployment/web web=ghcr.io/<owner>/cs3219-web:${SHA} -n cs3219
+kubectl set image deployment/api api=ghcr.io/<owner>/cs3219-api:${SHA} -n cs3219
+kubectl rollout status deployment/web -n cs3219
+kubectl rollout status deployment/api -n cs3219
+```
+
+That's it — GHCR builds are wired into CI and deploys update the running services automatically.
+
+## �📊 Resource Specifications
 
 **Persistent Volumes:**
 - Question DB: 5Gi (gp3)

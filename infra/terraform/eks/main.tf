@@ -113,7 +113,14 @@ resource "aws_iam_role_policy_attachment" "gha_attach" {
   policy_arn = aws_iam_policy.gha_perm.arn
 }
 
-# Map the GH role as admin
+# Grant full permissions for Terraform to provision infrastructure
+# In production, restrict this to specific resources
+resource "aws_iam_role_policy_attachment" "gha_admin_attach" {
+  role       = aws_iam_role.gha_deployer.name
+  policy_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
+}
+
+# Map the GH role as admin, including node roles
 resource "kubernetes_config_map_v1" "aws_auth" {
   metadata {
     name = "aws-auth"
@@ -125,6 +132,18 @@ resource "kubernetes_config_map_v1" "aws_auth" {
         rolearn = aws_iam_role.gha_deployer.arn,
         username = "gha-deployer",
         groups = ["system:masters"]
+      },
+      # EKS managed node group role
+      {
+        rolearn = module.eks.eks_managed_node_groups["ng"].iam_role_arn,
+        username = "system:node:{{EC2PrivateDNSName}}",
+        groups = ["system:bootstrappers", "system:nodes"]
+      },
+      # Karpenter node role
+      {
+        rolearn = aws_iam_role.karpenter_node.arn,
+        username = "system:node:{{EC2PrivateDNSName}}",
+        groups = ["system:bootstrappers", "system:nodes"]
       }
     ])
   }

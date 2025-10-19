@@ -67,22 +67,18 @@ spec:
         livenessProbe:
           exec:
             command:
-            - pg_isready
-            - -U
-            - user
-            - -d
-            - userdb
+            - sh
+            - -c
+            - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
         readinessProbe:
           exec:
             command:
-            - pg_isready
-            - -U
-            - user
-            - -d
-            - userdb
+            - sh
+            - -c
+            - pg_isready -U "$POSTGRES_USER" -d "$POSTGRES_DB"
           initialDelaySeconds: 5
           periodSeconds: 5
           timeoutSeconds: 3

@@ -6,7 +6,7 @@ namespace: cs3219
 resources:
   - namespace.yaml
   # NOTE: secrets.yaml is a TEMPLATE ONLY - create secrets manually!
-  # See SECRETS_GUIDE.md for instructions
+  # See README.md for instructions on secret management
   # - secrets.yaml  # ← DO NOT UNCOMMENT - use kubectl create instead
   - configmap.yaml
   - resource-quota.yaml
