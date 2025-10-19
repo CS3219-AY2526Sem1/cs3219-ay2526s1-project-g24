@@ -5,37 +5,9 @@ import { useRouter, useParams } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { getDifficultyStyles } from '@/lib/difficulty';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
+import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult } from '@/lib/api/questionService';
 
-const mockQuestionData: { [key: number]: any } = {
-    1: {
-        title: 'Two Sum',
-        difficulty: 'EASY',
-        topics: ['Arrays', 'Hash Table'],
-        description: `Given an array of integers nums and an integer target, return indices of the two numbers such that they add up to target.
-
-You may assume that each input would have exactly one solution, and you may not use the same element twice.
-
-You can return the answer in any order.`,
-        examples: [
-            {
-                input: 'nums = [2,7,11,15], target = 9',
-                output: '[0,1]',
-                explanation: 'Because nums[0] + nums[1] == 9, we return [0, 1].'
-            },
-            {
-                input: 'nums = [3,2,4], target = 6',
-                output: '[1,2]',
-                explanation: 'Because nums[1] + nums[2] == 6, we return [1, 2].'
-            }
-        ],
-        constraints: [
-            '2 <= nums.length <= 10⁴',
-            '-10⁹ <= nums[i] <= 10⁹',
-            '-10⁹ <= target <= 10⁹',
-            'Only one valid answer exists.'
-        ]
-    },
-};
+type Language = 'python' | 'javascript' | 'java' | 'cpp';
 
 export default function PracticePage() {
     const router = useRouter();
@@ -47,31 +19,112 @@ export default function PracticePage() {
     const [isDraggingVertical, setIsDraggingVertical] = useState(false);
     const [isDraggingHorizontal, setIsDraggingHorizontal] = useState(false);
     const [activeTab, setActiveTab] = useState<'testResults' | 'customInput'>('testResults');
-    const [selectedTestCase, setSelectedTestCase] = useState(1);
-    const [selectedLanguage, setSelectedLanguage] = useState<'python' | 'javascript' | 'java' | 'cpp'>('python');
-    const [code, setCode] = useState('# Write your solution here\n\nclass Solution:\n    def twoSum(self, nums: list[int], target: int) -> list[int]:\n        pass');
+    const [selectedTestCase, setSelectedTestCase] = useState(0);
+    const [selectedLanguage, setSelectedLanguage] = useState<Language>('python');
+    const [code, setCode] = useState('');
+
+    // Question data state
+    const [question, setQuestion] = useState<QuestionDetail | null>(null);
+    const [isLoadingQuestion, setIsLoadingQuestion] = useState(true);
+    const [questionError, setQuestionError] = useState<string | null>(null);
+
+    // Test execution state
+    const [testResults, setTestResults] = useState<TestCaseResult[]>([]);
+    const [isRunning, setIsRunning] = useState(false);
+    const [executionError, setExecutionError] = useState<string | null>(null);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const rightPanelRef = useRef<HTMLDivElement>(null);
 
-    const question = mockQuestionData[questionId] || mockQuestionData[1];
+    // Fetch question data on mount
+    useEffect(() => {
+        const fetchQuestion = async () => {
+            setIsLoadingQuestion(true);
+            setQuestionError(null);
+            try {
+                const data = await getQuestionById(questionId);
+                setQuestion(data);
+                
+                // Set initial code from template
+                const template = data.code_templates[selectedLanguage];
+                if (template) {
+                    setCode(template);
+                }
+            } catch (err) {
+                setQuestionError(err instanceof Error ? err.message : 'Failed to load question');
+            } finally {
+                setIsLoadingQuestion(false);
+            }
+        };
 
-    const languageConfig = {
-        python: {
-            language: 'python',
-            defaultCode: '# Write your solution here\n\nclass Solution:\n    def twoSum(self, nums: list[int], target: int) -> list[int]:\n        pass'
-        },
-        javascript: {
-            language: 'javascript',
-            defaultCode: '// Write your solution here\n\n/**\n * @param {number[]} nums\n * @param {number} target\n * @return {number[]}\n */\nvar twoSum = function(nums, target) {\n    \n};'
-        },
-        java: {
-            language: 'java',
-            defaultCode: '// Write your solution here\n\nclass Solution {\n    public int[] twoSum(int[] nums, int target) {\n        \n    }\n}'
-        },
-        cpp: {
-            language: 'cpp',
-            defaultCode: '// Write your solution here\n\nclass Solution {\npublic:\n    vector<int> twoSum(vector<int>& nums, int target) {\n        \n    }\n};'
+        fetchQuestion();
+    }, [questionId]);
+
+    // Update code when language changes
+    useEffect(() => {
+        if (question) {
+            const template = question.code_templates[selectedLanguage];
+            if (template) {
+                setCode(template);
+            }
+        }
+    }, [selectedLanguage, question]);
+
+    // Handle Run Code button
+    const handleRunCode = async () => {
+        if (!question || !code) return;
+
+        setIsRunning(true);
+        setExecutionError(null);
+        setActiveTab('testResults');
+
+        try {
+            // Run code - will use sample test cases by default
+            const response = await runCode(questionId, {
+                language: selectedLanguage,
+                code: code,
+                // Don't specify test_case_ids to run against sample cases
+            });
+            
+            setTestResults(response.results);
+        } catch (err) {
+            setExecutionError(err instanceof Error ? err.message : 'Failed to run code');
+            setTestResults([]);
+        } finally {
+            setIsRunning(false);
+        }
+    };
+
+    // Handle Submit Code button
+    const handleSubmitCode = async () => {
+        if (!question || !code) return;
+
+        setIsRunning(true);
+        setExecutionError(null);
+        setActiveTab('testResults');
+
+        try {
+            // Submit solution - runs ALL test cases
+            const response = await submitSolution(questionId, {
+                language: selectedLanguage,
+                code: code,
+            });
+            
+            // Note: Submit returns different format, need to adapt
+            if (response.status === 'accepted') {
+                alert(`✅ All ${response.total_test_cases} test cases passed!`);
+            } else {
+                alert(`❌ ${response.passed_test_cases}/${response.total_test_cases} test cases passed\nStatus: ${response.status}`);
+            }
+            
+            // For submission, we don't get individual test results, so clear the results
+            setTestResults([]);
+            setExecutionError(response.status !== 'accepted' ? `Status: ${response.status}` : null);
+        } catch (err) {
+            setExecutionError(err instanceof Error ? err.message : 'Failed to submit code');
+            setTestResults([]);
+        } finally {
+            setIsRunning(false);
         }
     };
 
@@ -142,47 +195,51 @@ export default function PracticePage() {
                     }}
                 >
                     <div className="p-6">
-                        {/* Question Header */}
-                        <div className="mb-6">
-                            <div className="flex items-center gap-3 mb-3">
-                                <h2 className="text-2xl font-semibold text-white">{question.title}</h2>
-                                <span className={`text-xs px-3 py-1 rounded font-medium uppercase ${getDifficultyStyles(question.difficulty)}`}>
-                                    {question.difficulty}
-                                </span>
+                        {isLoadingQuestion ? (
+                            <div className="flex items-center justify-center py-12">
+                                <div className="text-white">Loading question...</div>
                             </div>
-                            <div className="flex gap-2">
-                                {question.topics.map((topic: string) => (
-                                    <span key={topic} className="text-sm text-gray-400">{topic}</span>
-                                ))}
+                        ) : questionError ? (
+                            <div className="flex items-center justify-center py-12">
+                                <div className="text-red-500">{questionError}</div>
                             </div>
-                        </div>
-
-                        {/* Question Description */}
-                        <div className="space-y-4 text-gray-300 text-sm leading-relaxed">
-                            <p className="whitespace-pre-line">{question.description}</p>
-
-                            {/* Examples */}
-                            {question.examples.map((example: any, idx: number) => (
-                                <div key={idx} className="bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]">
-                                    <p className="font-semibold text-white mb-2">Example {idx + 1}:</p>
-                                    <div className="font-mono text-xs space-y-1">
-                                        <p><span className="text-gray-500">Input:</span> <span className="text-gray-300">{example.input}</span></p>
-                                        <p><span className="text-gray-500">Output:</span> <span className="text-gray-300">{example.output}</span></p>
-                                        <p><span className="text-gray-500">Explanation:</span> <span className="text-gray-400">{example.explanation}</span></p>
+                        ) : question ? (
+                            <>
+                                {/* Question Header */}
+                                <div className="mb-6">
+                                    <div className="flex items-center gap-3 mb-3">
+                                        <h2 className="text-2xl font-semibold text-white">{question.title}</h2>
+                                        <span className={`text-xs px-3 py-1 rounded font-medium uppercase ${getDifficultyStyles(question.difficulty)}`}>
+                                            {question.difficulty}
+                                        </span>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        {question.topics.map((topic) => (
+                                            <span key={topic.id} className="text-sm text-gray-400">{topic.name}</span>
+                                        ))}
                                     </div>
                                 </div>
-                            ))}
 
-                            {/* Constraints */}
-                            <div>
-                                <p className="font-semibold text-white mb-2">Constraints:</p>
-                                <ul className="list-disc list-inside text-gray-400 space-y-1 text-xs">
-                                    {question.constraints.map((constraint: string, idx: number) => (
-                                        <li key={idx}>{constraint}</li>
+                                {/* Question Description */}
+                                <div className="space-y-4 text-gray-300 text-sm leading-relaxed">
+                                    <p className="whitespace-pre-line">{question.description}</p>
+
+                                    {/* Sample Test Cases as Examples */}
+                                    {question.sample_test_cases.map((testCase: any, idx: number) => (
+                                        <div key={idx} className="bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]">
+                                            <p className="font-semibold text-white mb-2">Example {idx + 1}:</p>
+                                            <div className="font-mono text-xs space-y-1">
+                                                <p><span className="text-gray-500">Input:</span> <span className="text-gray-300">{JSON.stringify(testCase.input_data)}</span></p>
+                                                <p><span className="text-gray-500">Output:</span> <span className="text-gray-300">{JSON.stringify(testCase.expected_output)}</span></p>
+                                                {testCase.explanation && (
+                                                    <p><span className="text-gray-500">Explanation:</span> <span className="text-gray-400">{testCase.explanation}</span></p>
+                                                )}
+                                            </div>
+                                        </div>
                                     ))}
-                                </ul>
-                            </div>
-                        </div>
+                                </div>
+                            </>
+                        ) : null}
                     </div>
                 </div>
 
@@ -218,9 +275,7 @@ export default function PracticePage() {
                                         <select
                                             value={selectedLanguage}
                                             onChange={(e) => {
-                                                const newLang = e.target.value as 'python' | 'javascript' | 'java' | 'cpp';
-                                                setSelectedLanguage(newLang);
-                                                setCode(languageConfig[newLang].defaultCode);
+                                                setSelectedLanguage(e.target.value as Language);
                                             }}
                                             className="bg-transparent border-2 border-white/20 rounded-full pl-4 pr-10 py-1.5 font-montserrat font-medium text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors"
                                         >
@@ -237,11 +292,19 @@ export default function PracticePage() {
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button className="px-4 py-1.5 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors">
-                                        Run Code
+                                    <button 
+                                        onClick={handleRunCode}
+                                        disabled={isRunning || !question}
+                                        className="px-4 py-1.5 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isRunning ? 'Running...' : 'Run Code'}
                                     </button>
-                                    <button className="px-4 py-1.5 bg-profile-avatar hover:bg-profile-avatar-hover text-black text-sm font-medium transition-colors">
-                                        Submit
+                                    <button 
+                                        onClick={handleSubmitCode}
+                                        disabled={isRunning || !question}
+                                        className="px-4 py-1.5 bg-profile-avatar hover:bg-profile-avatar-hover text-black text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                    >
+                                        {isRunning ? 'Submitting...' : 'Submit'}
                                     </button>
                                 </div>
                             </div>
@@ -250,7 +313,7 @@ export default function PracticePage() {
                             <div className="flex-1 bg-[#1e1e1e] overflow-hidden">
                                 <Editor
                                     height="100%"
-                                    language={languageConfig[selectedLanguage].language}
+                                    language={selectedLanguage === 'cpp' ? 'cpp' : selectedLanguage}
                                     value={code}
                                     onChange={(value) => setCode(value || '')}
                                     theme="vs-dark"
@@ -321,49 +384,114 @@ export default function PracticePage() {
                         <div className="flex-1 overflow-y-auto p-4">
                             {activeTab === 'testResults' ? (
                                 <div>
-                                    {/* Test Case Selector */}
-                                    <div className="flex items-center gap-2 mb-4">
-                                        <button
-                                            onClick={() => setSelectedTestCase(1)}
-                                            className={`flex items-center gap-1 ${selectedTestCase === 1 ? '' : 'opacity-50'}`}
-                                        >
-                                            <span className="w-5 h-5 flex items-center justify-center rounded-full bg-profile-avatar text-black text-xs font-bold">
-                                                ✓
-                                            </span>
-                                            <span className="text-white text-sm font-medium ml-1">Test 1</span>
-                                        </button>
-                                        <button
-                                            onClick={() => setSelectedTestCase(2)}
-                                            className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${selectedTestCase === 2
-                                                ? 'bg-[#3e3e3e] text-white'
-                                                : 'text-gray-400 hover:text-white hover:bg-[#2e2e2e]'
-                                                }`}
-                                        >
-                                            2
-                                        </button>
-                                    </div>
+                                    {executionError && (
+                                        <div className="mb-4 p-3 bg-red-900/20 border border-red-500 rounded text-red-300 text-sm">
+                                            {executionError}
+                                        </div>
+                                    )}
+                                    
+                                    {testResults.length === 0 ? (
+                                        <div className="text-gray-400 text-center py-8">
+                                            Run your code to see test results
+                                        </div>
+                                    ) : (
+                                        <>
+                                            {/* Test Case Selector */}
+                                            <div className="flex items-center gap-2 mb-4 flex-wrap">
+                                                {testResults.map((result, idx) => (
+                                                    <button
+                                                        key={idx}
+                                                        onClick={() => setSelectedTestCase(idx)}
+                                                        className={`flex items-center gap-1 px-3 py-1.5 rounded transition-colors ${
+                                                            selectedTestCase === idx 
+                                                                ? 'bg-[#3e3e3e]' 
+                                                                : 'bg-[#2e2e2e] hover:bg-[#3a3a3a]'
+                                                        }`}
+                                                    >
+                                                        <span className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${
+                                                            result.passed 
+                                                                ? 'bg-green-500 text-white' 
+                                                                : 'bg-red-500 text-white'
+                                                        }`}>
+                                                            {result.passed ? '✓' : '✗'}
+                                                        </span>
+                                                        <span className="text-white text-sm font-medium ml-1">
+                                                            Test {idx + 1}
+                                                        </span>
+                                                    </button>
+                                                ))}
+                                            </div>
 
-                                    {/* Test Results Display */}
-                                    <div className="space-y-4">
-                                        <div>
-                                            <label className="text-white block mb-2 text-sm font-medium">Input</label>
-                                            <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300">
-                                                {selectedTestCase === 1 ? 'nums = [2,7,11,15], target = 9' : 'nums = [3,2,4], target = 6'}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="text-white block mb-2 text-sm font-medium">Your Output</label>
-                                            <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300">
-                                                {selectedTestCase === 1 ? '[0,1]' : '[1,2]'}
-                                            </div>
-                                        </div>
-                                        <div>
-                                            <label className="text-white block mb-2 text-sm font-medium">Expected Output</label>
-                                            <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300">
-                                                {selectedTestCase === 1 ? '[0,1]' : '[1,2]'}
-                                            </div>
-                                        </div>
-                                    </div>
+                                            {/* Selected Test Result Display */}
+                                            {testResults[selectedTestCase] && (
+                                                <div className="space-y-4">
+                                                    <div>
+                                                        <label className="text-white block mb-2 text-sm font-medium">Result</label>
+                                                        <div className={`p-3 rounded font-medium text-sm ${
+                                                            testResults[selectedTestCase].passed
+                                                                ? 'bg-green-900/20 border border-green-500 text-green-300'
+                                                                : 'bg-red-900/20 border border-red-500 text-red-300'
+                                                        }`}>
+                                                            {testResults[selectedTestCase].passed ? '✓ Passed' : '✗ Failed'}
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-white block mb-2 text-sm font-medium">Input</label>
+                                                        <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300">
+                                                            {JSON.stringify(testResults[selectedTestCase].input_data, null, 2)}
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-white block mb-2 text-sm font-medium">Your Output</label>
+                                                        <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300">
+                                                            {testResults[selectedTestCase].actual_output !== null 
+                                                                ? JSON.stringify(testResults[selectedTestCase].actual_output, null, 2)
+                                                                : 'No output'}
+                                                        </div>
+                                                    </div>
+
+                                                    <div>
+                                                        <label className="text-white block mb-2 text-sm font-medium">Expected Output</label>
+                                                        <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300">
+                                                            {JSON.stringify(testResults[selectedTestCase].expected_output, null, 2)}
+                                                        </div>
+                                                    </div>
+
+                                                    {testResults[selectedTestCase].error && (
+                                                        <div>
+                                                            <label className="text-white block mb-2 text-sm font-medium">Error</label>
+                                                            <div className="bg-[#1e1e1e] border border-red-500 p-3 rounded font-mono text-sm text-red-300">
+                                                                {testResults[selectedTestCase].error}
+                                                            </div>
+                                                        </div>
+                                                    )}
+
+                                                    {(testResults[selectedTestCase].runtime_ms !== null || testResults[selectedTestCase].memory_mb !== null) && (
+                                                        <div className="grid grid-cols-2 gap-4">
+                                                            {testResults[selectedTestCase].runtime_ms !== null && (
+                                                                <div>
+                                                                    <label className="text-white block mb-2 text-sm font-medium">Runtime</label>
+                                                                    <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300">
+                                                                        {testResults[selectedTestCase].runtime_ms?.toFixed(2)} ms
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                            {testResults[selectedTestCase].memory_mb !== null && (
+                                                                <div>
+                                                                    <label className="text-white block mb-2 text-sm font-medium">Memory</label>
+                                                                    <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300">
+                                                                        {testResults[selectedTestCase].memory_mb?.toFixed(2)} MB
+                                                                    </div>
+                                                                </div>
+                                                            )}
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="space-y-4">
