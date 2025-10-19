@@ -39,7 +39,7 @@ jobs:
       - name: Build and push web
         uses: docker/build-push-action@v4
         with:
-          context: ./apps/web
+          context: .
           file: ./apps/web/Dockerfile
           push: true
           tags: |
@@ -49,7 +49,7 @@ jobs:
       - name: Build and push api
         uses: docker/build-push-action@v4
         with:
-          context: ./apps/api
+          context: .
           file: ./apps/api/Dockerfile
           push: true
           tags: |
@@ -69,7 +69,7 @@ jobs:
       - name: Build and push user-service
         uses: docker/build-push-action@v4
         with:
-          context: ./apps/user_service
+          context: .
           file: ./apps/user_service/Dockerfile
           push: true
           tags: |
@@ -79,7 +79,7 @@ jobs:
       - name: Build and push matching-service
         uses: docker/build-push-action@v4
         with:
-          context: ./apps/matching-service
+          context: .
           file: ./apps/matching-service/Dockerfile
           push: true
           tags: |
