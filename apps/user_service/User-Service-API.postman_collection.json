@@ -1,0 +1,661 @@
+{
+  "info": {
+    "name": "User Service API",
+    "description": "Complete API collection for testing the PeerPrep User Service with RBAC (Role-Based Access Control)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "user-service"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3001",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "userId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health & Observability",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/-/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["-", "health"]
+            },
+            "description": "Basic health check endpoint. Returns 200 if service is running.\n\n**No authentication required.**"
+          },
+          "response": []
+        },
+        {
+          "name": "Ready Check",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/-/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["-", "ready"]
+            },
+            "description": "Readiness check endpoint. Verifies database connections and dependencies.\n\n**No authentication required.**"
+          },
+          "response": []
+        },
+        {
+          "name": "Metrics",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/-/metrics",
+              "host": ["{{baseUrl}}"],
+              "path": ["-", "metrics"]
+            },
+            "description": "Prometheus-compatible metrics endpoint.\n\n**No authentication required.**"
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints for service health monitoring and observability"
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "Google OAuth - Initiate",
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/google",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "google"]
+            },
+            "description": "Initiate Google OAuth flow. This will redirect to Google's authentication page.\n\n**Browser-based flow:**\n1. Open this URL in a browser\n2. Sign in with Google\n3. Google redirects back to callback URL\n4. Callback returns JWT token\n\n**No authentication required.**"
+          },
+          "response": []
+        },
+        {
+          "name": "Google OAuth - Callback",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save access token and user ID from response",
+                  "if (pm.response.code === 200) {",
+                  "    const response = pm.response.json();",
+                  "    if (response.accessToken) {",
+                  "        pm.collectionVariables.set('accessToken', response.accessToken);",
+                  "        console.log('Access token saved:', response.accessToken);",
+                  "    }",
+                  "    if (response.user && response.user.id) {",
+                  "        pm.collectionVariables.set('userId', response.user.id);",
+                  "        console.log('User ID saved:', response.user.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": {
+              "type": "noauth"
+            },
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/google/callback?code=GOOGLE_AUTH_CODE",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "google", "callback"],
+              "query": [
+                {
+                  "key": "code",
+                  "value": "GOOGLE_AUTH_CODE",
+                  "description": "Authorization code from Google"
+                }
+              ]
+            },
+            "description": "Google OAuth callback endpoint. Called by Google after user authentication.\n\n**Response includes:**\n- `accessToken`: JWT token for authenticated requests\n- `user`: User profile object\n\n**New users:**\n- Automatically created in database\n- Assigned default 'user' role\n- Profile fields initialized from Google data\n\n💡 Access token is automatically saved to collection variables."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "auth", "logout"]
+            },
+            "description": "Logout the current user. Invalidates the access token.\n\n**Authentication:** Required (Bearer token)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Authentication endpoints using Google OAuth 2.0"
+    },
+    {
+      "name": "User Profile",
+      "item": [
+        {
+          "name": "Get My Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "users", "me"]
+            },
+            "description": "Get the authenticated user's profile.\n\n**Authentication:** Required (Bearer token)\n\n**Response includes:**\n```json\n{\n  \"id\": \"uuid\",\n  \"username\": \"john_doe\",\n  \"display_name\": \"John Doe\",\n  \"email\": \"john@example.com\",\n  \"avatar_url\": \"https://...\",\n  \"description\": \"Software engineer...\",\n  \"programming_proficiency\": \"intermediate\",\n  \"created_at\": \"2025-10-19T...\",\n  \"updated_at\": \"2025-10-19T...\",\n  \"roles\": [\"user\"]\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Update My Profile",
+          "request": {
+            "method": "PATCH",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"new_username\",\n  \"display_name\": \"New Display Name\",\n  \"description\": \"Updated bio and description\",\n  \"programming_proficiency\": \"advanced\",\n  \"avatar_url\": \"https://example.com/new-avatar.jpg\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/me",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "users", "me"]
+            },
+            "description": "Update the authenticated user's profile.\n\n**Authentication:** Required (Bearer token)\n\n**Updateable fields:**\n- `username` - Must be unique across all users\n- `display_name` - Public display name\n- `description` - Profile bio (max 1000 characters)\n- `programming_proficiency` - One of: `beginner`, `intermediate`, `advanced`\n- `avatar_url` - URL to profile photo\n\n**Validation:**\n- Username uniqueness check\n- Proficiency level enum validation\n- Description length validation\n\n**Non-updateable fields:**\n- `id` - Immutable\n- `email` - Immutable\n- `google_id` - Immutable\n- `created_at` - Immutable"
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "users", "{{userId}}"]
+            },
+            "description": "Get a specific user's public profile by ID.\n\n**Authentication:** Required (Bearer token)\n\n**Returns public profile fields:**\n- username\n- display_name\n- avatar_url\n- description\n- programming_proficiency\n- created_at\n\n**Private fields (excluded):**\n- email\n- google_id\n- roles (unless requested by admin)"
+          },
+          "response": []
+        }
+      ],
+      "description": "User profile management endpoints"
+    },
+    {
+      "name": "Admin - User Management",
+      "item": [
+        {
+          "name": "List All Users",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users?page=1&limit=20",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "users"],
+              "query": [
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number (default: 1)"
+                },
+                {
+                  "key": "limit",
+                  "value": "20",
+                  "description": "Items per page (default: 20)"
+                },
+                {
+                  "key": "search",
+                  "value": "",
+                  "description": "Search by username or email",
+                  "disabled": true
+                }
+              ]
+            },
+            "description": "List all users in the system.\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Requires `users:read` permission (admin role)\n\n**Query parameters:**\n- `page` - Page number (default: 1)\n- `limit` - Items per page (default: 20, max: 100)\n- `search` - Search by username or email\n\n**Response:**\n```json\n{\n  \"users\": [...],\n  \"pagination\": {\n    \"page\": 1,\n    \"limit\": 20,\n    \"total\": 150,\n    \"pages\": 8\n  }\n}\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/{{userId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "users", "{{userId}}"]
+            },
+            "description": "Delete a user from the system.\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Requires `users:delete` permission (admin role)\n\n**Effect:**\n- Removes user from database\n- Cascades to user_roles (removes role assignments)\n- May cascade to other user-related data\n\n**Response:** 204 No Content"
+          },
+          "response": []
+        },
+        {
+          "name": "Update User Roles",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"roleIds\": [1, 2]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/admin/users/{{userId}}/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "admin", "users", "{{userId}}", "roles"]
+            },
+            "description": "Update a user's role assignments.\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Requires `users:update` permission (admin role)\n\n**Request body:**\n```json\n{\n  \"roleIds\": [1, 2]  // Array of role IDs to assign\n}\n```\n\n**Effect:**\n- Removes all existing role assignments\n- Assigns new roles specified in request\n\n**Common role IDs:**\n- 1: user (default)\n- 2: admin\n- 3: moderator"
+          },
+          "response": []
+        }
+      ],
+      "description": "Admin endpoints for user management (requires admin permissions)"
+    },
+    {
+      "name": "RBAC - Roles & Permissions",
+      "item": [
+        {
+          "name": "List All Roles",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/rbac/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "rbac", "roles"]
+            },
+            "description": "List all available roles in the system.\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Requires `roles:read` permission\n\n**Response:**\n```json\n[\n  {\n    \"id\": 1,\n    \"name\": \"user\",\n    \"permissions\": [\"profile:read\", \"profile:update\"]\n  },\n  {\n    \"id\": 2,\n    \"name\": \"admin\",\n    \"permissions\": [\"users:read\", \"users:update\", \"users:delete\", ...]\n  }\n]\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "List All Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/rbac/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "rbac", "permissions"]
+            },
+            "description": "List all available permissions in the system.\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Requires `permissions:read` permission\n\n**Response:**\n```json\n[\n  {\"id\": 1, \"name\": \"profile:read\"},\n  {\"id\": 2, \"name\": \"profile:update\"},\n  {\"id\": 3, \"name\": \"users:read\"},\n  {\"id\": 4, \"name\": \"users:update\"},\n  {\"id\": 5, \"name\": \"users:delete\"},\n  {\"id\": 6, \"name\": \"questions:create\"},\n  {\"id\": 7, \"name\": \"questions:update\"},\n  {\"id\": 8, \"name\": \"questions:delete\"}\n]\n```"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Role",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"moderator\",\n  \"permissionIds\": [1, 2, 3, 6, 7]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/rbac/roles",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "rbac", "roles"]
+            },
+            "description": "Create a new role with specific permissions.\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Requires `roles:create` permission (admin only)\n\n**Request body:**\n```json\n{\n  \"name\": \"moderator\",\n  \"permissionIds\": [1, 2, 3, 6, 7]\n}\n```\n\n**Validation:**\n- Role name must be unique\n- Permission IDs must exist in permissions table"
+          },
+          "response": []
+        },
+        {
+          "name": "Update Role Permissions",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"permissionIds\": [1, 2, 3, 4, 6, 7]\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/rbac/roles/:roleId/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "rbac", "roles", ":roleId", "permissions"],
+              "variable": [
+                {
+                  "key": "roleId",
+                  "value": "2"
+                }
+              ]
+            },
+            "description": "Update the permissions assigned to a role.\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Requires `roles:update` permission (admin only)\n\n**Request body:**\n```json\n{\n  \"permissionIds\": [1, 2, 3, 4, 6, 7]\n}\n```\n\n**Effect:**\n- Removes all existing permissions for the role\n- Assigns new permissions specified in request\n- Affects all users with this role"
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Role",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/rbac/roles/:roleId",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "rbac", "roles", ":roleId"],
+              "variable": [
+                {
+                  "key": "roleId",
+                  "value": "3"
+                }
+              ]
+            },
+            "description": "Delete a role from the system.\n\n**Authentication:** Required (Bearer token)\n**Authorization:** Requires `roles:delete` permission (admin only)\n\n**Effect:**\n- Removes role from database\n- Removes all role assignments from users\n- Removes all permission assignments from role\n\n**Protected roles:**\n- Cannot delete 'user' or 'admin' roles (system-defined)\n\n**Response:** 204 No Content"
+          },
+          "response": []
+        },
+        {
+          "name": "Check My Permissions",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/v1/rbac/me/permissions",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "rbac", "me", "permissions"]
+            },
+            "description": "Get all permissions for the authenticated user.\n\n**Authentication:** Required (Bearer token)\n\n**Response:**\n```json\n{\n  \"userId\": \"uuid\",\n  \"roles\": [\"user\", \"moderator\"],\n  \"permissions\": [\n    \"profile:read\",\n    \"profile:update\",\n    \"users:read\",\n    \"questions:create\",\n    \"questions:update\"\n  ]\n}\n```\n\n**Use case:**\n- Frontend can check permissions to show/hide UI elements\n- Verify user capabilities before making requests"
+          },
+          "response": []
+        }
+      ],
+      "description": "Role-Based Access Control (RBAC) management endpoints"
+    },
+    {
+      "name": "Test Scenarios",
+      "item": [
+        {
+          "name": "Scenario 1: Complete User Flow",
+          "item": [
+            {
+              "name": "1. Health Check",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/-/health",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["-", "health"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "2. Initiate Google OAuth",
+              "request": {
+                "auth": {
+                  "type": "noauth"
+                },
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/auth/google",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "auth", "google"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "3. Get My Profile",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/users/me",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "users", "me"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "4. Update Profile",
+              "request": {
+                "method": "PATCH",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"username\": \"cool_coder\",\n  \"display_name\": \"Cool Coder\",\n  \"description\": \"Passionate about algorithms and problem solving!\",\n  \"programming_proficiency\": \"intermediate\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/users/me",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "users", "me"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "5. Check My Permissions",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/rbac/me/permissions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "rbac", "me", "permissions"]
+                }
+              },
+              "response": []
+            }
+          ],
+          "description": "Complete user journey: Login → View profile → Update → Check permissions"
+        },
+        {
+          "name": "Scenario 2: Admin User Management",
+          "item": [
+            {
+              "name": "1. List All Users",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/users?page=1&limit=10",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "users"],
+                  "query": [
+                    {
+                      "key": "page",
+                      "value": "1"
+                    },
+                    {
+                      "key": "limit",
+                      "value": "10"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "2. Update User Roles",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"roleIds\": [1, 3]\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/admin/users/{{userId}}/roles",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "admin", "users", "{{userId}}", "roles"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "3. Verify User Updated",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/users/{{userId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "users", "{{userId}}"]
+                }
+              },
+              "response": []
+            }
+          ],
+          "description": "Admin workflow: List users → Update roles → Verify"
+        },
+        {
+          "name": "Scenario 3: RBAC Testing",
+          "item": [
+            {
+              "name": "1. List All Roles",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/rbac/roles",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "rbac", "roles"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "2. List All Permissions",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/rbac/permissions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "rbac", "permissions"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "3. Create New Role",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"name\": \"content_moderator\",\n  \"permissionIds\": [1, 2, 3, 6, 7]\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/rbac/roles",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "rbac", "roles"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "4. Update Role Permissions",
+              "request": {
+                "method": "PUT",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"permissionIds\": [1, 2, 3, 4, 6, 7, 8]\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/rbac/roles/3/permissions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "rbac", "roles", "3", "permissions"]
+                }
+              },
+              "response": []
+            }
+          ],
+          "description": "RBAC workflow: View roles/permissions → Create role → Update permissions"
+        }
+      ],
+      "description": "Complete test scenarios with multiple steps"
+    }
+  ]
+}
