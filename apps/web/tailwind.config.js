@@ -51,12 +51,6 @@ module.exports = {
 				},
 				'profile-avatar': '#F1FCAC',
 				'profile-avatar-hover': '#e5f099',
-				'difficulty-easy-bg': '#4a5a3a',
-				'difficulty-easy-text': '#a8d08d',
-				'difficulty-medium-bg': '#5a4a3a',
-				'difficulty-medium-text': '#f4b942',
-				'difficulty-hard-bg': '#5a3a3a',
-				'difficulty-hard-text': '#f4a2a2',
 			},
 			borderRadius: {
 				lg: 'var(--radius)',
