@@ -32,6 +32,7 @@ Real-time collaborative coding service for PeerPrep using WebSockets and Yjs CRD
 This starts PostgreSQL, Redis, runs migrations, and launches the service!
 
 **Stop everything:**
+
 ```bash
 ./stop.sh
 ```
@@ -76,6 +77,7 @@ cp .env.example .env
 ```
 
 **Key settings:**
+
 - `ENABLE_MOCK_AUTH=true` - No JWT tokens needed for testing (see [MOCK_AUTH_GUIDE.md](./MOCK_AUTH_GUIDE.md))
 - `DATABASE_URL` - Already configured for Docker PostgreSQL
 - `REDIS_HOST=localhost` - Already configured for Docker Redis

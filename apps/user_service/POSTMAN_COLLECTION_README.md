@@ -10,11 +10,11 @@ This directory contains a complete Postman collection for testing the User Servi
 
 ### Files
 
-| File | Description |
-|------|-------------|
+| File                                         | Description                                |
+| -------------------------------------------- | ------------------------------------------ |
 | **User-Service-API.postman_collection.json** | Complete Postman collection (import this!) |
-| **USER_SERVICE_POSTMAN_GUIDE.md** | Comprehensive testing guide with examples |
-| **USER_SERVICE_QUICK_REFERENCE.md** | Quick reference card for all endpoints |
+| **USER_SERVICE_POSTMAN_GUIDE.md**            | Comprehensive testing guide with examples  |
+| **USER_SERVICE_QUICK_REFERENCE.md**          | Quick reference card for all endpoints     |
 
 ---
 
@@ -56,27 +56,32 @@ curl http://localhost:3001/-/health
 ## 📋 What You Can Test
 
 ### ✅ Health & Observability
+
 - Health check
 - Readiness check (database status)
 - Prometheus metrics
 
 ### 🔐 Authentication
+
 - Google OAuth flow
 - JWT token generation
 - Automatic token saving
 
 ### 👤 User Profile
+
 - Get my profile
 - Update profile (username, description, proficiency)
 - Get user by ID (public profiles)
 
 ### 🛡️ Admin Functions
+
 - List all users (with pagination & search)
 - Delete users
 - Update user roles
 - Assign permissions
 
 ### 🔒 RBAC (Role-Based Access Control)
+
 - List all roles
 - List all permissions
 - Create custom roles
@@ -91,21 +96,25 @@ curl http://localhost:3001/-/health
 The collection includes 3 complete test scenarios:
 
 ### Scenario 1: Complete User Flow
+
 ```
 Health Check → OAuth → Get Profile → Update Profile → Check Permissions
 ```
 
 ### Scenario 2: Admin User Management
+
 ```
 List Users → Update Roles → Verify Changes
 ```
 
 ### Scenario 3: RBAC Testing
+
 ```
 List Roles → List Permissions → Create Role → Update Permissions
 ```
 
 **Run scenarios:**
+
 - Click scenario folder → **Runner** → **Run**
 
 ---
@@ -114,11 +123,11 @@ List Roles → List Permissions → Create Role → Update Permissions
 
 These variables are automatically managed:
 
-| Variable | Auto-saved? | Description |
-|----------|-------------|-------------|
-| `baseUrl` | No | Service URL (default: `http://localhost:3001`) |
-| `accessToken` | ✅ Yes | JWT from OAuth callback |
-| `userId` | ✅ Yes | Current user's ID |
+| Variable      | Auto-saved? | Description                                    |
+| ------------- | ----------- | ---------------------------------------------- |
+| `baseUrl`     | No          | Service URL (default: `http://localhost:3001`) |
+| `accessToken` | ✅ Yes      | JWT from OAuth callback                        |
+| `userId`      | ✅ Yes      | Current user's ID                              |
 
 **Collection-level authentication** is pre-configured with Bearer token.
 
@@ -127,20 +136,26 @@ These variables are automatically managed:
 ## 📖 Documentation
 
 ### For Beginners
+
 Start with **USER_SERVICE_QUICK_REFERENCE.md**
+
 - One-page overview of all endpoints
 - Quick examples
 - Common errors and solutions
 
 ### For Detailed Testing
+
 Read **USER_SERVICE_POSTMAN_GUIDE.md**
+
 - Step-by-step testing instructions
 - Complete RBAC explanation
 - All endpoints documented
 - Troubleshooting guide
 
 ### For API Reference
+
 Check the **Postman collection descriptions**
+
 - Each request has detailed documentation
 - Examples included
 - Expected responses shown
@@ -157,11 +172,11 @@ Users → Roles → Permissions
 
 ### Default Roles
 
-| Role | Permissions |
-|------|-------------|
-| **user** (default) | `profile:read`, `profile:update` |
-| **moderator** | User permissions + question management |
-| **admin** | All permissions |
+| Role               | Permissions                            |
+| ------------------ | -------------------------------------- |
+| **user** (default) | `profile:read`, `profile:update`       |
+| **moderator**      | User permissions + question management |
+| **admin**          | All permissions                        |
 
 ### Permission Format
 
@@ -170,6 +185,7 @@ resource:action
 ```
 
 **Examples:**
+
 - `profile:read` - View own profile
 - `users:update` - Update any user (admin)
 - `questions:create` - Create questions
@@ -184,6 +200,7 @@ resource:action
 For local testing without Google OAuth setup:
 
 **Option A:** Implement a dev login endpoint
+
 ```typescript
 // In dev environment only
 app.post('/v1/auth/dev-login', (req, res) => {
@@ -195,6 +212,7 @@ app.post('/v1/auth/dev-login', (req, res) => {
 ```
 
 **Option B:** Use mock authentication
+
 ```javascript
 // Similar to collaboration service ENABLE_MOCK_AUTH
 ```
@@ -208,13 +226,14 @@ To test admin endpoints:
 SELECT id, email FROM users WHERE email = 'your@email.com';
 
 -- 2. Assign admin role (role_id = 2)
-INSERT INTO user_roles (user_id, role_id) 
+INSERT INTO user_roles (user_id, role_id)
 VALUES ('your-uuid-here', 2);
 ```
 
 ### 3. Use Collection Runner
 
 Test multiple requests at once:
+
 1. Select a scenario folder
 2. Click **Runner**
 3. Click **Run User Service API**
@@ -225,6 +244,7 @@ Test multiple requests at once:
 ## 📊 Endpoints Summary
 
 ### Public (No Auth)
+
 ```
 GET  /-/health           Health check
 GET  /-/ready            Readiness check
@@ -234,6 +254,7 @@ GET  /v1/auth/google/callback  OAuth callback
 ```
 
 ### Authenticated User
+
 ```
 GET    /v1/users/me             Get my profile
 PATCH  /v1/users/me             Update my profile
@@ -243,6 +264,7 @@ GET    /v1/rbac/me/permissions  My permissions
 ```
 
 ### Admin Only
+
 ```
 GET    /v1/admin/users               List all users
 DELETE /v1/admin/users/:id           Delete user
@@ -259,6 +281,7 @@ GET    /v1/rbac/permissions          List permissions
 ## 🎯 Common Use Cases
 
 ### New User Registration
+
 1. User clicks "Sign in with Google"
 2. `GET /v1/auth/google` → Redirects to Google
 3. User authenticates with Google
@@ -267,6 +290,7 @@ GET    /v1/rbac/permissions          List permissions
 6. Frontend saves JWT token
 
 ### Profile Update
+
 1. User updates profile in UI
 2. `PATCH /v1/users/me` with new data
 3. Validation (username unique, proficiency valid)
@@ -274,12 +298,14 @@ GET    /v1/rbac/permissions          List permissions
 5. UI refreshes
 
 ### Permission Check
+
 1. Frontend needs to show admin menu
 2. `GET /v1/rbac/me/permissions`
 3. Check if `users:read` in permissions array
 4. Show/hide admin menu accordingly
 
 ### Admin Assigns Role
+
 1. Admin views user list
 2. `GET /v1/admin/users`
 3. Admin selects user, assigns moderator role
@@ -320,6 +346,7 @@ Authorization: Bearer ${adminToken}
 ## 🐛 Common Issues
 
 ### Service Not Running
+
 ```bash
 # Start the service
 cd apps/user_service
@@ -330,13 +357,17 @@ curl http://localhost:3001/-/health
 ```
 
 ### Token Not Saved
+
 Check the OAuth callback request → **Tests** tab:
+
 ```javascript
 pm.collectionVariables.set('accessToken', pm.response.json().accessToken);
 ```
 
 ### 403 Forbidden
+
 You need the required permission:
+
 ```bash
 # Check your permissions
 GET /v1/rbac/me/permissions
@@ -345,6 +376,7 @@ GET /v1/rbac/me/permissions
 ```
 
 ### Username Already Taken
+
 Usernames must be unique across all users. Try a different one.
 
 ---
@@ -352,15 +384,19 @@ Usernames must be unique across all users. Try a different one.
 ## 📚 Additional Resources
 
 ### Database Schema
+
 See `schema.dbml` for complete database structure:
+
 - `users` table
-- `roles` table  
+- `roles` table
 - `permissions` table
 - `user_roles` table (many-to-many)
 - `role_permissions` table (many-to-many)
 
 ### Implementation Plan
+
 See main `README.md` for:
+
 - Phase 1: Project scaffolding
 - Phase 2: Database & Prisma setup
 - Phase 3: API implementation
@@ -371,18 +407,21 @@ See main `README.md` for:
 ## ✅ Testing Checklist
 
 ### Basic Setup
+
 - [ ] Collection imported successfully
 - [ ] Service running on port 3001
 - [ ] Health check returns 200
 - [ ] Database connected (ready check)
 
 ### Authentication
+
 - [ ] Google OAuth flow works
 - [ ] JWT token auto-saved
 - [ ] Token used in subsequent requests
 - [ ] Logout invalidates token
 
 ### Profile Management
+
 - [ ] Get profile returns user data
 - [ ] Update username works
 - [ ] Update proficiency works
@@ -390,12 +429,14 @@ See main `README.md` for:
 - [ ] Invalid proficiency rejected
 
 ### RBAC
+
 - [ ] New users get 'user' role
 - [ ] Check permissions works
 - [ ] List all roles works
 - [ ] List all permissions works
 
 ### Admin Functions
+
 - [ ] List users with pagination
 - [ ] Search users by username/email
 - [ ] Update user roles

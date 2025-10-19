@@ -31,11 +31,13 @@ http://localhost:3001
 ## 🔑 Authentication
 
 **All endpoints (except health & auth) require:**
+
 ```
 Authorization: Bearer <JWT_TOKEN>
 ```
 
 **Get token via Google OAuth:**
+
 1. `GET /v1/auth/google` → Redirects to Google
 2. Sign in with Google
 3. `GET /v1/auth/google/callback?code=...` → Returns JWT
@@ -46,64 +48,64 @@ Authorization: Bearer <JWT_TOKEN>
 
 ### Health & Observability (No Auth)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/-/health` | GET | Basic health check |
-| `/-/ready` | GET | Database status |
-| `/-/metrics` | GET | Prometheus metrics |
+| Endpoint     | Method | Description        |
+| ------------ | ------ | ------------------ |
+| `/-/health`  | GET    | Basic health check |
+| `/-/ready`   | GET    | Database status    |
+| `/-/metrics` | GET    | Prometheus metrics |
 
 ---
 
 ### Authentication (No Auth)
 
-| Endpoint | Method | Description |
-|----------|--------|-------------|
-| `/v1/auth/google` | GET | Start Google OAuth |
-| `/v1/auth/google/callback` | GET | OAuth callback (returns JWT) |
-| `/v1/auth/logout` | POST | Logout (requires auth) |
+| Endpoint                   | Method | Description                  |
+| -------------------------- | ------ | ---------------------------- |
+| `/v1/auth/google`          | GET    | Start Google OAuth           |
+| `/v1/auth/google/callback` | GET    | OAuth callback (returns JWT) |
+| `/v1/auth/logout`          | POST   | Logout (requires auth)       |
 
 ---
 
 ### User Profile (Auth Required)
 
-| Endpoint | Method | Permission | Description |
-|----------|--------|------------|-------------|
-| `/v1/users/me` | GET | `profile:read` | Get my profile |
-| `/v1/users/me` | PATCH | `profile:update` | Update my profile |
-| `/v1/users/:id` | GET | - | Get user by ID (public) |
+| Endpoint        | Method | Permission       | Description             |
+| --------------- | ------ | ---------------- | ----------------------- |
+| `/v1/users/me`  | GET    | `profile:read`   | Get my profile          |
+| `/v1/users/me`  | PATCH  | `profile:update` | Update my profile       |
+| `/v1/users/:id` | GET    | -                | Get user by ID (public) |
 
 ---
 
 ### Admin - Users (Admin Only)
 
-| Endpoint | Method | Permission | Description |
-|----------|--------|------------|-------------|
-| `/v1/admin/users` | GET | `users:read` | List all users |
-| `/v1/admin/users/:id` | DELETE | `users:delete` | Delete user |
-| `/v1/admin/users/:id/roles` | PUT | `users:update` | Update user roles |
+| Endpoint                    | Method | Permission     | Description       |
+| --------------------------- | ------ | -------------- | ----------------- |
+| `/v1/admin/users`           | GET    | `users:read`   | List all users    |
+| `/v1/admin/users/:id`       | DELETE | `users:delete` | Delete user       |
+| `/v1/admin/users/:id/roles` | PUT    | `users:update` | Update user roles |
 
 ---
 
 ### RBAC Management (Admin Only)
 
-| Endpoint | Method | Permission | Description |
-|----------|--------|------------|-------------|
-| `/v1/rbac/roles` | GET | `roles:read` | List all roles |
-| `/v1/rbac/permissions` | GET | `permissions:read` | List permissions |
-| `/v1/rbac/roles` | POST | `roles:create` | Create role |
-| `/v1/rbac/roles/:id/permissions` | PUT | `roles:update` | Update role perms |
-| `/v1/rbac/roles/:id` | DELETE | `roles:delete` | Delete role |
-| `/v1/rbac/me/permissions` | GET | - | My permissions |
+| Endpoint                         | Method | Permission         | Description       |
+| -------------------------------- | ------ | ------------------ | ----------------- |
+| `/v1/rbac/roles`                 | GET    | `roles:read`       | List all roles    |
+| `/v1/rbac/permissions`           | GET    | `permissions:read` | List permissions  |
+| `/v1/rbac/roles`                 | POST   | `roles:create`     | Create role       |
+| `/v1/rbac/roles/:id/permissions` | PUT    | `roles:update`     | Update role perms |
+| `/v1/rbac/roles/:id`             | DELETE | `roles:delete`     | Delete role       |
+| `/v1/rbac/me/permissions`        | GET    | -                  | My permissions    |
 
 ---
 
 ## 🔐 Default Roles
 
-| Role | ID | Permissions |
-|------|----|-----------| 
-| **user** | 1 | `profile:read`, `profile:update` |
-| **admin** | 2 | All permissions |
-| **moderator** | 3 | User + question management |
+| Role          | ID  | Permissions                      |
+| ------------- | --- | -------------------------------- |
+| **user**      | 1   | `profile:read`, `profile:update` |
+| **admin**     | 2   | All permissions                  |
+| **moderator** | 3   | User + question management       |
 
 ---
 
@@ -136,6 +138,7 @@ curl http://localhost:3001/v1/users/me \
 ```
 
 **Response:**
+
 ```json
 {
   "id": "uuid",
@@ -168,6 +171,7 @@ curl -X PATCH http://localhost:3001/v1/users/me \
 ```
 
 **Updateable Fields:**
+
 - ✅ `username` (must be unique)
 - ✅ `display_name`
 - ✅ `description` (max 1000 chars)
@@ -175,6 +179,7 @@ curl -X PATCH http://localhost:3001/v1/users/me \
 - ✅ `avatar_url`
 
 **Immutable Fields:**
+
 - ❌ `id`
 - ❌ `email`
 - ❌ `google_id`
@@ -190,16 +195,12 @@ curl http://localhost:3001/v1/rbac/me/permissions \
 ```
 
 **Response:**
+
 ```json
 {
   "userId": "uuid",
   "roles": ["user", "moderator"],
-  "permissions": [
-    "profile:read",
-    "profile:update",
-    "questions:create",
-    "questions:update"
-  ]
+  "permissions": ["profile:read", "profile:update", "questions:create", "questions:update"]
 }
 ```
 
@@ -213,6 +214,7 @@ curl "http://localhost:3001/v1/admin/users?page=1&limit=10" \
 ```
 
 **Response:**
+
 ```json
 {
   "users": [
@@ -247,6 +249,7 @@ curl -X PUT http://localhost:3001/v1/admin/users/USER_UUID/roles \
 ```
 
 **Common Role IDs:**
+
 - `[1]` - User only
 - `[1, 2]` - User + Admin
 - `[1, 3]` - User + Moderator
@@ -266,6 +269,7 @@ curl -X POST http://localhost:3001/v1/rbac/roles \
 ```
 
 **Permission IDs:**
+
 - `1` - profile:read
 - `2` - profile:update
 - `6` - questions:create
@@ -276,45 +280,50 @@ curl -X POST http://localhost:3001/v1/rbac/roles \
 
 ## 🚦 HTTP Status Codes
 
-| Code | Meaning | When |
-|------|---------|------|
-| 200 | OK | Successful GET/PATCH/PUT |
-| 201 | Created | Successful POST |
-| 204 | No Content | Successful DELETE |
-| 400 | Bad Request | Invalid data/validation error |
-| 401 | Unauthorized | Missing/invalid token |
-| 403 | Forbidden | Insufficient permissions |
-| 404 | Not Found | Resource doesn't exist |
-| 409 | Conflict | Duplicate username/email |
-| 500 | Server Error | Internal error |
+| Code | Meaning      | When                          |
+| ---- | ------------ | ----------------------------- |
+| 200  | OK           | Successful GET/PATCH/PUT      |
+| 201  | Created      | Successful POST               |
+| 204  | No Content   | Successful DELETE             |
+| 400  | Bad Request  | Invalid data/validation error |
+| 401  | Unauthorized | Missing/invalid token         |
+| 403  | Forbidden    | Insufficient permissions      |
+| 404  | Not Found    | Resource doesn't exist        |
+| 409  | Conflict     | Duplicate username/email      |
+| 500  | Server Error | Internal error                |
 
 ---
 
 ## ⚠️ Common Errors
 
 ### Username Already Taken
+
 ```json
 {
   "error": "Username already exists",
   "field": "username"
 }
 ```
+
 **Solution:** Choose different username
 
 ---
 
 ### Invalid Proficiency Level
+
 ```json
 {
   "error": "Invalid programming_proficiency",
   "allowed": ["beginner", "intermediate", "advanced"]
 }
 ```
+
 **Solution:** Use valid enum value
 
 ---
 
 ### Insufficient Permissions
+
 ```json
 {
   "error": "Insufficient permissions",
@@ -322,6 +331,7 @@ curl -X POST http://localhost:3001/v1/rbac/roles \
   "current": ["profile:read", "profile:update"]
 }
 ```
+
 **Solution:** Ask admin to assign required role
 
 ---
@@ -357,6 +367,7 @@ curl -X POST http://localhost:3001/v1/rbac/roles \
 ## 🎯 Postman Quick Tips
 
 ### 1. Use Collection Variables
+
 ```
 {{baseUrl}}/v1/users/me
 {{accessToken}}
@@ -364,20 +375,27 @@ curl -X POST http://localhost:3001/v1/rbac/roles \
 ```
 
 ### 2. Auto-save Token
+
 Add to OAuth callback Tests tab:
+
 ```javascript
 pm.collectionVariables.set('accessToken', pm.response.json().accessToken);
 ```
 
 ### 3. Collection-level Auth
+
 Already configured! All requests inherit Bearer token.
 
 ### 4. Use Runner
+
 Test multiple requests in sequence:
+
 - Click folder → Runner → Run
 
 ### 5. Environments
+
 Create environments for:
+
 - Local (`http://localhost:3001`)
 - Staging (`https://staging-api...`)
 - Production (`https://api...`)
@@ -410,13 +428,13 @@ Authorization: Bearer <admin-token>
 
 ## 📚 Files Reference
 
-| File | Description |
-|------|-------------|
-| `User-Service-API.postman_collection.json` | Postman collection |
-| `USER_SERVICE_POSTMAN_GUIDE.md` | Complete guide |
-| `USER_SERVICE_QUICK_REFERENCE.md` | This file! |
-| `schema.dbml` | Database schema |
-| `README.md` | Implementation plan |
+| File                                       | Description         |
+| ------------------------------------------ | ------------------- |
+| `User-Service-API.postman_collection.json` | Postman collection  |
+| `USER_SERVICE_POSTMAN_GUIDE.md`            | Complete guide      |
+| `USER_SERVICE_QUICK_REFERENCE.md`          | This file!          |
+| `schema.dbml`                              | Database schema     |
+| `README.md`                                | Implementation plan |
 
 ---
 
@@ -453,14 +471,14 @@ curl http://localhost:3001/-/health
 
 ## 🐛 Troubleshooting Quick Fixes
 
-| Problem | Solution |
-|---------|----------|
-| Connection refused | `pnpm dev` in user_service |
-| 401 Unauthorized | Re-authenticate (get new token) |
-| 403 Forbidden | Check permissions, need admin role |
-| Username taken | Use different username |
-| Invalid proficiency | Use beginner/intermediate/advanced |
-| Token not saving | Check Tests tab in callback request |
+| Problem             | Solution                            |
+| ------------------- | ----------------------------------- |
+| Connection refused  | `pnpm dev` in user_service          |
+| 401 Unauthorized    | Re-authenticate (get new token)     |
+| 403 Forbidden       | Check permissions, need admin role  |
+| Username taken      | Use different username              |
+| Invalid proficiency | Use beginner/intermediate/advanced  |
+| Token not saving    | Check Tests tab in callback request |
 
 ---
 
