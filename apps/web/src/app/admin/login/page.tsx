@@ -9,7 +9,8 @@ export default function AdminLogin() {
 
     const handleGoogleSignIn = () => {
         router.push('/admin');
-    }; return (
+    };
+    return (
         <div className="min-h-screen flex flex-col md:flex-row">
             <div className="w-full md:w-1/3 h-64 md:h-auto relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-[#f5f5f5] via-[#e8e8e8] to-[#d4d4d4]"></div>
