@@ -36,5 +36,4 @@ spec:
     memory: "8Gi"
   disruption:
     expireAfter: "720h"
-  disruption:
     consolidateAfter: "2m"

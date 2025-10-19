@@ -65,6 +65,8 @@ spec:
     ports:
     - protocol: TCP
       port: 8000
+    - protocol: TCP
+      port: 80
   - to:
     - podSelector:
         matchLabels:
@@ -100,6 +102,8 @@ spec:
     ports:
     - protocol: TCP
       port: 8000
+    - protocol: TCP
+      port: 80
   - to:
     - podSelector:
         matchLabels:

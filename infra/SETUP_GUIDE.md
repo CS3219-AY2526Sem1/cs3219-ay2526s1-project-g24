@@ -114,6 +114,8 @@ You should see at least 1 node and kube-system pods running.
 
 ### Step 3: Install Additional Cluster Components (10 minutes)
 
+**Note:** If using the "Cluster Spin Up" GitHub Actions workflow, these components are installed automatically. Only follow these steps if doing manual setup.
+
 **3.1 Install AWS Load Balancer Controller**
 
 This is needed for the Ingress (ALB) to work.
@@ -279,7 +281,8 @@ aws ecr get-login-password --region $REGION | \
 **5.3 Build and Push Images**
 
 ```bash
-cd /Users/leyew/Desktop/NUS/Y3S1/cs3219/cs3219-ay2526s1-project-g24
+# Navigate to repository root
+cd <repo-root>
 
 # Web (Next.js)
 docker build -t ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/web:latest -f apps/web/Dockerfile .
@@ -400,11 +403,26 @@ kubectl get svc -n cs3219
 kubectl get ingress -n cs3219
 ```
 
-**Option B: Use GitHub Actions** (After pushing to GitHub)
+**Option B: Use GitHub Actions** (Recommended - Fully Automated)
 
 1. Push your code to GitHub
 2. Add GitHub secrets (AWS_ACCOUNT_ID, AWS_REGION)
 3. Go to Actions → "Cluster Spin Up" → Run workflow
+
+**The workflow automatically:**
+- ✅ Runs Terraform to create EKS cluster
+- ✅ Installs EBS CSI Driver for persistent volumes
+- ✅ Creates gp3 StorageClass
+- ✅ Installs AWS Load Balancer Controller for ALB
+- ✅ Applies Karpenter NodePool for auto-scaling
+- ✅ Creates secrets from AWS Parameter Store (secure)
+- ✅ Deploys all Kubernetes resources
+- ✅ Waits for databases to be ready
+- ✅ Deploys application services with GHCR images
+- ✅ Verifies all deployments and health checks
+- ✅ Restores database backups (if available)
+
+Wait ~15-20 minutes for complete cluster setup.
 
 ---
 

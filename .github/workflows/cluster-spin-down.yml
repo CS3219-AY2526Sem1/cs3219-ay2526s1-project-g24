@@ -23,29 +23,56 @@ jobs:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/cs3219-eks-gha-deployer
           aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
 
-      - name: Configure kubectl
+      - name: Check if cluster exists
+        id: cluster_check
         run: |
-          aws eks update-kubeconfig --name cs3219-eks --region ${{ secrets.AWS_REGION || 'ap-southeast-1' }} || echo "Cluster may not exist"
+          if aws eks describe-cluster --name cs3219-eks --region ${{ secrets.AWS_REGION || 'ap-southeast-1' }} 2>/dev/null; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "✅ Cluster exists, will backup databases"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ Cluster does not exist, skipping backups"
+          fi
+
+      - name: Configure kubectl
+        if: steps.cluster_check.outputs.exists == 'true'
+        run: |
+          aws eks update-kubeconfig --name cs3219-eks --region ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
 
       - name: Backup Databases
-        continue-on-error: true
+        if: steps.cluster_check.outputs.exists == 'true'
         run: |
+          # Fail if backup fails (data protection)
+          set -e
+          
           # Create S3 bucket if it doesn't exist
-          aws s3 mb s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }} || echo "Bucket already exists"
+          aws s3 mb s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }} 2>/dev/null || echo "Bucket already exists"
           
           echo "💾 Backing up databases..."
           
-          # Backup Question DB
-          kubectl exec -n cs3219 deployment/question-db -- \
-            pg_dump -U questionuser questiondb | gzip > /tmp/question-db.sql.gz
-          aws s3 cp /tmp/question-db.sql.gz s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/question-db-latest.sql.gz
-          aws s3 cp /tmp/question-db.sql.gz s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/question-db-$(date +%Y%m%d-%H%M%S).sql.gz
+          # Check if databases are running
+          if ! kubectl get deployment question-db -n cs3219 2>/dev/null; then
+            echo "⚠️ Question DB not found, skipping backup"
+          else
+            # Backup Question DB
+            kubectl exec -n cs3219 deployment/question-db -- \
+              pg_dump -U questionuser questiondb | gzip > /tmp/question-db.sql.gz
+            aws s3 cp /tmp/question-db.sql.gz s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/question-db-latest.sql.gz
+            aws s3 cp /tmp/question-db.sql.gz s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/question-db-$(date +%Y%m%d-%H%M%S).sql.gz
+            echo "✅ Question DB backed up"
+          fi
           
-          # Backup User DB
-          kubectl exec -n cs3219 deployment/user-db -- \
-            pg_dump -U user userdb | gzip > /tmp/user-db.sql.gz
-          aws s3 cp /tmp/user-db.sql.gz s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/user-db-latest.sql.gz
-          aws s3 cp /tmp/user-db.sql.gz s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/user-db-$(date +%Y%m%d-%H%M%S).sql.gz
+          # Check if user DB is running
+          if ! kubectl get deployment user-db -n cs3219 2>/dev/null; then
+            echo "⚠️ User DB not found, skipping backup"
+          else
+            # Backup User DB
+            kubectl exec -n cs3219 deployment/user-db -- \
+              pg_dump -U user userdb | gzip > /tmp/user-db.sql.gz
+            aws s3 cp /tmp/user-db.sql.gz s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/user-db-latest.sql.gz
+            aws s3 cp /tmp/user-db.sql.gz s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/user-db-$(date +%Y%m%d-%H%M%S).sql.gz
+            echo "✅ User DB backed up"
+          fi
           
           echo "✅ Database backups complete"
 

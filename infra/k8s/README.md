@@ -42,6 +42,12 @@ Go to GitHub repo → Settings → Secrets and variables → Actions:
 
 **3. Build & Push Images (10-15 min)**
 
+**Option A: Use GHCR (Recommended - Automated via GitHub Actions)**
+
+Just push to `main` or `setup-infra` branch - GitHub Actions will automatically build and push images to GHCR.
+
+**Option B: Use ECR (Manual)**
+
 ```bash
 # Authenticate with ECR
 aws ecr get-login-password --region ap-southeast-1 | \
@@ -72,7 +78,9 @@ docker build -t ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/matching-service
 docker push ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/matching-service:latest
 ```
 
-**4. Update Image References (3 min)**
+**Note:** If using GHCR (Option A above), skip the "Update Image References" step.
+
+If using ECR (Option B), update image references first:
 
 ```bash
 # Replace ACCOUNT_ID and REGION with your values
@@ -240,7 +248,14 @@ kubectl rollout restart deployment -n cs3219
 2. Select **"Cluster Spin Down"**
 3. Click **"Run workflow"**
 4. Wait ~2-3 minutes
-5. Databases backed up to S3, cluster destroyed
+5. **Databases automatically backed up to S3** (workflow fails if backup fails to protect data)
+6. Cluster destroyed after successful backup
+
+**Safety features:**
+- ✅ Checks if cluster exists before attempting backup
+- ✅ Fails workflow if backup fails (prevents data loss)
+- ✅ Creates both latest and timestamped backups
+- ✅ Backups stored in S3 with encryption
 
 ### Optional: Schedule Automatic Spin Up/Down
 
@@ -299,23 +314,33 @@ terraform destroy
 - **[../SETUP_GUIDE.md](../SETUP_GUIDE.md)** - Complete first-time setup walkthrough
 - **[../terraform/eks/](../terraform/eks/)** - EKS cluster infrastructure
 
-## � CI/CD with GHCR (GitHub Container Registry)
+## 🔄 CI/CD with GHCR (GitHub Container Registry)
 
 We added two GitHub Actions workflows to build images and deploy them to your cluster using GHCR:
 
 - `.github/workflows/build-and-push-ghcr.yml` — builds container images for all services and pushes them to `ghcr.io/${{ github.repository_owner }}/...` with both `latest` and `${{ github.sha }}` tags.
-- `.github/workflows/deploy-to-cluster.yml` — runs after a successful build (or manually). It updates deployments (`kubectl set image`) to use the `ghcr.io/...:${SHA}` image tags and reapplies HPA/Ingress.
+- `.github/workflows/deploy-to-cluster.yml` — runs after a successful build (or manually). It waits for databases, updates deployments (`kubectl set image`) to use the `ghcr.io/...:${SHA}` image tags, verifies rollouts, and performs health checks.
 
 What you need to configure:
 
 1. Add repository secrets:
   - `AWS_ACCOUNT_ID` — your AWS account id (used by deploy workflow role ARN)
   - `AWS_REGION` — `ap-southeast-1` (or your region)
-  - Optional: `GHCR_PAT` — personal access token with `write:packages` if your GHCR requires it (public org owners typically can use the built-in GITHUB_TOKEN)
+  - **Note:** The workflow uses the built-in `GITHUB_TOKEN` for GHCR authentication (no PAT needed)
 
 2. Triggering:
   - Push to `main` or `setup-infra` triggers the build workflow.
   - After a successful build, the deploy workflow runs automatically. You can also trigger it manually from the Actions UI.
+
+**What the deploy workflow does:**
+- Configures AWS credentials and kubectl
+- Logs into GHCR for image pulling
+- Deploys namespace, configmaps, network policies, and databases
+- **Waits for databases to be ready** before deploying services
+- Updates all service deployments to use SHA-tagged images
+- **Verifies all deployments** complete successfully
+- **Performs health checks** on all pods
+- Reports deployment status and ALB URL
 
 3. Image naming convention used by the workflows:
   - `ghcr.io/<owner>/cs3219-web:<sha>`
@@ -332,11 +357,16 @@ Quick manual deploy example (useful for testing):
 # After a build completes and you have the SHA (e.g. $SHA)
 kubectl set image deployment/web web=ghcr.io/<owner>/cs3219-web:${SHA} -n cs3219
 kubectl set image deployment/api api=ghcr.io/<owner>/cs3219-api:${SHA} -n cs3219
-kubectl rollout status deployment/web -n cs3219
-kubectl rollout status deployment/api -n cs3219
+
+# Wait for rollouts
+kubectl rollout status deployment/web -n cs3219 --timeout=300s
+kubectl rollout status deployment/api -n cs3219 --timeout=300s
+
+# Verify health
+kubectl get pods -n cs3219
 ```
 
-That's it — GHCR builds are wired into CI and deploys update the running services automatically.
+That's it — GHCR builds are wired into CI and deploys update the running services automatically with comprehensive health checks.
 
 ## �📊 Resource Specifications
 
@@ -364,6 +394,33 @@ That's it — GHCR builds are wired into CI and deploys update the running servi
 
 If you prefer manual deployment:
 
+**Prerequisites (one-time setup):**
+```bash
+# 1. Install EBS CSI Driver (required for persistent volumes)
+kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.25"
+
+# 2. Create gp3 StorageClass
+cat <<EOF | kubectl apply -f -
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: gp3
+provisioner: ebs.csi.aws.com
+parameters:
+  type: gp3
+  encrypted: "true"
+allowVolumeExpansion: true
+volumeBindingMode: WaitForFirstConsumer
+EOF
+
+# 3. Install AWS Load Balancer Controller (required for Ingress/ALB)
+# See infra/SETUP_GUIDE.md Step 3.1 for full instructions
+helm repo add eks https://aws.github.io/eks-charts
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+  -n kube-system --set clusterName=cs3219-eks
+```
+
+**Deploy applications:**
 ```bash
 # 1. Create namespace
 kubectl apply -f namespace.yaml
@@ -420,9 +477,30 @@ kubectl apply -f ingress.yaml
 kubectl get pods -n cs3219
 kubectl describe pod <pod-name> -n cs3219
 
-# Check Karpenter
+# Common causes:
+# 1. Missing EBS CSI Driver (check prerequisites)
+# 2. PVC not bound (check StorageClass exists)
+kubectl get pvc -n cs3219
+kubectl get storageclass
+
+# Check Karpenter for node scaling
 kubectl get nodes
 kubectl logs -n karpenter -l app.kubernetes.io/name=karpenter
+```
+
+### Deployment Failed Health Checks
+```bash
+# Check which pods are unhealthy
+kubectl get pods -n cs3219 | grep -E 'Error|CrashLoopBackOff|ImagePullBackOff'
+
+# Get detailed pod information
+kubectl describe pod <pod-name> -n cs3219
+
+# Check pod logs
+kubectl logs <pod-name> -n cs3219
+
+# Check recent events
+kubectl get events -n cs3219 --sort-by='.lastTimestamp'
 ```
 
 ### Database Connection Issues
@@ -454,14 +532,39 @@ kubectl describe pod <pod-name> -n cs3219
 
 ### Ingress Not Working
 ```bash
-# Check ALB controller
+# Check if AWS Load Balancer Controller is installed
 kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-load-balancer-controller
 
-# Check ingress
+# If not found, install it (see Manual Deployment prerequisites above)
+
+# Check ingress status
 kubectl describe ingress cs3219-ingress -n cs3219
 
-# Verify ALB exists
+# Check ALB creation
 aws elbv2 describe-load-balancers --region ap-southeast-1
+
+# Common issues:
+# 1. Load Balancer Controller not installed
+# 2. IAM permissions missing for controller
+# 3. Subnets not properly tagged for ALB discovery
+```
+
+### Network Policy Issues
+```bash
+# If services can't communicate with each other
+
+# Check network policies
+kubectl get networkpolicies -n cs3219
+
+# Describe specific policy
+kubectl describe networkpolicy <policy-name> -n cs3219
+
+# Test connectivity between pods
+kubectl exec -it deployment/web -n cs3219 -- curl http://api:3001/health
+kubectl exec -it deployment/api -n cs3219 -- curl http://question-service/health
+kubectl exec -it deployment/api -n cs3219 -- curl http://question-service:80/health
+
+# Note: question-service uses port 80, but network policies allow both 80 and 8000
 ```
 
 ## 📖 Additional Documentation

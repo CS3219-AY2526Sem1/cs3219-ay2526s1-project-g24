@@ -40,28 +40,107 @@ jobs:
         run: |
           aws eks update-kubeconfig --name cs3219-eks --region ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
 
+      - name: Install EBS CSI Driver
+        run: |
+          echo "📦 Installing EBS CSI Driver..."
+          kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.25"
+          
+          # Wait for CSI driver to be ready
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=aws-ebs-csi-driver -n kube-system --timeout=300s || true
+
+      - name: Create gp3 StorageClass
+        run: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: storage.k8s.io/v1
+          kind: StorageClass
+          metadata:
+            name: gp3
+          provisioner: ebs.csi.aws.com
+          parameters:
+            type: gp3
+            encrypted: "true"
+          allowVolumeExpansion: true
+          volumeBindingMode: WaitForFirstConsumer
+          EOF
+          
+          # Make it default
+          kubectl patch storageclass gp3 -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}' || true
+
+      - name: Install AWS Load Balancer Controller
+        run: |
+          echo "📦 Installing AWS Load Balancer Controller..."
+          
+          # Download IAM policy
+          curl -o /tmp/iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
+          
+          # Create IAM policy (ignore if exists)
+          aws iam create-policy \
+            --policy-name AWSLoadBalancerControllerIAMPolicy \
+            --policy-document file:///tmp/iam-policy.json 2>/dev/null || echo "Policy already exists"
+          
+          # Create service account with IRSA
+          eksctl create iamserviceaccount \
+            --cluster=cs3219-eks \
+            --namespace=kube-system \
+            --name=aws-load-balancer-controller \
+            --attach-policy-arn=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:policy/AWSLoadBalancerControllerIAMPolicy \
+            --override-existing-serviceaccounts \
+            --region ${{ secrets.AWS_REGION || 'ap-southeast-1' }} \
+            --approve || echo "Service account already exists"
+          
+          # Add Helm repo and install
+          helm repo add eks https://aws.github.io/eks-charts
+          helm repo update
+          
+          helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+            -n kube-system \
+            --set clusterName=cs3219-eks \
+            --set serviceAccount.create=false \
+            --set serviceAccount.name=aws-load-balancer-controller \
+            --wait
+          
+          echo "✅ AWS Load Balancer Controller installed"
+
+      - name: Apply Karpenter NodeClass and NodePool
+        run: |
+          echo "📦 Applying Karpenter NodeClass and NodePool..."
+          kubectl apply -f infra/terraform/eks/karpenter.yaml
+          echo "✅ Karpenter configuration applied"
+
       - name: Deploy Kubernetes Resources
         run: |
           # Create namespace
           kubectl apply -f infra/k8s/namespace.yaml
           
-          # Create secrets from Parameter Store
+          # Create secrets from Parameter Store securely
+          echo "🔐 Creating secrets from AWS Parameter Store..."
+          
+          # Fetch secrets without echoing
+          QUESTION_DB_PASS=$(aws ssm get-parameter --name /cs3219/db/question-password --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)
+          USER_DB_PASS=$(aws ssm get-parameter --name /cs3219/db/user-password --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)
+          JWT_SECRET=$(aws ssm get-parameter --name /cs3219/jwt-secret --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)
+          GOOGLE_CLIENT_ID=$(aws ssm get-parameter --name /cs3219/google-client-id --query 'Parameter.Value' --output text 2>/dev/null)
+          GOOGLE_CLIENT_SECRET=$(aws ssm get-parameter --name /cs3219/google-client-secret --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)
+          
+          # Create secrets
           kubectl create secret generic db-secrets -n cs3219 \
             --from-literal=question-db-user=questionuser \
-            --from-literal=question-db-password=$(aws ssm get-parameter --name /cs3219/db/question-password --with-decryption --query 'Parameter.Value' --output text) \
+            --from-literal=question-db-password="${QUESTION_DB_PASS}" \
             --from-literal=question-db-name=questiondb \
             --from-literal=user-db-user=user \
-            --from-literal=user-db-password=$(aws ssm get-parameter --name /cs3219/db/user-password --with-decryption --query 'Parameter.Value' --output text) \
+            --from-literal=user-db-password="${USER_DB_PASS}" \
             --from-literal=user-db-name=userdb \
             --from-literal=redis-password="" \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply -f - > /dev/null
           
           kubectl create secret generic app-secrets -n cs3219 \
-            --from-literal=jwt-secret=$(aws ssm get-parameter --name /cs3219/jwt-secret --with-decryption --query 'Parameter.Value' --output text) \
-            --from-literal=google-client-id=$(aws ssm get-parameter --name /cs3219/google-client-id --query 'Parameter.Value' --output text) \
-            --from-literal=google-client-secret=$(aws ssm get-parameter --name /cs3219/google-client-secret --with-decryption --query 'Parameter.Value' --output text) \
+            --from-literal=jwt-secret="${JWT_SECRET}" \
+            --from-literal=google-client-id="${GOOGLE_CLIENT_ID}" \
+            --from-literal=google-client-secret="${GOOGLE_CLIENT_SECRET}" \
             --from-literal=google-callback-url=https://your-domain.com/auth/google/callback \
-            --dry-run=client -o yaml | kubectl apply -f -
+            --dry-run=client -o yaml | kubectl apply -f - > /dev/null
+          
+          echo "✅ Secrets created"
           
           # Deploy config and policies
           kubectl apply -f infra/k8s/configmap.yaml
@@ -75,9 +154,10 @@ jobs:
           
           # Wait for databases
           echo "⏳ Waiting for databases to be ready..."
-          kubectl wait --for=condition=ready pod -l app=question-db -n cs3219 --timeout=300s || true
-          kubectl wait --for=condition=ready pod -l app=user-db -n cs3219 --timeout=300s || true
-          kubectl wait --for=condition=ready pod -l app=matching-redis -n cs3219 --timeout=300s || true
+          kubectl wait --for=condition=ready pod -l app=question-db -n cs3219 --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=user-db -n cs3219 --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=matching-redis -n cs3219 --timeout=300s
+          echo "✅ Databases ready"
 
       - name: Restore Database Backups (if exist)
         continue-on-error: true
@@ -106,18 +186,58 @@ jobs:
           fi
 
       - name: Deploy Application Services
+        env:
+          SHA: latest
+          OWNER: ${{ github.repository_owner }}
         run: |
+          echo "📦 Deploying application services..."
+          
+          # Apply service manifests
           kubectl apply -f infra/k8s/question-service.yaml
           kubectl apply -f infra/k8s/user-service.yaml
           kubectl apply -f infra/k8s/matching-service.yaml
           kubectl apply -f infra/k8s/api.yaml
           kubectl apply -f infra/k8s/web.yaml
+          
+          # Update images to GHCR (use latest tag for initial deployment)
+          echo "🖼️  Updating to GHCR images..."
+          kubectl set image deployment/web web=ghcr.io/${OWNER}/cs3219-web:${SHA} -n cs3219 || true
+          kubectl set image deployment/api api=ghcr.io/${OWNER}/cs3219-api:${SHA} -n cs3219 || true
+          kubectl set image deployment/question-service question-service=ghcr.io/${OWNER}/cs3219-question-service:${SHA} -n cs3219 || true
+          kubectl set image deployment/user-service user-service=ghcr.io/${OWNER}/cs3219-user-service:${SHA} -n cs3219 || true
+          kubectl set image deployment/matching-service matching-service=ghcr.io/${OWNER}/cs3219-matching-service:${SHA} -n cs3219 || true
+          
+          # Apply HPA and Ingress
           kubectl apply -f infra/k8s/hpa.yaml
           kubectl apply -f infra/k8s/ingress.yaml
+          
+          echo "✅ Services deployed"
+
+      - name: Verify Deployment Health
+        run: |
+          echo "🔍 Verifying deployment health..."
+          
+          # Wait for all pods to be ready
+          kubectl wait --for=condition=ready pod --all -n cs3219 --timeout=600s || true
+          
+          # Check for any failed pods
+          if kubectl get pods -n cs3219 | grep -E 'Error|CrashLoopBackOff|ImagePullBackOff'; then
+            echo "❌ Found failed pods"
+            kubectl describe pods -n cs3219
+            exit 1
+          fi
+          
+          echo "✅ All pods healthy"
 
       - name: Get Cluster Status
         run: |
           echo "✅ Cluster is up and running!"
+          echo ""
+          echo "💰 Estimated costs:"
+          echo "  • EKS Control Plane: ~\$73/month"
+          echo "  • EC2 Nodes (t3.medium): ~\$30-50/month"
+          echo "  • ALB: ~\$16/month"
+          echo "  • Total: ~\$120-140/month or \$4-5/day"
           echo ""
           echo "📊 Pods:"
           kubectl get pods -n cs3219
@@ -131,3 +251,5 @@ jobs:
           echo "🔗 ALB URL:"
           kubectl get ingress cs3219-ingress -n cs3219 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
           echo ""
+          echo ""
+          echo "⏰ Remember to run 'Cluster Spin Down' when done to save costs!"
