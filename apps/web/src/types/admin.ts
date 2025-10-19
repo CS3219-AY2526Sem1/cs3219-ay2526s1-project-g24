@@ -81,19 +81,32 @@ export interface TestCaseValidationResult {
 
 export interface UserProfile {
     id: string;
-    fullName: string;
+    username: string;
+    display_name: string;
     email: string;
-    language?: string;
-    proficiency?: string;
-    avatarUrl?: string;
+    avatar_url?: string;
+    google_id: string;
+    description?: string;
+    programming_proficiency?: "beginner" | "intermediate" | "advanced";
+    created_at: string;
+    updated_at: string;
 }
 
-export interface AdminUserProfile extends UserProfile {
+export interface AdminUserProfile {
+    id: string;
+    username: string;
+    display_name: string;
+    email: string;
+    avatar_url?: string;
+    google_id: string;
+    description?: string;
+    programming_proficiency?: "beginner" | "intermediate" | "advanced";
     role: UserRole;
-    createdAt: string;
-    lastLogin: string;
-    totalSessions: number;
-    totalSubmissions: number;
+    created_at: string;
+    updated_at: string;
+    last_login?: string;
+    total_sessions?: number;
+    total_submissions?: number;
 }
 
 // ========== PAGINATION ==========

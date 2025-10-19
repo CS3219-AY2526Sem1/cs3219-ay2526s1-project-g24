@@ -340,25 +340,6 @@ paths:
 
   # User Service: Admin User Management
 
-  /v1/admin/users:
-    get:
-      tags:
-        - Admin
-      summary: Get all users (Admin)
-      security:
-        - bearerAuth: []
-      description: Requires scope `admin:users:read`.
-      responses:
-        "200":
-          description: List of users
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: "#/components/schemas/UserProfile"
-        "401":
-          $ref: "#/components/responses/UnauthorizedError"
   /v1/admin/roles:
     post:
       tags:
