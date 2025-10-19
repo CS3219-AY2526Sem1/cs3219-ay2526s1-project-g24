@@ -30,6 +30,8 @@ spec:
     ports:
     - protocol: UDP
       port: 53
+    - protocol: TCP
+      port: 53
 ---
 # Allow web frontend to access all backend services
 apiVersion: networking.k8s.io/v1
