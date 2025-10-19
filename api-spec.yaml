@@ -38,7 +38,7 @@ tags:
 
 paths:
   # ========== USER SERVICE ==========
-  # User Service: JWKS Endnpoint (Public Token)
+  # User Service: JWKS Endpoint (Public Token)
   /.well-known/jwks.json:
     get:
       tags:
