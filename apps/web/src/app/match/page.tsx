@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getDifficultyStyles } from "@/lib/difficulty";
+import { matchingService, type Difficulty } from "@/lib/services/matching-service";
 
 const topics = [
     { name: "Arrays &\nHashing", subtitle: "Two pointers, Sliding window" },
@@ -52,6 +53,8 @@ export default function Match() {
     const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
     const [selectedDifficulty, setSelectedDifficulty] = useState<string>("Intermediate Level");
     const [selectedLanguage, setSelectedLanguage] = useState<string>("Python");
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
     const tabs = [
         { name: "Home", href: "/home" },
@@ -66,8 +69,46 @@ export default function Match() {
         );
     };
 
-    const handleMatch = () => {
-        router.push("/wait");
+    // Map display difficulty to API difficulty
+    const mapDifficultyToApi = (displayDifficulty: string): Difficulty => {
+        if (displayDifficulty.includes("Beginner")) return "easy";
+        if (displayDifficulty.includes("Intermediate")) return "medium";
+        if (displayDifficulty.includes("Expert")) return "hard";
+        return "medium"; // Default
+    };
+
+    const handleMatch = async () => {
+        // Validation
+        if (selectedTopics.length === 0) {
+            setError("Please select at least one topic");
+            return;
+        }
+
+        setIsLoading(true);
+        setError(null);
+
+        try {
+            // TODO: Replace with actual user ID from auth context
+            const userId = "user-" + Math.random().toString(36).substr(2, 9);
+            
+            const response = await matchingService.createMatchRequest({
+                userId,
+                difficulty: mapDifficultyToApi(selectedDifficulty),
+                topics: selectedTopics,
+                languages: [selectedLanguage],
+            });
+
+            // Store the request ID in sessionStorage to use in wait page
+            sessionStorage.setItem("matchRequestId", response.reqId);
+            sessionStorage.setItem("matchUserId", userId);
+
+            router.push("/wait");
+        } catch (err) {
+            console.error("Failed to create match request:", err);
+            setError(err instanceof Error ? err.message : "Failed to create match request");
+        } finally {
+            setIsLoading(false);
+        }
     };
 
     return (
@@ -221,12 +262,20 @@ export default function Match() {
                         </div>
                     </section>
 
-                    <div className="flex justify-center">
+                    <div className="flex flex-col items-center gap-4">
+                        {error && (
+                            <div className="bg-red-500/20 border border-red-500 text-red-200 px-6 py-3 rounded-lg font-montserrat text-sm">
+                                {error}
+                            </div>
+                        )}
                         <button
                             onClick={handleMatch}
-                            className="glow-button primary-glow bg-white text-[#1e1e1e] px-12 py-3 rounded-full font-montserrat font-medium text-lg hover:scale-105 transition-all"
+                            disabled={isLoading}
+                            className={`glow-button primary-glow bg-white text-[#1e1e1e] px-12 py-3 rounded-full font-montserrat font-medium text-lg transition-all ${
+                                isLoading ? "opacity-50 cursor-not-allowed" : "hover:scale-105"
+                            }`}
                         >
-                            Match
+                            {isLoading ? "Finding Match..." : "Match"}
                         </button>
                     </div>
                 </div>

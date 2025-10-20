@@ -3,11 +3,52 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { MATCHING_TIMEOUT_SECONDS, TIMER_INTERVAL_MS, TIME_FORMAT } from "@/lib/constants";
+import { TIMER_INTERVAL_MS, TIME_FORMAT } from "@/lib/constants";
+import { matchingService } from "@/lib/services/matching-service";
 
 export default function Wait() {
     const router = useRouter();
     const [seconds, setSeconds] = useState(0);
+    const [requestId, setRequestId] = useState<string | null>(null);
+    const [error, setError] = useState<string | null>(null);
+
+    useEffect(() => {
+        // Get the match request ID from sessionStorage
+        const reqId = sessionStorage.getItem("matchRequestId");
+        if (!reqId) {
+            // No match request found, redirect back to match page
+            router.push("/match");
+            return;
+        }
+        setRequestId(reqId);
+
+        // Subscribe to real-time match updates via SSE
+        const cleanup = matchingService.subscribeToMatchEvents(
+            reqId,
+            (event) => {
+                console.log("Match event received:", event);
+                
+                if (event.status === "matched" && event.sessionId) {
+                    // Store session ID and redirect to collaborative coding
+                    sessionStorage.setItem("sessionId", event.sessionId);
+                    router.push("/collaborative-coding");
+                } else if (event.status === "timeout") {
+                    setError("Match timeout - no partner found");
+                    setTimeout(() => router.push("/match"), 3000);
+                } else if (event.status === "cancelled") {
+                    router.push("/match");
+                }
+            },
+            (error) => {
+                console.error("SSE error:", error);
+                setError("Connection error - please try again");
+            }
+        );
+
+        return () => {
+            cleanup();
+        };
+    }, [router]);
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -17,13 +58,16 @@ export default function Wait() {
         return () => clearInterval(timer);
     }, []);
 
-    useEffect(() => {
-        if (seconds >= MATCHING_TIMEOUT_SECONDS) {
-            router.push("/collaborative-coding");
+    const handleCancel = async () => {
+        if (requestId) {
+            try {
+                await matchingService.cancelMatchRequest(requestId);
+                sessionStorage.removeItem("matchRequestId");
+                sessionStorage.removeItem("matchUserId");
+            } catch (err) {
+                console.error("Failed to cancel match:", err);
+            }
         }
-    }, [seconds, router]);
-
-    const handleCancel = () => {
         router.push("/match");
     };
 
@@ -39,13 +83,21 @@ export default function Wait() {
                 <div className="w-24 h-24 border-8 border-[#555555] border-t-[#9e9e9e] rounded-full animate-spin"></div>
             </div>
 
-            <h2 className="font-montserrat text-4xl font-semibold text-white mb-4">
-                Finding your coding partner...
-            </h2>
+            {error ? (
+                <h2 className="font-montserrat text-3xl font-semibold text-red-400 mb-4">
+                    {error}
+                </h2>
+            ) : (
+                <>
+                    <h2 className="font-montserrat text-4xl font-semibold text-white mb-4">
+                        Finding your coding partner...
+                    </h2>
 
-            <p className="font-montserrat text-white text-lg mb-8">
-                We're matching you with someone at your skill level
-            </p>
+                    <p className="font-montserrat text-white text-lg mb-8">
+                        We're matching you with someone at your skill level
+                    </p>
+                </>
+            )}
 
             <button
                 onClick={handleCancel}

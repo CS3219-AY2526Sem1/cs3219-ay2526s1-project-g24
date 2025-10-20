@@ -1,5 +1,3 @@
-export const MATCHING_TIMEOUT_SECONDS = 5;
-
 export const TIMER_INTERVAL_MS = 1000;
 
 export const EDITOR_CONFIG = {
