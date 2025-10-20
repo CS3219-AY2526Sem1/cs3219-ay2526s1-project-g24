@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { TIMER_INTERVAL_MS, TIME_FORMAT } from "@/lib/constants";
 import { matchingService } from "@/lib/api/matchingService";
+import withAuth from "@/components/withAuth";
 
-export default function Wait() {
+function Wait() {
     const router = useRouter();
     const [seconds, setSeconds] = useState(0);
     const [requestId, setRequestId] = useState<string | null>(null);
@@ -112,3 +113,5 @@ export default function Wait() {
         </div>
     );
 }
+
+export default withAuth(Wait);

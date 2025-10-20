@@ -79,7 +79,7 @@ services:
       POSTGRES_PASSWORD: ${USER_DB_PASSWORD:-password123}
       POSTGRES_DB: userdb
     ports:
-        - "5435:5432"
+        - "5433:5432"
     volumes:
       - user_db_data:/var/lib/postgresql/data
     networks:
@@ -101,7 +101,7 @@ services:
     env_file:
       - ./apps/user_service/.env
     environment:
-      USERDB_DATABASE_URL: postgresql://user:${USER_DB_PASSWORD:-password123}@user_db:5432/userdb
+      USERDB_DATABASE_URL: postgresql://user:${USER_DB_PASSWORD:-password123}@user-db:5432/userdb
     depends_on:
       user-db:
         condition: service_healthy

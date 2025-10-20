@@ -1,112 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { getUsers, updateUserRole, deleteUser, User } from "../../../lib/user.service";
 
-type User = {
-    id: string;
-    fullName: string;
-    email: string;
-    role: "USER" | "ADMIN";
-    createdAt: string;
-    lastLogin: string;
-    totalSessions: number;
-    totalSubmissions: number;
-};
+import withAuth from "../../../components/withAuth";
 
-// Mock data
-const MOCK_USERS: User[] = [
-    {
-        id: "1",
-        fullName: "Alice Johnson",
-        email: "alice@example.com",
-        role: "ADMIN",
-        createdAt: "2024-01-10",
-        lastLogin: "2024-10-15",
-        totalSessions: 45,
-        totalSubmissions: 120
-    },
-    {
-        id: "2",
-        fullName: "Bob Smith",
-        email: "bob.smith@example.com",
-        role: "USER",
-        createdAt: "2024-01-12",
-        lastLogin: "2024-10-16",
-        totalSessions: 32,
-        totalSubmissions: 89
-    },
-    {
-        id: "3",
-        fullName: "Carol Williams",
-        email: "carol.w@example.com",
-        role: "USER",
-        createdAt: "2024-01-15",
-        lastLogin: "2024-10-14",
-        totalSessions: 28,
-        totalSubmissions: 67
-    },
-    {
-        id: "4",
-        fullName: "David Brown",
-        email: "david.brown@example.com",
-        role: "USER",
-        createdAt: "2024-01-18",
-        lastLogin: "2024-10-16",
-        totalSessions: 41,
-        totalSubmissions: 103
-    },
-    {
-        id: "5",
-        fullName: "Emma Davis",
-        email: "emma.davis@example.com",
-        role: "USER",
-        createdAt: "2024-01-20",
-        lastLogin: "2024-10-15",
-        totalSessions: 19,
-        totalSubmissions: 42
-    },
-    {
-        id: "6",
-        fullName: "Frank Miller",
-        email: "frank.m@example.com",
-        role: "USER",
-        createdAt: "2024-01-22",
-        lastLogin: "2024-10-13",
-        totalSessions: 35,
-        totalSubmissions: 78
-    },
-    {
-        id: "7",
-        fullName: "Grace Lee",
-        email: "grace.lee@example.com",
-        role: "USER",
-        createdAt: "2024-01-25",
-        lastLogin: "2024-10-16",
-        totalSessions: 52,
-        totalSubmissions: 145
-    },
-    {
-        id: "8",
-        fullName: "Henry Wilson",
-        email: "henry.w@example.com",
-        role: "ADMIN",
-        createdAt: "2024-01-11",
-        lastLogin: "2024-10-16",
-        totalSessions: 61,
-        totalSubmissions: 178
-    }
-];
-
-export default function AdminUsers() {
-    const [users, setUsers] = useState<User[]>(MOCK_USERS);
+function AdminUsers() {
+    const [users, setUsers] = useState<User[]>([]);
     const [search, setSearch] = useState("");
     const [selectedUser, setSelectedUser] = useState<User | null>(null);
 
+    useEffect(() => {
+        const fetchUsers = async () => {
+            try {
+                const usersData = await getUsers();
+                setUsers(usersData);
+            } catch (error) {
+                console.error("Failed to fetch users", error);
+                // Handle error
+            }
+        };
+
+        fetchUsers();
+    }, []);
+
     const handleUpdateRole = async (userId: string, newRole: "USER" | "ADMIN") => {
+        try {
+            const updatedUser = await updateUserRole(userId, newRole);
+            setUsers(users.map(user => user.id === userId ? updatedUser : user));
+        } catch (error) {
+            console.error("Failed to update user role", error);
+            // Handle error
+        }
     };
 
     const handleDeleteUser = async (userId: string) => {
+        try {
+            await deleteUser(userId);
+            setUsers(users.filter(user => user.id !== userId));
+        } catch (error) {
+            console.error("Failed to delete user", error);
+            // Handle error
+        }
     };
 
     return (
@@ -193,13 +129,7 @@ export default function AdminUsers() {
                                             Role
                                         </th>
                                         <th className="px-6 py-4 text-left font-montserrat text-gray-500 text-sm font-medium">
-                                            Sessions
-                                        </th>
-                                        <th className="px-6 py-4 text-left font-montserrat text-gray-500 text-sm font-medium">
-                                            Submissions
-                                        </th>
-                                        <th className="px-6 py-4 text-left font-montserrat text-gray-500 text-sm font-medium">
-                                            Last Login
+                                            Created At
                                         </th>
                                         <th className="px-6 py-4 text-left font-montserrat text-gray-500 text-sm font-medium">
                                             Actions
@@ -212,7 +142,7 @@ export default function AdminUsers() {
                                             <td className="px-6 py-4">
                                                 <div>
                                                     <p className="font-montserrat text-black text-sm font-medium">
-                                                        {user.fullName}
+                                                        {user.display_name}
                                                     </p>
                                                     <p className="font-montserrat text-gray-500 text-xs">
                                                         {user.email}
@@ -230,18 +160,8 @@ export default function AdminUsers() {
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span className="font-montserrat text-black text-sm">
-                                                    {user.totalSessions}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className="font-montserrat text-black text-sm">
-                                                    {user.totalSubmissions}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
                                                 <span className="font-montserrat text-gray-500 text-xs">
-                                                    {new Date(user.lastLogin).toLocaleDateString()}
+                                                    {new Date(user.created_at).toLocaleDateString()}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
@@ -283,7 +203,7 @@ export default function AdminUsers() {
                         </h3>
                         <p className="font-montserrat text-gray-500 mb-6">
                             Are you sure you want to delete user{" "}
-                            <span className="text-black font-medium">{selectedUser.fullName}</span>? This action
+                            <span className="text-black font-medium">{selectedUser.display_name}</span>? This action
                             cannot be undone.
                         </p>
                         <div className="flex gap-3 justify-end">
@@ -309,3 +229,5 @@ export default function AdminUsers() {
         </div>
     );
 }
+
+export default withAuth(AdminUsers);

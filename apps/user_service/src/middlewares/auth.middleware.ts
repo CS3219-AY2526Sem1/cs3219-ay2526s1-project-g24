@@ -14,6 +14,9 @@ export function expressAuthentication(
       return reject(new Error("Unsupported security scheme"));
     }
 
+    // Debug: log cookies and headers
+    logger.debug({ cookies: req.cookies, headers: req.headers }, "Incoming request cookies and headers");
+
     let token = "";
     if (
       req.headers.authorization &&
@@ -24,7 +27,11 @@ export function expressAuthentication(
       token = req.cookies.access_token;
     }
 
+    // Debug: log token value
+    logger.debug({ token }, "Token extracted for authentication");
+
     if (!token) {
+      logger.error("No token provided");
       return reject(new Error("No token provided"));
     }
 
