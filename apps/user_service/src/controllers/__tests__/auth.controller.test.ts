@@ -3,11 +3,39 @@ import { AuthController } from "../auth.controller";
 import * as authService from "../../services/auth.service";
 import { PrismaClient } from "@prisma/client";
 
+const fakeUuid = "123e4567-e89b-12d3-a456-426614174000";
+
 vi.mock("jose", () => ({
   createRemoteJWKSet: () => (() => Promise.resolve({})) as any,
-  jwtVerify: async () => ({ payload: { userId: "user_id" } }),
+  jwtVerify: async () => ({
+    payload: {
+      userId: "user_id",
+      jti: fakeUuid,
+      familyId: "family_id",
+    },
+  }),
 }));
-vi.mock("../../services/auth.service");
+
+const {
+  getGoogleAuthUrlSpy,
+  getGoogleUserSpy,
+  generateAccessTokenSpy,
+  generateRefreshTokenSpy,
+} = vi.hoisted(() => {
+  return {
+    getGoogleAuthUrlSpy: vi.fn(),
+    getGoogleUserSpy: vi.fn(),
+    generateAccessTokenSpy: vi.fn(),
+    generateRefreshTokenSpy: vi.fn(),
+  };
+});
+vi.mock("../../services/auth.service", () => ({
+  getGoogleAuthUrl: getGoogleAuthUrlSpy,
+  getGoogleUser: getGoogleUserSpy,
+  generateAccessToken: generateAccessTokenSpy,
+  generateRefreshToken: generateRefreshTokenSpy,
+}));
+
 vi.mock("@prisma/client", () => {
   const mPrismaClient = {
     user: {
@@ -17,28 +45,43 @@ vi.mock("@prisma/client", () => {
     role: {
       findUnique: vi.fn(),
     },
+    refreshTokenFamily: {
+      create: vi.fn(),
+      update: vi.fn(),
+    },
+    refreshToken: {
+      create: vi.fn(),
+      findUnique: vi.fn(),
+      update: vi.fn(),
+    },
   };
   return { PrismaClient: vi.fn(() => mPrismaClient) };
 });
 
 describe("AuthController", () => {
   let authController: AuthController;
-  let prisma: PrismaClient;
+  let prisma: any;
 
   beforeEach(() => {
     authController = new AuthController();
     prisma = new PrismaClient();
-  });
-
-  afterEach(() => {
-    vi.clearAllMocks();
+    getGoogleAuthUrlSpy.mockReset();
+    getGoogleUserSpy.mockReset();
+    generateAccessTokenSpy.mockReset();
+    generateRefreshTokenSpy.mockReset();
+    prisma.user.findUnique.mockReset();
+    prisma.user.create.mockReset();
+    prisma.role.findUnique.mockReset();
+    prisma.refreshTokenFamily.create.mockReset();
+    prisma.refreshTokenFamily.update.mockReset();
+    prisma.refreshToken.create.mockReset();
+    prisma.refreshToken.findUnique.mockReset();
+    prisma.refreshToken.update.mockReset();
   });
 
   describe("getGoogleAuthUrl", () => {
     it("should return a google auth url", async () => {
-      vi.spyOn(authService, "getGoogleAuthUrl").mockReturnValue(
-        "http://google.com"
-      );
+      getGoogleAuthUrlSpy.mockReturnValue("http://google.com");
       const result = await authController.getGoogleAuthUrl();
       expect(result).toEqual({ url: "http://google.com" });
     });
@@ -60,19 +103,22 @@ describe("AuthController", () => {
         roles: [{ role: defaultRole }],
       };
 
-      vi.spyOn(authService, "getGoogleUser").mockResolvedValue(googleUser);
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(null);
-      vi.mocked(prisma.role.findUnique).mockResolvedValue(defaultRole as any);
-      vi.mocked(prisma.user.create).mockResolvedValue(user as any);
-      vi.spyOn(authService, "generateTokens").mockResolvedValue({
-        accessToken: "test_token",
+      getGoogleUserSpy.mockResolvedValue(googleUser);
+      prisma.user.findUnique.mockResolvedValue(null);
+      prisma.role.findUnique.mockResolvedValue(defaultRole as any);
+      prisma.user.create.mockResolvedValue(user as any);
+      generateAccessTokenSpy.mockResolvedValue("test_token");
+      prisma.refreshTokenFamily.create.mockResolvedValue({ id: "family_id" });
+      generateRefreshTokenSpy.mockResolvedValue({
         refreshToken: "refresh_token",
+        jti: fakeUuid,
       });
+      prisma.refreshToken.create.mockResolvedValue({});
 
       const tsoaRes = vi.fn();
       const result = await authController.handleGoogleCallback(code, tsoaRes);
 
-      expect(authService.getGoogleUser).toHaveBeenCalledWith(code);
+      expect(getGoogleUserSpy).toHaveBeenCalledWith(code);
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { email: googleUser.email },
         include: expect.any(Object),
@@ -84,7 +130,17 @@ describe("AuthController", () => {
         data: expect.any(Object),
         include: expect.any(Object),
       });
-      expect(authService.generateTokens).toHaveBeenCalledWith(user);
+      expect(generateAccessTokenSpy).toHaveBeenCalledWith(user);
+      expect(prisma.refreshTokenFamily.create).toHaveBeenCalledWith({
+        data: { user_id: user.id },
+      });
+      expect(generateRefreshTokenSpy).toHaveBeenCalledWith(
+        user,
+        "family_id"
+      );
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith({
+        data: { id: fakeUuid, family_id: "family_id" },
+      });
       expect(tsoaRes).toHaveBeenCalledWith(
         200,
         { accessToken: "test_token" },
@@ -113,23 +169,38 @@ describe("AuthController", () => {
         roles: [{ role: defaultRole }],
       };
 
-      vi.spyOn(authService, "getGoogleUser").mockResolvedValue(googleUser);
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(user as any);
-      vi.spyOn(authService, "generateTokens").mockResolvedValue({
-        accessToken: "test_token",
-        refreshToken: "refresh_token",
+      getGoogleUserSpy.mockResolvedValue(googleUser);
+      prisma.user.findUnique.mockResolvedValue(user as any);
+      generateAccessTokenSpy.mockResolvedValue("test_token");
+      prisma.refreshTokenFamily.create.mockResolvedValue({
+        id: "family_id",
       });
+      generateRefreshTokenSpy.mockResolvedValue({
+        refreshToken: "refresh_token",
+        jti: fakeUuid,
+      });
+      prisma.refreshToken.create.mockResolvedValue({});
 
       const tsoaRes = vi.fn();
       const result = await authController.handleGoogleCallback(code, tsoaRes);
 
-      expect(authService.getGoogleUser).toHaveBeenCalledWith(code);
+      expect(getGoogleUserSpy).toHaveBeenCalledWith(code);
       expect(prisma.user.findUnique).toHaveBeenCalledWith({
         where: { email: googleUser.email },
         include: expect.any(Object),
       });
       expect(prisma.user.create).not.toHaveBeenCalled();
-      expect(authService.generateTokens).toHaveBeenCalledWith(user);
+      expect(generateAccessTokenSpy).toHaveBeenCalledWith(user);
+      expect(prisma.refreshTokenFamily.create).toHaveBeenCalledWith({
+        data: { user_id: user.id },
+      });
+      expect(generateRefreshTokenSpy).toHaveBeenCalledWith(
+        user,
+        "family_id"
+      );
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith({
+        data: { id: fakeUuid, family_id: "family_id" },
+      });
       expect(tsoaRes).toHaveBeenCalledWith(
         200,
         { accessToken: "test_token" },
@@ -147,7 +218,8 @@ describe("AuthController", () => {
   describe("logout", () => {
     it("should clear the auth token cookie", async () => {
       const tsoaRes = vi.fn();
-      await authController.logout(tsoaRes);
+      const req = { cookies: {} };
+      await authController.logout(req as any, tsoaRes);
       expect(tsoaRes).toHaveBeenCalledWith(
         200,
         { message: "Logged out successfully" },
@@ -163,40 +235,53 @@ describe("AuthController", () => {
 
   describe("refresh", () => {
     it("should refresh the token", async () => {
+      const userId = "user_id";
       const user = {
-        id: "user_id",
+        id: userId,
         email: "test@example.com",
         roles: [{ role: { name: "user", permissions: [] } }],
       };
-      // Provide req.cookies.refresh_token as expected by the controller
       const req = { cookies: { refresh_token: "dummy_refresh_token" }, user };
 
-      vi.spyOn(authService, "generateTokens").mockResolvedValue({
-        accessToken: "new_test_token",
+      generateAccessTokenSpy.mockResolvedValue("new_test_token");
+      generateRefreshTokenSpy.mockResolvedValue({
         refreshToken: "refresh_token",
+        jti: fakeUuid,
       });
-
-      // Mock jose.createRemoteJWKSet and jose.jwtVerify to simulate valid JWT verification
-      const jose = await import("jose");
-      vi.spyOn(jose, "createRemoteJWKSet").mockReturnValue((() =>
-        Promise.resolve({})) as any);
-      vi.spyOn(jose, "jwtVerify").mockResolvedValue({
-        payload: { userId: user.id },
-      } as any);
-
-      // Mock prisma.user.findUnique to return the user
-      vi.mocked(prisma.user.findUnique).mockResolvedValue(user as any);
+      prisma.refreshToken.findUnique.mockResolvedValue({
+        id: fakeUuid,
+        family_id: "family_id",
+        is_used: false,
+        family: { user_id: userId, is_revoked: false },
+      });
+      prisma.refreshToken.update.mockResolvedValue({});
+      prisma.user.findUnique.mockImplementation((args: any) => {
+        if (args?.where?.id === userId) {
+          return Promise.resolve(user);
+        }
+        return Promise.resolve(null);
+      });
+      prisma.refreshToken.create.mockResolvedValue({});
 
       const tsoaRes = vi.fn();
       const result = await authController.refresh(req as any, tsoaRes);
 
-      expect(authService.generateTokens).toHaveBeenCalledWith(user);
+      expect(generateAccessTokenSpy).toHaveBeenCalledWith(user);
+      expect(generateRefreshTokenSpy).toHaveBeenCalledWith(
+        user,
+        "family_id"
+      );
+      expect(prisma.refreshToken.create).toHaveBeenCalledWith({
+        data: { id: fakeUuid, family_id: "family_id" },
+      });
       expect(tsoaRes).toHaveBeenCalledWith(
         200,
         { accessToken: "new_test_token" },
         {
-          "Set-Cookie":
+          "Set-Cookie": [
             "access_token=new_test_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=900",
+            "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600",
+          ],
         }
       );
       expect(result).toEqual({ accessToken: "new_test_token" });
