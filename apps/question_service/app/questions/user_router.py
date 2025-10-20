@@ -2,19 +2,21 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
+from app.core.dependencies import get_current_user
 from app.questions import crud, models, schemas
 
 router = APIRouter(prefix="/users", tags=["User Progress"])
 
 
-@router.get("/{user_id}/attempts", response_model=list[schemas.UserAttemptResponse])
-def get_user_attempts(
-    user_id: str,
+@router.get("/me/attempts", response_model=list[schemas.UserAttemptResponse])
+def get_my_attempts(
     skip: int = Query(0, ge=0),
     limit: int = Query(50, ge=1, le=100),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get user's attempt history"""
+    """Get authenticated user's attempt history"""
+    user_id = user["user_id"]
     attempts = crud.get_user_attempts(db, user_id, skip=skip, limit=limit)
     return [
         schemas.UserAttemptResponse(
@@ -32,12 +34,13 @@ def get_user_attempts(
     ]
 
 
-@router.get("/{user_id}/solved", response_model=list[schemas.UserSolvedQuestion])
-def get_user_solved_questions(
-    user_id: str,
+@router.get("/me/solved", response_model=list[schemas.UserSolvedQuestion])
+def get_my_solved_questions(
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get user's solved questions"""
+    """Get authenticated user's solved questions"""
+    user_id = user["user_id"]
     attempts = crud.get_user_solved_questions(db, user_id)
     
     result = []
@@ -54,22 +57,25 @@ def get_user_solved_questions(
     return result
 
 
-@router.get("/{user_id}/stats", response_model=schemas.UserStats)
-def get_user_stats(
-    user_id: str,
+@router.get("/me/stats", response_model=schemas.UserStats)
+def get_my_stats(
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Get user statistics"""
+    """Get authenticated user's statistics"""
+    user_id = user["user_id"]
     return crud.get_user_stats(db, user_id)
 
 
-@router.post("/{user_id}/attempts", response_model=schemas.UserAttemptResponse, status_code=201)
-def record_user_attempt(
-    user_id: str,
+@router.post("/me/attempts", response_model=schemas.UserAttemptResponse, status_code=201)
+def record_my_attempt(
     attempt: schemas.UserAttemptCreate,
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Record a user attempt"""
+    """Record an attempt for the authenticated user"""
+    user_id = user["user_id"]
+    
     # Verify question exists
     question = crud.get_question(db, attempt.question_id)
     if not question:
@@ -87,3 +93,4 @@ def record_user_attempt(
         best_runtime_ms=db_attempt.best_runtime_ms,
         best_memory_mb=db_attempt.best_memory_mb
     )
+
