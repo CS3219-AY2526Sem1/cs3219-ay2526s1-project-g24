@@ -4,11 +4,12 @@ import axios from "axios";
 import prisma from "../prisma";
 import type { User } from "@prisma/client";
 import * as jose from "jose";
+import { randomUUID } from "crypto";
 
 const oauth2Client = new google.auth.OAuth2(
   config.google.clientId,
   config.google.clientSecret,
-  config.google.redirectUri
+  config.google.redirectUri,
 );
 
 export const getGoogleAuthUrl = () => {
@@ -37,7 +38,7 @@ export const getGoogleUser = async (code: string) => {
       headers: {
         Authorization: `Bearer ${tokens.access_token}`,
       },
-    }
+    },
   );
 
   return data;
@@ -45,7 +46,7 @@ export const getGoogleUser = async (code: string) => {
 
 export const hasRole = async (
   userId: string,
-  roles: string[]
+  roles: string[],
 ): Promise<boolean> => {
   const user = await prisma.user.findUnique({
     where: { id: userId },
@@ -66,12 +67,12 @@ export const hasRole = async (
   return roles.some((role) => userRoles.includes(role));
 };
 
-export const generateTokens = async (user: User & { roles: any[] }) => {
+export const generateAccessToken = async (user: User & { roles: any[] }) => {
   const roles = user.roles.map((userRole: any) => userRole.role.name);
   const permissions = user.roles.flatMap((userRole: any) =>
     userRole.role.permissions.map(
-      (rolePermission: any) => rolePermission.permission.name
-    )
+      (rolePermission: any) => rolePermission.permission.name,
+    ),
   );
   const scopes = [...new Set(permissions)]; // Remove duplicates
 
@@ -89,13 +90,25 @@ export const generateTokens = async (user: User & { roles: any[] }) => {
     .setExpirationTime("15m")
     .sign(privateKey);
 
+  return accessToken;
+};
+
+export const generateRefreshToken = async (
+  user: Pick<User, "id">,
+  familyId: string,
+) => {
+  const privateKey = await jose.importPKCS8(config.jwt.privateKey, "RS256");
+  const jti = randomUUID();
+
   const refreshToken = await new jose.SignJWT({
     userId: user.id,
+    familyId,
   })
     .setProtectedHeader({ alg: "RS256", kid: "1" })
     .setIssuedAt()
     .setExpirationTime("14d")
+    .setJti(jti)
     .sign(privateKey);
 
-  return { accessToken, refreshToken };
+  return { refreshToken, jti };
 };

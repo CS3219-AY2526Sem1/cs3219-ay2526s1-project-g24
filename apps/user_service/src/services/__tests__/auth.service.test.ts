@@ -2,9 +2,11 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { PrismaClient } from "@prisma/client";
 import axios from "axios";
 import * as jose from "jose";
+import * as crypto from "crypto";
 
 vi.mock("axios");
 vi.mock("jose");
+vi.mock("crypto");
 
 vi.mock("@prisma/client", () => {
   const mPrismaClient = {
@@ -73,8 +75,8 @@ describe("Auth Service", () => {
     expect(result).toBe(false);
   });
 
-  describe("generateTokens", () => {
-    it("should generate access and refresh tokens with correct user details", async () => {
+  describe("generateAccessToken", () => {
+    it("should generate an access token with correct user details", async () => {
       const user = {
         id: "user-123",
         email: "test@example.com",
@@ -104,16 +106,13 @@ describe("Auth Service", () => {
         setProtectedHeader: vi.fn().mockReturnThis(),
         setIssuedAt: vi.fn().mockReturnThis(),
         setExpirationTime: vi.fn().mockReturnThis(),
-        sign: vi
-          .fn()
-          .mockResolvedValueOnce("signed-access-token")
-          .mockResolvedValueOnce("signed-refresh-token"),
+        sign: vi.fn().mockResolvedValue("signed-access-token"),
       };
       vi.mocked(jose.SignJWT).mockImplementation(() => signJwtMock as any);
       vi.mocked(jose.importPKCS8).mockResolvedValue("private_key" as any);
 
-      const { generateTokens } = await import("../auth.service.js");
-      const tokens = await generateTokens(user as any);
+      const { generateAccessToken } = await import("../auth.service.js");
+      const token = await generateAccessToken(user as any);
 
       expect(jose.importPKCS8).toHaveBeenCalled();
       expect(jose.SignJWT).toHaveBeenCalledWith({
@@ -129,15 +128,47 @@ describe("Auth Service", () => {
       expect(signJwtMock.setIssuedAt).toHaveBeenCalled();
       expect(signJwtMock.setExpirationTime).toHaveBeenCalledWith("15m");
       expect(signJwtMock.sign).toHaveBeenCalledWith("private_key");
+      expect(token).toBe("signed-access-token");
+    });
+  });
 
-      // For refresh token
+  describe("generateRefreshToken", () => {
+    it("should generate a refresh token with correct user id and familyId", async () => {
+      const user = { id: "user-123" };
+      const familyId = "family-456";
+
+      const fakeUuid = "123e4567-e89b-12d3-a456-426614174000";
+
+      const signJwtMock = {
+        setProtectedHeader: vi.fn().mockReturnThis(),
+        setIssuedAt: vi.fn().mockReturnThis(),
+        setExpirationTime: vi.fn().mockReturnThis(),
+        setJti: vi.fn().mockReturnThis(),
+        sign: vi.fn().mockResolvedValue("signed-refresh-token"),
+      };
+      vi.mocked(jose.SignJWT).mockImplementation(() => signJwtMock as any);
+      vi.mocked(jose.importPKCS8).mockResolvedValue("private_key" as any);
+      vi.mocked(crypto.randomUUID).mockReturnValue(fakeUuid);
+
+      const { generateRefreshToken } = await import("../auth.service.js");
+      const result = await generateRefreshToken(user as any, familyId);
+
+      expect(jose.importPKCS8).toHaveBeenCalled();
       expect(jose.SignJWT).toHaveBeenCalledWith({
         userId: "user-123",
+        familyId,
       });
+      expect(signJwtMock.setProtectedHeader).toHaveBeenCalledWith({
+        alg: "RS256",
+        kid: "1",
+      });
+      expect(signJwtMock.setIssuedAt).toHaveBeenCalled();
       expect(signJwtMock.setExpirationTime).toHaveBeenCalledWith("14d");
-      expect(tokens).toEqual({
-        accessToken: "signed-access-token",
+      expect(signJwtMock.setJti).toHaveBeenCalledWith(fakeUuid);
+      expect(signJwtMock.sign).toHaveBeenCalledWith("private_key");
+      expect(result).toEqual({
         refreshToken: "signed-refresh-token",
+        jti: fakeUuid,
       });
     });
   });
