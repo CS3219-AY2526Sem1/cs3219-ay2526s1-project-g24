@@ -33,8 +33,8 @@ export class AuthController extends Controller {
   @Get("google/callback")
   public async handleGoogleCallback(
     @Query() code: string,
-    @Res() res: TsoaResponse<200, AuthResponse, { "Set-Cookie"?: string[] }>,
-  ): Promise<AuthResponse> {
+    @Res() res: TsoaResponse<302, void, { "Set-Cookie"?: string[]; Location: string }>,
+  ): Promise<void> {
     try {
       const googleUser = await getGoogleUser(code);
 
@@ -113,24 +113,26 @@ export class AuthController extends Controller {
         },
       });
 
+      // Set cookies and include Location header for client-side redirect
       res(
-        200,
-        { accessToken },
+        302,
+        undefined,
         {
           "Set-Cookie": [
             `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
             `refresh_token=${refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
           ],
+          "Location": "http://localhost:3000/auth/callback"
         },
       );
-      return { accessToken };
+      return;
     } catch (error: any) {
       console.error(
         "Error during Google callback:",
         error.response?.data || error.message,
       );
       this.setStatus(500);
-      return { accessToken: "" };
+  return;
     }
   }
 
