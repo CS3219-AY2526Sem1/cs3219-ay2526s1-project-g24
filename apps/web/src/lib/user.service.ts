@@ -26,10 +26,30 @@ export const getGoogleSignInUrl = async (): Promise<string> => {
   return url;
 };
 
+export const logoutUser = async (): Promise<void> => {
+  await fetch(`${API_URL}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
+  });
+};
+
+export const getSession = async (): Promise<User | null> => {
+  const response = await fetch(`${API_URL}/auth/session`, {
+        // Include credentials to send cookies
+        credentials: 'include',
+    });
+    if (!response.ok) {
+        return null;
+    }
+    return response.json();
+};
+
 // User Service
 
 export const getUser = async (): Promise<User> => {
-  const response = await fetch(`${API_URL}/users/me`);
+  const response = await fetch(`${API_URL}/users/me`, {
+    credentials: 'include',
+  });
   if (!response.ok) {
     throw new Error('Failed to fetch user');
   }
@@ -47,6 +67,7 @@ export const getUsers = async (): Promise<User[]> => {
 export const updateUser = async (user: Partial<User>): Promise<User> => {
   const response = await fetch(`${API_URL}/users/me`, {
     method: 'PATCH',
+    credentials: 'include',
     headers: {
       'Content-Type': 'application/json',
     },
@@ -61,6 +82,7 @@ export const updateUser = async (user: Partial<User>): Promise<User> => {
 export const updateUserRole = async (userId: string, role: string): Promise<User> => {
     const response = await fetch(`${API_URL}/users/${userId}/role`, {
         method: 'PATCH',
+        credentials: 'include',
         headers: {
             'Content-Type': 'application/json',
         },
@@ -75,6 +97,7 @@ export const updateUserRole = async (userId: string, role: string): Promise<User
 export const deleteUser = async (userId: string): Promise<void> => {
     const response = await fetch(`${API_URL}/users/${userId}`, {
         method: 'DELETE',
+        credentials: 'include',
     });
     if (!response.ok) {
         throw new Error('Failed to delete user');
