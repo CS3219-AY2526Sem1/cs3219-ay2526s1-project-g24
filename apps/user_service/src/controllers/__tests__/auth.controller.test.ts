@@ -142,16 +142,17 @@ describe("AuthController", () => {
         data: { id: fakeUuid, family_id: "family_id" },
       });
       expect(tsoaRes).toHaveBeenCalledWith(
-        200,
-        { accessToken: "test_token" },
+        302,
+        undefined,
         {
+          "Location": "http://localhost:3000/auth/callback",
           "Set-Cookie": [
             "access_token=test_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=900",
             "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800",
           ],
         }
       );
-      expect(result).toEqual({ accessToken: "test_token" });
+      expect(result).toEqual(undefined);
     });
 
     it("should not create a new user if user already exists", async () => {
@@ -202,16 +203,17 @@ describe("AuthController", () => {
         data: { id: fakeUuid, family_id: "family_id" },
       });
       expect(tsoaRes).toHaveBeenCalledWith(
-        200,
-        { accessToken: "test_token" },
+        302,
+        undefined,
         {
+          "Location": "http://localhost:3000/auth/callback",
           "Set-Cookie": [
             "access_token=test_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=900",
             "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800",
           ],
         }
       );
-      expect(result).toEqual({ accessToken: "test_token" });
+      expect(result).toEqual(undefined);
     });
   });
 

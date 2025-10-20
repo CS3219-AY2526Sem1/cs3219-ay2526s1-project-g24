@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getDifficultyStyles } from "@/lib/difficulty";
+import withAuth from "@/components/withAuth";
 
 const topics = [
     { name: "Arrays &\nHashing", subtitle: "Two pointers, Sliding window" },
@@ -46,7 +47,7 @@ const languages = [
     { name: "JavaScript", icon: "/js.png" },
 ];
 
-export default function Match() {
+function Match() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("Match");
     const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
@@ -234,3 +235,5 @@ export default function Match() {
         </div>
     );
 }
+
+export default withAuth(Match);

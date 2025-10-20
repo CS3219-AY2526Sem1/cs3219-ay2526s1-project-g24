@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
+import withAuth from '@/components/withAuth';
 
 const questions = [
     {
@@ -35,7 +36,7 @@ Return the quotient after dividing dividend by divisor.`,
     }
 ];
 
-export default function CollaborativeCodingPage() {
+function CollaborativeCodingPage() {
     const router = useRouter();
     const [currentQuestion] = useState(0);
     const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
@@ -380,3 +381,5 @@ export default function CollaborativeCodingPage() {
         </div>
     );
 }
+
+export default withAuth(CollaborativeCodingPage);

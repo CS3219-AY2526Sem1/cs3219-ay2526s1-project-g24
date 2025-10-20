@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { getDifficultyStyles } from "@/lib/difficulty";
+import withAuth from "@/components/withAuth";
 
 const mockQuestions = [
     { id: 1, title: 'Two Sum', topics: ['Arrays', 'Hash Table'], difficulty: 'EASY' },
@@ -19,7 +20,7 @@ const mockQuestions = [
     { id: 11, title: 'Binary Tree Inorder Traversal', topics: ['Tree'], difficulty: 'MEDIUM' },
 ];
 
-export default function Questions() {
+function Questions() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("Questions");
     const [searchQuery, setSearchQuery] = useState('');
@@ -185,3 +186,4 @@ export default function Questions() {
     );
 }
 
+export default withAuth(Questions);
