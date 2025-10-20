@@ -23,7 +23,6 @@ export const getGoogleSignInUrl = async (): Promise<string> => {
     throw new Error('Failed to get Google Sign-In URL');
   }
   const { url } = await response.json();
-  console.log("Google Sign-In URL:", url);
   return url;
 };
 

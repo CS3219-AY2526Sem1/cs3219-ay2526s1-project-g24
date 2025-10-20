@@ -21,6 +21,7 @@ import {
 } from "../services/auth.service";
 import prisma from "../prisma";
 import { isProduction } from "../utils/flags";
+import logger from "../logger";
 
 @Route("v1/auth")
 @Tags("Authentication")
@@ -127,7 +128,7 @@ export class AuthController extends Controller {
       );
       return;
     } catch (error: any) {
-      console.error(
+      logger.error(
         "Error during Google callback:",
         error.response?.data || error.message,
       );
