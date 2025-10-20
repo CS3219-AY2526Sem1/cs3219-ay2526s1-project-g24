@@ -88,8 +88,8 @@ export default function Match() {
         setError(null);
 
         try {
-            // TODO: Replace with actual user ID from auth context
-            const userId = "user-" + Math.random().toString(36).substr(2, 9);
+            // TODO: Replace with actual user ID from auth context once auth has been wired into FE
+            const userId = "user-" + Math.random().toString(36).substring(2, 11);
             
             const response = await matchingService.createMatchRequest({
                 userId,
