@@ -4,10 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
-import * as Y from 'yjs';
-import { WebsocketProvider } from 'y-websocket';
-import { MonacoBinding } from 'y-monaco';
 import type { editor } from 'monaco-editor';
+import { CollaborationManager, ConnectionStatus } from '@/lib/collaboration/CollaborationManager';
 
 const questions = [
   {
@@ -36,11 +34,6 @@ Return the quotient after dividing dividend by divisor.`,
   },
 ];
 
-// Hardcoded test values
-const HARDCODED_USER_ID = '123e4567-e89b-12d3-a456-426614174001';
-const HARDCODED_TOKEN = '123e4567-e89b-12d3-a456-426614174001';
-const COLLAB_SERVICE_URL = 'ws://localhost:3003';
-
 export default function CollaborativeCodingPage() {
   const router = useRouter();
   const [currentQuestion] = useState(0);
@@ -59,14 +52,10 @@ export default function CollaborativeCodingPage() {
   const [sessionId, setSessionId] = useState('');
   const [sessionInputValue, setSessionInputValue] = useState('');
   const [isConnected, setIsConnected] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>(
-    'disconnected'
-  );
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
 
-  // Yjs and collaboration refs
-  const ydocRef = useRef<Y.Doc | null>(null);
-  const providerRef = useRef<WebsocketProvider | null>(null);
-  const bindingRef = useRef<MonacoBinding | null>(null);
+  // Collaboration manager and editor ref
+  const collaborationManagerRef = useRef<CollaborationManager | null>(null);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
 
   const containerRef = useRef<HTMLDivElement>(null);
@@ -98,29 +87,42 @@ export default function CollaborativeCodingPage() {
   };
 
   // Connect to collaboration session
-  const connectToSession = () => {
+  const connectToSession = async () => {
     if (!sessionInputValue.trim()) {
       alert('Please enter a session ID');
       return;
     }
 
-    setSessionId(sessionInputValue.trim());
+    if (!editorRef.current) {
+      alert('Editor not ready. Please try again.');
+      return;
+    }
+
+    const trimmedSessionId = sessionInputValue.trim();
+    setSessionId(trimmedSessionId);
     setConnectionStatus('connecting');
+
+    try {
+      if (!collaborationManagerRef.current) {
+        collaborationManagerRef.current = new CollaborationManager();
+      }
+
+      await collaborationManagerRef.current.connect(trimmedSessionId, editorRef.current, (status) => {
+        setConnectionStatus(status);
+        setIsConnected(status === 'connected');
+      });
+    } catch (error) {
+      console.error('[CollaborativeCoding] Failed to connect:', error);
+      setConnectionStatus('error');
+      setIsConnected(false);
+    }
   };
 
   // Disconnect from collaboration session
   const disconnectFromSession = () => {
-    if (bindingRef.current) {
-      bindingRef.current.destroy();
-      bindingRef.current = null;
-    }
-    if (providerRef.current) {
-      providerRef.current.destroy();
-      providerRef.current = null;
-    }
-    if (ydocRef.current) {
-      ydocRef.current.destroy();
-      ydocRef.current = null;
+    if (collaborationManagerRef.current) {
+      collaborationManagerRef.current.disconnect();
+      collaborationManagerRef.current = null;
     }
 
     setSessionId('');
@@ -137,73 +139,14 @@ export default function CollaborativeCodingPage() {
     editorRef.current = editor;
   };
 
-  // Set up Yjs collaboration when sessionId changes
+  // Cleanup on component unmount
   useEffect(() => {
-    if (!sessionId || !editorRef.current) return;
-
-    try {
-      // Create Yjs document
-      const ydoc = new Y.Doc();
-      ydocRef.current = ydoc;
-
-      // Create WebSocket provider
-      const wsUrl = `${COLLAB_SERVICE_URL}/v1/ws/sessions/${sessionId}?token=${HARDCODED_TOKEN}`;
-      const provider = new WebsocketProvider(wsUrl, sessionId, ydoc);
-      providerRef.current = provider;
-
-      // Set up connection status listeners
-      provider.on('status', (event: { status: string }) => {
-        console.log('WebSocket status:', event.status);
-        if (event.status === 'connected') {
-          setIsConnected(true);
-          setConnectionStatus('connected');
-        } else if (event.status === 'disconnected') {
-          setIsConnected(false);
-          setConnectionStatus('disconnected');
-        }
-      });
-
-      provider.on('connection-error', (error: Error) => {
-        console.error('Connection error:', error);
-        setConnectionStatus('error');
-        setIsConnected(false);
-      });
-
-      // Get or create a shared text type
-      const ytext = ydoc.getText('monaco');
-
-      // Create Monaco binding
-      const binding = new MonacoBinding(
-        ytext,
-        editorRef.current.getModel()!,
-        new Set([editorRef.current]),
-        provider.awareness
-      );
-      bindingRef.current = binding;
-
-      console.log('🔗 Connected to collaboration session:', sessionId);
-    } catch (error) {
-      console.error('Error setting up collaboration:', error);
-      setConnectionStatus('error');
-      setIsConnected(false);
-    }
-
-    // Cleanup on unmount or sessionId change
     return () => {
-      if (bindingRef.current) {
-        bindingRef.current.destroy();
-        bindingRef.current = null;
-      }
-      if (providerRef.current) {
-        providerRef.current.destroy();
-        providerRef.current = null;
-      }
-      if (ydocRef.current) {
-        ydocRef.current.destroy();
-        ydocRef.current = null;
+      if (collaborationManagerRef.current) {
+        collaborationManagerRef.current.disconnect();
       }
     };
-  }, [sessionId]);
+  }, []);
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
