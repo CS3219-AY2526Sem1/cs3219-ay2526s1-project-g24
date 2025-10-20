@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { getSession, getGoogleSignInUrl, logoutUser, User } from '../lib/user.service';
 
@@ -8,7 +8,7 @@ export const useAuth = () => {
     const [loading, setLoading] = useState(true);
     const router = useRouter();
 
-    const checkSession = async () => {
+    const checkSession = useCallback(async () => {
         setLoading(true);
         try {
             const session = await getSession();
@@ -19,7 +19,7 @@ export const useAuth = () => {
         } finally {
             setLoading(false);
         }
-    };
+    }, []);
 
     const login = async () => {
         try {
@@ -42,7 +42,7 @@ export const useAuth = () => {
 
     useEffect(() => {
         checkSession();
-    }, []);
+    }, [checkSession]);
 
     return { user, loading, login, logout, checkSession };
 };
