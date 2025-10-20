@@ -1,3 +1,5 @@
+import * as jose from "jose";
+import { config } from "../config";
 import {
   Controller,
   Get,
@@ -8,34 +10,31 @@ import {
   Res,
   Request,
   Security,
-} from 'tsoa';
-import type { TsoaResponse } from 'tsoa';
-import { getGoogleAuthUrl, getGoogleUser } from '../services/auth.service';
-import { PrismaClient } from '@prisma/client';
-import jwt from 'jsonwebtoken';
-import { config } from '../config';
-import { getUserById } from '../services/user.service';
+} from "tsoa";
+import type { TsoaResponse } from "tsoa";
+import { AuthResponse } from "../models/auth-response.model";
+import {
+  getGoogleAuthUrl,
+  getGoogleUser,
+  generateAccessToken,
+  generateRefreshToken,
+} from "../services/auth.service";
+import prisma from "../prisma";
+import { isProduction } from "../utils/flags";
 
-const prisma = new PrismaClient();
-
-@Route('v1/auth')
-@Tags('Authentication')
+@Route("v1/auth")
+@Tags("Authentication")
 export class AuthController extends Controller {
-  @Get('google/url')
+  @Get("google/url")
   public async getGoogleAuthUrl() {
     return { url: getGoogleAuthUrl() };
   }
 
-  @Get('google/callback')
+  @Get("google/callback")
   public async handleGoogleCallback(
     @Query() code: string,
-    @Res()
-    res: TsoaResponse<
-      200,
-      { accessToken: string },
-      { 'Set-Cookie'?: string }
-    >
-  ) {
+    @Res() res: TsoaResponse<200, AuthResponse, { "Set-Cookie"?: string[] }>,
+  ): Promise<AuthResponse> {
     try {
       const googleUser = await getGoogleUser(code);
 
@@ -60,10 +59,10 @@ export class AuthController extends Controller {
 
       if (!user) {
         const defaultRole = await prisma.role.findUnique({
-          where: { name: 'user' },
+          where: { name: "user" },
         });
         if (!defaultRole) {
-          throw new Error('Default user role not found.');
+          throw new Error("Default user role not found.");
         }
 
         user = await prisma.user.create({
@@ -96,48 +95,191 @@ export class AuthController extends Controller {
         });
       }
 
-      const roles = user.roles.map((userRole) => userRole.role.name);
-      const permissions = user.roles.flatMap((userRole) =>
-        userRole.role.permissions.map(
-          (rolePermission) => rolePermission.permission.name
-        )
-      );
-      const scopes = [...new Set(permissions)]; // Remove duplicates
-
-      const accessToken = jwt.sign(
-        {
-          userId: user.id,
-          email: user.email,
-          roles,
-          scopes,
+      const accessToken = await generateAccessToken(user);
+      const refreshTokenFamily = await prisma.refreshTokenFamily.create({
+        data: {
+          user_id: user.id,
         },
-        config.jwt.secret,
-        {
-          expiresIn: '7d', // Set a longer expiration
-        }
+      });
+      const { refreshToken, jti } = await generateRefreshToken(
+        user,
+        refreshTokenFamily.id,
       );
+
+      await prisma.refreshToken.create({
+        data: {
+          id: jti,
+          family_id: refreshTokenFamily.id,
+        },
+      });
 
       res(
         200,
         { accessToken },
-        { 'Set-Cookie': `auth_token=${accessToken}; HttpOnly; Path=/; Max-Age=604800` } // 7 days
+        {
+          "Set-Cookie": [
+            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `refresh_token=${refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+          ],
+        },
       );
+      return { accessToken };
     } catch (error: any) {
-      console.error('Error during Google callback:', error.response?.data || error.message);
+      console.error(
+        "Error during Google callback:",
+        error.response?.data || error.message,
+      );
       this.setStatus(500);
-      return { accessToken: '' };
+      return { accessToken: "" };
     }
   }
 
-  @Post('logout')
+  @Post("logout")
   public async logout(
-    @Res() res: TsoaResponse<200, { message: string }, { 'Set-Cookie'?: string }>
+    @Request() req: any,
+    @Res()
+    res: TsoaResponse<200, { message: string }, { "Set-Cookie"?: string[] }>,
   ) {
-    res(200, { message: 'Logged out successfully' }, { 'Set-Cookie': `auth_token=; HttpOnly; Path=/; Max-Age=0` });
+    const refreshToken = req.cookies.refresh_token;
+    if (refreshToken) {
+      try {
+        const JWKS = jose.createRemoteJWKSet(new URL(config.jwt.jwksUri));
+        const { payload } = await jose.jwtVerify(refreshToken, JWKS, {
+          algorithms: ["RS256"],
+        });
+        const { familyId } = payload;
+        if (familyId) {
+          await prisma.refreshTokenFamily.update({
+            where: { id: familyId as string },
+            data: { is_revoked: true },
+          });
+        }
+      } catch (error) {
+        // Ignore errors, just clear cookies
+      }
+    }
+    res(
+      200,
+      { message: "Logged out successfully" },
+      {
+        "Set-Cookie": [
+          `access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
+          `refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
+        ],
+      },
+    );
   }
 
-  @Security('jwt')
-  @Get('session')
+  @Post("refresh")
+  public async refresh(
+    @Request() req: any,
+    @Res() res: TsoaResponse<200, AuthResponse, { "Set-Cookie"?: string[] }>,
+  ): Promise<AuthResponse> {
+    const refreshToken = req.cookies.refresh_token;
+
+    if (!refreshToken) {
+      this.setStatus(401);
+      return { accessToken: "" };
+    }
+
+    try {
+      const JWKS = jose.createRemoteJWKSet(new URL(config.jwt.jwksUri));
+      const { payload } = await jose.jwtVerify(refreshToken, JWKS, {
+        algorithms: ["RS256"],
+      });
+
+      const { jti, familyId, userId } = payload;
+
+      if (!jti || !familyId || !userId) {
+        this.setStatus(401);
+        return { accessToken: "" };
+      }
+
+      const tokenRecord = await prisma.refreshToken.findUnique({
+        where: { id: jti },
+        include: { family: true },
+      });
+
+      if (!tokenRecord || tokenRecord.family.user_id !== userId) {
+        this.setStatus(401);
+        return { accessToken: "" };
+      }
+
+      if (tokenRecord.family.is_revoked) {
+        this.setStatus(401);
+        return { accessToken: "" };
+      }
+
+      if (tokenRecord.is_used) {
+        await prisma.refreshTokenFamily.update({
+          where: { id: tokenRecord.family_id },
+          data: { is_revoked: true },
+        });
+        this.setStatus(401);
+        return { accessToken: "" };
+      }
+
+      await prisma.refreshToken.update({
+        where: { id: jti },
+        data: { is_used: true },
+      });
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId as string },
+        include: {
+          roles: {
+            include: {
+              role: {
+                include: {
+                  permissions: {
+                    include: {
+                      permission: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        this.setStatus(401);
+        return { accessToken: "" };
+      }
+
+      const accessToken = await generateAccessToken(user);
+      const { refreshToken: newRefreshToken, jti: newJti } =
+        await generateRefreshToken(user, tokenRecord.family_id);
+
+      // Store the new refresh token in the database
+      // jti is the unique identifier for the new refresh token
+      await prisma.refreshToken.create({
+        data: {
+          id: newJti,
+          family_id: tokenRecord.family_id,
+        },
+      });
+
+      res(
+        200,
+        { accessToken },
+        {
+          "Set-Cookie": [
+            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `refresh_token=${newRefreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+          ],
+        },
+      );
+      return { accessToken };
+    } catch (error) {
+      this.setStatus(401);
+      return { accessToken: "" };
+    }
+  }
+
+  @Security("jwt")
+  @Get("session")
   public async getSession(@Request() req: { user: any }) {
     return req.user;
   }

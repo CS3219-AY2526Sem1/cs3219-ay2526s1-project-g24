@@ -1,9 +1,8 @@
-import { PrismaClient } from "@prisma/client";
-
-const prisma = new PrismaClient();
+import prisma from './prisma';
+import logger from './logger';
 
 async function main() {
-  console.log("Seeding database...");
+  logger.info("Seeding database...");
 
   // Clear existing data
   await prisma.userRole.deleteMany({});
@@ -11,12 +10,12 @@ async function main() {
   await prisma.user.deleteMany({});
   await prisma.role.deleteMany({});
   await prisma.permission.deleteMany({});
-  console.log("Cleared existing data.");
+  logger.info("Cleared existing data.");
 
   // Seed Roles
   const adminRole = await prisma.role.create({ data: { name: "admin" } });
   const userRole = await prisma.role.create({ data: { name: "user" } });
-  console.log("Seeded roles.");
+  logger.info("Seeded roles.");
 
   // Seed Permissions
   const permissions = [
@@ -42,7 +41,7 @@ async function main() {
   const createdPermissions = await Promise.all(
     permissions.map((p) => prisma.permission.create({ data: { name: p } })),
   );
-  console.log("Seeded permissions.");
+  logger.info("Seeded permissions.");
 
   // Assign Permissions to Roles
   // Admin gets all permissions
@@ -67,7 +66,7 @@ async function main() {
         ),
     );
   }
-  console.log("Assigned permissions to roles.");
+  logger.info("Assigned permissions to roles.");
 
   // Seed Users
   const adminUser = await prisma.user.create({
@@ -96,14 +95,14 @@ async function main() {
     ],
   });
 
-  console.log("Seeded users.");
+  logger.info("Seeded users.");
 
-  console.log("Database seeding complete.");
+  logger.info("Database seeding complete.");
 }
 
 main()
   .catch((e) => {
-    console.error(e);
+  logger.error(e);
     process.exit(1);
   })
   .finally(async () => {
