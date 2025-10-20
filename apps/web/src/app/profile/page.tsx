@@ -1,22 +1,49 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
+import { getUser, updateUser, User } from "../../lib/user.service";
 
-export default function Profile() {
-    const router = useRouter();
+import withAuth from "../../components/withAuth";
+import { useAuth } from "../../hooks/useAuth";
+
+function Profile() {
+    const { logout } = useAuth();
     const fileInputRef = useRef<HTMLInputElement>(null);
     const [activeTab, setActiveTab] = useState("Profile");
     const [isEditing, setIsEditing] = useState(false);
     const [profileImage, setProfileImage] = useState("/bro_profile.png");
+    const [user, setUser] = useState<User | null>(null);
     const [formData, setFormData] = useState({
-        fullName: 'Cliff Hänger',
-        email: 'cliffhanger9696@gmail.com',
-        language: 'Python',
-        proficiency: 'Intermediate Level'
+        username: '',
+        display_name: '',
+        email: '',
+        description: '',
+        programming_proficiency: 'beginner' as 'beginner' | 'intermediate' | 'advanced',
     });
+
+    useEffect(() => {
+        const fetchUser = async () => {
+            try {
+                const userData = await getUser();
+                setUser(userData);
+                setFormData({
+                    username: userData.username,
+                    display_name: userData.display_name,
+                    email: userData.email,
+                    description: userData.description,
+                    programming_proficiency: userData.programming_proficiency,
+                });
+                setProfileImage(userData.avatar_url || "/bro_profile.png");
+            } catch (error) {
+                console.error("Failed to fetch user", error);
+                // Handle error, e.g., redirect to login
+            }
+        };
+
+        fetchUser();
+    }, []);
 
     const tabs = [
         { name: "Home", href: "/home" },
@@ -25,8 +52,19 @@ export default function Profile() {
         { name: "Profile", href: "/profile" },
     ];
 
-    const handleEditToggle = () => {
-        setIsEditing(!isEditing);
+    const handleEditToggle = async () => {
+        if (isEditing) {
+            try {
+                const updatedUser = await updateUser(formData);
+                setUser(updatedUser);
+                setIsEditing(false);
+            } catch (error) {
+                console.error("Failed to update user", error);
+                // Handle error
+            }
+        } else {
+            setIsEditing(true);
+        }
     };
 
     const handleImageClick = () => {
@@ -39,13 +77,15 @@ export default function Profile() {
             const reader = new FileReader();
             reader.onloadend = () => {
                 setProfileImage(reader.result as string);
+                // Immediately update the avatar_url in the form data
+                setFormData(prev => ({...prev, avatar_url: reader.result as string}));
             };
             reader.readAsDataURL(file);
         }
     };
 
     const handleLogout = () => {
-        router.push('/landing');
+        logout();
     };
 
     return (
@@ -115,21 +155,21 @@ export default function Profile() {
                             />
                         </div>
                         <h2 className="font-montserrat text-6xl font-semibold text-white text-center">
-                            {formData.fullName}
+                            {formData.display_name}
                         </h2>
                     </div>
 
                     {/* Form Fields */}
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                        {/* Full Name */}
+                        {/* Username */}
                         <div>
                             <label className="block text-white font-semibold text-sm mb-3">
-                                Full Name
+                                Username
                             </label>
                             <input
                                 type="text"
-                                value={formData.fullName}
-                                onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                                value={formData.username}
+                                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
                                 disabled={!isEditing}
                                 className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white focus:outline-none focus:border-white/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             />
@@ -143,36 +183,25 @@ export default function Profile() {
                             <input
                                 type="email"
                                 value={formData.email}
-                                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                disabled={!isEditing}
+                                disabled // Email is not editable
                                 className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white focus:outline-none focus:border-white/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                             />
                         </div>
 
-                        {/* Prefer Coding Language */}
-                        <div>
+                        {/* Description */}
+                        <div className="md:col-span-2">
                             <label className="block text-white font-semibold text-sm mb-3">
-                                Prefer Coding Language
+                                Description
                             </label>
-                            <div className="relative">
-                                <select
-                                    value={formData.language}
-                                    onChange={(e) => setFormData({ ...formData, language: e.target.value })}
-                                    disabled={!isEditing}
-                                    className="w-full bg-transparent border-2 border-white/20 rounded-full pl-6 pr-12 py-3.5 font-montserrat font-medium text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <option value="Python" className="bg-[#333232] text-white">Python</option>
-                                    <option value="JavaScript" className="bg-[#333232] text-white">JavaScript</option>
-                                    <option value="Java" className="bg-[#333232] text-white">Java</option>
-                                    <option value="C++" className="bg-[#333232] text-white">C++</option>
-                                </select>
-                                <div className="absolute right-6 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
-                                        <path d="M1 1L6 6L11 1" stroke="#585858" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                    </svg>
-                                </div>
-                            </div>
+                            <textarea
+                                value={formData.description}
+                                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                                disabled={!isEditing}
+                                className="w-full bg-transparent border-2 border-white/20 rounded-2xl px-6 py-3.5 font-montserrat font-medium text-sm text-white focus:outline-none focus:border-white/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                rows={4}
+                            />
                         </div>
+
 
                         {/* Proficiency */}
                         <div>
@@ -181,14 +210,14 @@ export default function Profile() {
                             </label>
                             <div className="relative">
                                 <select
-                                    value={formData.proficiency}
-                                    onChange={(e) => setFormData({ ...formData, proficiency: e.target.value })}
+                                    value={formData.programming_proficiency}
+                                    onChange={(e) => setFormData({ ...formData, programming_proficiency: e.target.value as 'beginner' | 'intermediate' | 'advanced' })}
                                     disabled={!isEditing}
                                     className="w-full bg-transparent border-2 border-white/20 rounded-full pl-6 pr-12 py-3.5 font-montserrat font-medium text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <option value="Beginner" className="bg-[#333232] text-white">Beginner</option>
-                                    <option value="Intermediate Level" className="bg-[#333232] text-white">Intermediate Level</option>
-                                    <option value="Expert" className="bg-[#333232] text-white">Expert</option>
+                                    <option value="beginner" className="bg-[#333232] text-white">Beginner</option>
+                                    <option value="intermediate" className="bg-[#333232] text-white">Intermediate</option>
+                                    <option value="advanced" className="bg-[#333232] text-white">Advanced</option>
                                 </select>
                                 <div className="absolute right-6 top-1/2 transform -translate-y-1/2 pointer-events-none">
                                     <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
@@ -220,3 +249,5 @@ export default function Profile() {
         </div>
     );
 }
+
+export default withAuth(Profile);

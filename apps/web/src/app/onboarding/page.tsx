@@ -4,8 +4,9 @@ import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import withAuth from "@/components/withAuth";
 
-export default function Onboarding() {
+function Onboarding() {
     const router = useRouter();
     const [fullName, setFullName] = useState("");
     const [codingLanguage, setCodingLanguage] = useState("");
@@ -329,3 +330,5 @@ export default function Onboarding() {
         </div>
     );
 }
+
+export default withAuth(Onboarding);

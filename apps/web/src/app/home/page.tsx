@@ -3,8 +3,9 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useState } from "react";
+import withAuth from "@/components/withAuth";
 
-export default function Home() {
+function Home() {
     const [activeTab, setActiveTab] = useState("Home");
     const userName = "Cliff Hänger";
 
@@ -201,3 +202,5 @@ export default function Home() {
         </div>
     );
 }
+
+export default withAuth(Home);
