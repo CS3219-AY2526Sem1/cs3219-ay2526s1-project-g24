@@ -22,7 +22,7 @@ describe("User Controller Integration (Testcontainers)", () => {
   beforeAll(async () => {
     dbContainer = await new PostgreSqlContainer("postgres:15-alpine").start();
     const databaseUrl = dbContainer.getConnectionUri();
-    process.env.DATABASE_URL = databaseUrl;
+    process.env.USERDB_DATABASE_URL = databaseUrl;
 
     // Dynamically import PrismaClient and jose after mocking
     prisma = new PrismaClient();
