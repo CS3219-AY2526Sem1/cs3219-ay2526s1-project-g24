@@ -3,12 +3,19 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
+import { getGoogleSignInUrl } from "../../lib/api.service";
 
 export default function SignIn() {
     const router = useRouter();
 
-    const handleGoogleSignIn = () => {
-        router.push('/onboarding');
+    const handleGoogleSignIn = async () => {
+        try {
+            const url = await getGoogleSignInUrl();
+            router.push(url);
+        } catch (error) {
+            console.error("Failed to get Google Sign-In URL", error);
+            // Handle error
+        }
     };
 
     return (
