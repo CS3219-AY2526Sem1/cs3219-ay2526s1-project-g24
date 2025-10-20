@@ -3,7 +3,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
-import { getGoogleSignInUrl } from "../../lib/api.service";
+import { getGoogleSignInUrl } from "../../lib/user.service";
 
 export default function SignIn() {
     const router = useRouter();
