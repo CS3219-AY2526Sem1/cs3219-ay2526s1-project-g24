@@ -10,12 +10,25 @@ export const createServer = (): Express => {
   const app = express();
 
   app.use(express.json());
-  app.use(cors());
+
+  // Scalable CORS config
+  const allowedOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',')
+    : ['http://localhost:3000'];
+
+  app.use(cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (allowedOrigins.includes(origin)) {
+        return callback(null, true);
+      }
+      return callback(new Error('Not allowed by CORS'));
+    },
+    credentials: true,
+  }));
+
   app.use(cookieParser());
-
   app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
-
   RegisterRoutes(app);
-
   return app;
 };
