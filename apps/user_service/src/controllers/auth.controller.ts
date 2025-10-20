@@ -20,6 +20,7 @@ import {
   generateRefreshToken,
 } from "../services/auth.service";
 import prisma from "../prisma";
+import { isProduction } from "../utils/flags";
 
 @Route("v1/auth")
 @Tags("Authentication")
@@ -117,8 +118,8 @@ export class AuthController extends Controller {
         { accessToken },
         {
           "Set-Cookie": [
-            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=900`,
-            `refresh_token=${refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600`,
+            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `refresh_token=${refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
           ],
         },
       );
@@ -162,8 +163,8 @@ export class AuthController extends Controller {
       { message: "Logged out successfully" },
       {
         "Set-Cookie": [
-          `access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`,
-          `refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0`,
+          `access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
+          `refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
         ],
       },
     );
@@ -265,8 +266,8 @@ export class AuthController extends Controller {
         { accessToken },
         {
           "Set-Cookie": [
-            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=900`,
-            `refresh_token=${newRefreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600`,
+            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `refresh_token=${newRefreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
           ],
         },
       );

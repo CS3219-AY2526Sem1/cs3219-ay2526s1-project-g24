@@ -147,7 +147,7 @@ describe("AuthController", () => {
         {
           "Set-Cookie": [
             "access_token=test_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=900",
-            "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600",
+            "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800",
           ],
         }
       );
@@ -207,7 +207,7 @@ describe("AuthController", () => {
         {
           "Set-Cookie": [
             "access_token=test_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=900",
-            "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600",
+            "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800",
           ],
         }
       );
@@ -280,7 +280,7 @@ describe("AuthController", () => {
         {
           "Set-Cookie": [
             "access_token=new_test_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=900",
-            "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=1209600",
+            "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800",
           ],
         }
       );

@@ -106,7 +106,7 @@ export const generateRefreshToken = async (
   })
     .setProtectedHeader({ alg: "RS256", kid: "1" })
     .setIssuedAt()
-    .setExpirationTime("14d")
+    .setExpirationTime("7d")
     .setJti(jti)
     .sign(privateKey);
 

@@ -163,7 +163,7 @@ describe("Auth Service", () => {
         kid: "1",
       });
       expect(signJwtMock.setIssuedAt).toHaveBeenCalled();
-      expect(signJwtMock.setExpirationTime).toHaveBeenCalledWith("14d");
+      expect(signJwtMock.setExpirationTime).toHaveBeenCalledWith("7d");
       expect(signJwtMock.setJti).toHaveBeenCalledWith(fakeUuid);
       expect(signJwtMock.sign).toHaveBeenCalledWith("private_key");
       expect(result).toEqual({
