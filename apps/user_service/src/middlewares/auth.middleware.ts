@@ -20,8 +20,8 @@ export function expressAuthentication(
       req.headers.authorization.startsWith("Bearer ")
     ) {
       token = req.headers.authorization.substring(7);
-    } else if (req.cookies.auth_token) {
-      token = req.cookies.auth_token;
+    } else if (req.cookies.access_token) {
+      token = req.cookies.access_token;
     }
 
     if (!token) {

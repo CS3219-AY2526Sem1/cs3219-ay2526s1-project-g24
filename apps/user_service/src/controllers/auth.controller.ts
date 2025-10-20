@@ -1,3 +1,5 @@
+import * as jose from "jose";
+import { config } from "../config";
 import {
   Controller,
   Get,
@@ -14,9 +16,11 @@ import { AuthResponse } from "../models/auth-response.model";
 import {
   getGoogleAuthUrl,
   getGoogleUser,
-  generateJwtToken,
+  generateAccessToken,
+  generateRefreshToken,
 } from "../services/auth.service";
 import prisma from "../prisma";
+import { isProduction } from "../utils/flags";
 
 @Route("v1/auth")
 @Tags("Authentication")
@@ -29,7 +33,7 @@ export class AuthController extends Controller {
   @Get("google/callback")
   public async handleGoogleCallback(
     @Query() code: string,
-    @Res() res: TsoaResponse<200, AuthResponse, { "Set-Cookie"?: string }>
+    @Res() res: TsoaResponse<200, AuthResponse, { "Set-Cookie"?: string[] }>,
   ): Promise<AuthResponse> {
     try {
       const googleUser = await getGoogleUser(code);
@@ -91,20 +95,39 @@ export class AuthController extends Controller {
         });
       }
 
-      const accessToken = await generateJwtToken(user);
+      const accessToken = await generateAccessToken(user);
+      const refreshTokenFamily = await prisma.refreshTokenFamily.create({
+        data: {
+          user_id: user.id,
+        },
+      });
+      const { refreshToken, jti } = await generateRefreshToken(
+        user,
+        refreshTokenFamily.id,
+      );
+
+      await prisma.refreshToken.create({
+        data: {
+          id: jti,
+          family_id: refreshTokenFamily.id,
+        },
+      });
 
       res(
         200,
         { accessToken },
         {
-          "Set-Cookie": `auth_token=${accessToken}; HttpOnly; Path=/; Max-Age=604800`,
-        }
+          "Set-Cookie": [
+            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `refresh_token=${refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+          ],
+        },
       );
       return { accessToken };
     } catch (error: any) {
       console.error(
         "Error during Google callback:",
-        error.response?.data || error.message
+        error.response?.data || error.message,
       );
       this.setStatus(500);
       return { accessToken: "" };
@@ -113,34 +136,146 @@ export class AuthController extends Controller {
 
   @Post("logout")
   public async logout(
+    @Request() req: any,
     @Res()
-    res: TsoaResponse<200, { message: string }, { "Set-Cookie"?: string }>
+    res: TsoaResponse<200, { message: string }, { "Set-Cookie"?: string[] }>,
   ) {
+    const refreshToken = req.cookies.refresh_token;
+    if (refreshToken) {
+      try {
+        const JWKS = jose.createRemoteJWKSet(new URL(config.jwt.jwksUri));
+        const { payload } = await jose.jwtVerify(refreshToken, JWKS, {
+          algorithms: ["RS256"],
+        });
+        const { familyId } = payload;
+        if (familyId) {
+          await prisma.refreshTokenFamily.update({
+            where: { id: familyId as string },
+            data: { is_revoked: true },
+          });
+        }
+      } catch (error) {
+        // Ignore errors, just clear cookies
+      }
+    }
     res(
       200,
       { message: "Logged out successfully" },
-      { "Set-Cookie": "auth_token=; HttpOnly; Path=/; Max-Age=0" }
+      {
+        "Set-Cookie": [
+          `access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
+          `refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
+        ],
+      },
     );
   }
 
-  @Security("jwt")
   @Post("refresh")
   public async refresh(
-    @Request() req: { user: any },
-    @Res() res: TsoaResponse<200, AuthResponse, { "Set-Cookie"?: string }>
+    @Request() req: any,
+    @Res() res: TsoaResponse<200, AuthResponse, { "Set-Cookie"?: string[] }>,
   ): Promise<AuthResponse> {
-    const user = req.user;
+    const refreshToken = req.cookies.refresh_token;
 
-    const accessToken = await generateJwtToken(user);
+    if (!refreshToken) {
+      this.setStatus(401);
+      return { accessToken: "" };
+    }
 
-    res(
-      200,
-      { accessToken },
-      {
-        "Set-Cookie": `auth_token=${accessToken}; HttpOnly; Path=/; Max-Age=604800`,
+    try {
+      const JWKS = jose.createRemoteJWKSet(new URL(config.jwt.jwksUri));
+      const { payload } = await jose.jwtVerify(refreshToken, JWKS, {
+        algorithms: ["RS256"],
+      });
+
+      const { jti, familyId, userId } = payload;
+
+      if (!jti || !familyId || !userId) {
+        this.setStatus(401);
+        return { accessToken: "" };
       }
-    );
-    return { accessToken };
+
+      const tokenRecord = await prisma.refreshToken.findUnique({
+        where: { id: jti },
+        include: { family: true },
+      });
+
+      if (!tokenRecord || tokenRecord.family.user_id !== userId) {
+        this.setStatus(401);
+        return { accessToken: "" };
+      }
+
+      if (tokenRecord.family.is_revoked) {
+        this.setStatus(401);
+        return { accessToken: "" };
+      }
+
+      if (tokenRecord.is_used) {
+        await prisma.refreshTokenFamily.update({
+          where: { id: tokenRecord.family_id },
+          data: { is_revoked: true },
+        });
+        this.setStatus(401);
+        return { accessToken: "" };
+      }
+
+      await prisma.refreshToken.update({
+        where: { id: jti },
+        data: { is_used: true },
+      });
+
+      const user = await prisma.user.findUnique({
+        where: { id: userId as string },
+        include: {
+          roles: {
+            include: {
+              role: {
+                include: {
+                  permissions: {
+                    include: {
+                      permission: true,
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+
+      if (!user) {
+        this.setStatus(401);
+        return { accessToken: "" };
+      }
+
+      const accessToken = await generateAccessToken(user);
+      const { refreshToken: newRefreshToken, jti: newJti } =
+        await generateRefreshToken(user, tokenRecord.family_id);
+
+      // Store the new refresh token in the database
+      // jti is the unique identifier for the new refresh token
+      await prisma.refreshToken.create({
+        data: {
+          id: newJti,
+          family_id: tokenRecord.family_id,
+        },
+      });
+
+      res(
+        200,
+        { accessToken },
+        {
+          "Set-Cookie": [
+            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `refresh_token=${newRefreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+          ],
+        },
+      );
+      return { accessToken };
+    } catch (error) {
+      this.setStatus(401);
+      return { accessToken: "" };
+    }
   }
 
   @Security("jwt")

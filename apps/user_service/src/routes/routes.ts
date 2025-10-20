@@ -54,41 +54,10 @@ const models: TsoaRoute.Models = {
         "additionalProperties": false,
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    "JWK": {
+    "AuthResponse": {
         "dataType": "refObject",
         "properties": {
-            "kty": {"dataType":"string"},
-            "alg": {"dataType":"string"},
-            "key_ops": {"dataType":"array","array":{"dataType":"string"}},
-            "ext": {"dataType":"boolean"},
-            "use": {"dataType":"string"},
-            "x5c": {"dataType":"array","array":{"dataType":"string"}},
-            "x5t": {"dataType":"string"},
-            "x5t#S256": {"dataType":"string"},
-            "x5u": {"dataType":"string"},
-            "kid": {"dataType":"string"},
-            "crv": {"dataType":"string"},
-            "d": {"dataType":"string"},
-            "dp": {"dataType":"string"},
-            "dq": {"dataType":"string"},
-            "e": {"dataType":"string"},
-            "k": {"dataType":"string"},
-            "n": {"dataType":"string"},
-            "p": {"dataType":"string"},
-            "q": {"dataType":"string"},
-            "qi": {"dataType":"string"},
-            "x": {"dataType":"string"},
-            "y": {"dataType":"string"},
-            "pub": {"dataType":"string"},
-            "priv": {"dataType":"string"},
-        },
-        "additionalProperties": false,
-    },
-    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
-    "JwksResponse": {
-        "dataType": "refObject",
-        "properties": {
-            "keys": {"dataType":"array","array":{"dataType":"intersection","subSchemas":[{"ref":"JWK"},{"dataType":"nestedObjectLiteral","nestedProperties":{"alg":{"dataType":"string","required":true},"use":{"dataType":"string","required":true},"kid":{"dataType":"string","required":true}}}]},"required":true},
+            "accessToken": {"dataType":"string","required":true},
         },
         "additionalProperties": false,
     },
@@ -452,7 +421,7 @@ export function RegisterRoutes(app: Router) {
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsAuthController_handleGoogleCallback: Record<string, TsoaRoute.ParameterSchema> = {
                 code: {"in":"query","name":"code","required":true,"dataType":"string"},
-                res: {"in":"res","name":"200","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"accessToken":{"dataType":"string","required":true}}},
+                res: {"in":"res","name":"200","required":true,"ref":"AuthResponse"},
         };
         app.get('/v1/auth/google/callback',
             ...(fetchMiddlewares<RequestHandler>(AuthController)),
@@ -513,10 +482,9 @@ export function RegisterRoutes(app: Router) {
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsAuthController_refresh: Record<string, TsoaRoute.ParameterSchema> = {
                 req: {"in":"request","name":"req","required":true,"dataType":"object"},
-                res: {"in":"res","name":"200","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"accessToken":{"dataType":"string","required":true}}},
+                res: {"in":"res","name":"200","required":true,"ref":"AuthResponse"},
         };
         app.post('/v1/auth/refresh',
-            authenticateMiddleware([{"jwt":[]}]),
             ...(fetchMiddlewares<RequestHandler>(AuthController)),
             ...(fetchMiddlewares<RequestHandler>(AuthController.prototype.refresh)),
 

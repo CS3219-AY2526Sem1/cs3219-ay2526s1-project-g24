@@ -86,7 +86,7 @@ describe('expressAuthentication Middleware', () => {
   it('should resolve with user on successful authentication via cookie', async () => {
     const req = {
       headers: {},
-      cookies: { auth_token: 'validtoken' },
+      cookies: { access_token: 'validtoken' },
     } as unknown as Request;
     const user = { id: 'user-123', name: 'Test User' };
     const payload = { userId: 'user-123' };
