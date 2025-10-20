@@ -3,7 +3,7 @@
  * Handles communication with the matching microservice
  */
 
-import { API_CONFIG } from '../api-config';
+import { API_CONFIG } from '../apiConfig';
 
 export type Difficulty = 'easy' | 'medium' | 'hard';
 export type MatchStatus = 'queued' | 'matched' | 'cancelled' | 'timeout';

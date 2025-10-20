@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getDifficultyStyles } from "@/lib/difficulty";
-import { matchingService, type Difficulty } from "@/lib/services/matching-service";
+import { matchingService, type Difficulty } from "@/lib/api/matchingService";
 
 const topics = [
     { name: "Arrays &\nHashing", subtitle: "Two pointers, Sliding window" },

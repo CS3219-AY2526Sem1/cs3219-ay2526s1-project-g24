@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { TIMER_INTERVAL_MS, TIME_FORMAT } from "@/lib/constants";
-import { matchingService } from "@/lib/services/matching-service";
+import { matchingService } from "@/lib/api/matchingService";
 
 export default function Wait() {
     const router = useRouter();
