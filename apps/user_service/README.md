@@ -39,26 +39,41 @@ The User Service is a central component responsible for user authentication, aut
     - If the user exists, their profile information is retrieved.
 3.  **Token Generation:** Two tokens are generated and sent to the client as secure, `HttpOnly` cookies:
     -   **Access Token:** A short-lived JWT (15 minutes) that grants access to protected resources. It is stored in an `access_token` cookie.
-    -   **Refresh Token:** A long-lived token (14 days) used to obtain a new access token without requiring the user to log in again. It is stored in a `refresh_token` cookie.
+    -   **Refresh Token:** A long-lived token (14 days) used to obtain a new access token. It is stored in a `refresh_token` cookie.
 
     Both cookies are configured with `HttpOnly`, `SameSite=Strict`, and `Path=/` to enhance security.
 
-4.  **Access Token Payload:** The access token is a JWT signed with an RSA private key (RS256) and contains the following payload:
-    ```json
-    {
-      "userId": "c1a2b3d4-e5f6-...",
-      "email": "user@example.com",
-      "roles": ["user", "editor"],
-      "scopes": ["questions:create", "questions:read", "users:read:self"],
-      "iat": 1678886400,
-      "exp": 1678887300
-    }
-    ```
-    - `userId`: The unique identifier for the user.
-    - `roles`: An array of role names assigned to the user.
-    - `scopes`: A consolidated list of all permissions (scopes) granted by the user's roles.
+4.  **Token Payloads:**
+    -   **Access Token:** The access token is a JWT signed with an RSA private key (RS256) and contains the user's ID, roles, and permissions (scopes).
+        ```json
+        {
+          "sub": "c1a2b3d4-e5f6-...",
+          "email": "user@example.com",
+          "roles": ["user", "editor"],
+          "scopes": ["questions:create", "questions:read", "users:read:self"],
+          "iat": 1678886400,
+          "exp": 1678887300
+        }
+        ```
+    -   **Refresh Token:** The refresh token payload is minimal and contains identifiers for the token rotation mechanism.
+        ```json
+        {
+          "sub": "c1a2b3d4-e5f6-...",
+          "familyId": "f1a2b3c4-...", // Identifies the token family
+          "jti": "j1a2b3c4-...",      // Unique ID for this specific token
+          "iat": 1678886400,
+          "exp": 1679887300
+        }
+        ```
 
-5.  **Token Refresh:** When the access token expires, the client can send the refresh token to the `/v1/auth/refresh` endpoint to get a new access token.
+5.  **Token Refresh and Rotation:**
+    When the access token expires, the client sends the refresh token to the `/v1/auth/refresh` endpoint. The service then performs the following steps:
+    1.  **Verification:** The refresh token is verified.
+    2.  **Reuse Detection:** The service checks if the token has been used before. If it has, this indicates a potential token theft. The entire family of refresh tokens for that user is immediately revoked, and the request is rejected, forcing the user (and the attacker) to log in again.
+    3.  **Rotation:** If the token is valid and has not been used before, it is marked as used. The service then issues a **new access token** and a **new refresh token**. The new refresh token belongs to the same "family" but has a new unique ID (`jti`).
+    4.  **Response:** The new tokens are sent back to the client as cookies. The client must use the new refresh token for the next refresh cycle.
+
+    This rotation and reuse detection strategy significantly enhances security by preventing refresh token abuse.
 
 ### JWT Claims and Scope Generation
 
@@ -197,7 +212,7 @@ Create a `.env` file in the root of this service with the following variables. T
 
 ```bash
 # PostgreSQL connection string
-DATABASE_URL="postgresql://user:password@localhost:5432/mydatabase"
+USERDB_DATABASE_URL="postgresql://user:password@localhost:5432/mydatabase"
 
 # Google OAuth2 credentials
 GOOGLE_CLIENT_ID="your-google-client-id"
