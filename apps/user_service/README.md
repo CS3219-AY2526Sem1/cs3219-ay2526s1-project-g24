@@ -47,7 +47,7 @@ The User Service is a central component responsible for user authentication, aut
     -   **Access Token:** The access token is a JWT signed with an RSA private key (RS256) and contains the user's ID, roles, and permissions (scopes).
         ```json
         {
-          "sub": "c1a2b3d4-e5f6-...",
+          "userId": "c1a2b3d4-e5f6-...",
           "email": "user@example.com",
           "roles": ["user", "editor"],
           "scopes": ["questions:create", "questions:read", "users:read:self"],
@@ -58,7 +58,7 @@ The User Service is a central component responsible for user authentication, aut
     -   **Refresh Token:** The refresh token payload is minimal and contains identifiers for the token rotation mechanism.
         ```json
         {
-          "sub": "c1a2b3d4-e5f6-...",
+          "userId": "c1a2b3d4-e5f6-...",
           "familyId": "f1a2b3c4-...", // Identifies the token family
           "jti": "j1a2b3c4-...",      // Unique ID for this specific token
           "iat": 1678886400,
@@ -415,7 +415,7 @@ router = APIRouter()
 def create_new_question(question_data: dict, user_payload: dict = Depends(get_current_user)):
     # If this point is reached, the token is valid.
     # The user's claims are in the user_payload dictionary.
-    user_id = user_payload.get("sub") # Standard claim for user ID
+    user_id = user_payload.get("userId") # Standard claim for user ID
     
     # Example authorization check:
     # if "questions:create" not in user_payload.get("scopes", []):
