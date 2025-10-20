@@ -101,7 +101,7 @@ services:
     env_file:
       - ./apps/user_service/.env
     environment:
-      DATABASE_URL: postgresql://user:${USER_DB_PASSWORD:-password123}@user-db:5432/userdb
+      USERDB_DATABASE_URL: postgresql://user:${USER_DB_PASSWORD:-password123}@user_db:5432/userdb
     depends_on:
       user-db:
         condition: service_healthy

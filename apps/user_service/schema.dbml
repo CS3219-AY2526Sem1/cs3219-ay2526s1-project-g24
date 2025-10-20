@@ -1,4 +1,3 @@
-```
 // PeerPrep User and RBAC Schema (Verified against requirements)
 
 Table users as U {
@@ -55,4 +54,18 @@ Table role_permissions as RP {
     (role_id, permission_id) [pk]
   }
 }
-```
+
+// -- REFRESH TOKEN TABLES --
+
+Table refresh_token_families as RTF {
+  id uuid [pk, default: `uuid_generate_v4()`, note: 'Primary key for the token family.']
+  user_id uuid [ref: > U.id, not null]
+  is_revoked boolean [not null, default: false, note: 'Set to true to revoke the entire token family.']
+}
+
+Table refresh_tokens as RT {
+  id text [pk, note: 'The JTI (JWT ID) of the refresh token.']
+  family_id uuid [ref: > RTF.id, not null]
+  is_used boolean [not null, default: false, note: 'Set to true after the token has been used once.']
+  created_at timestamp [not null, default: `now()`]
+}
