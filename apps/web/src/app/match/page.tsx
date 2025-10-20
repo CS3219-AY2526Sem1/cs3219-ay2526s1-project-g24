@@ -7,6 +7,7 @@ import Image from "next/image";
 import { getDifficultyStyles } from "@/lib/difficulty";
 import { matchingService, type Difficulty } from "@/lib/api/matchingService";
 import withAuth from "@/components/withAuth";
+import { useAuth } from "@/hooks/useAuth";
 
 const topics = [
     { name: "Arrays &\nHashing", subtitle: "Two pointers, Sliding window" },
@@ -50,6 +51,7 @@ const languages = [
 
 function Match() {
     const router = useRouter();
+    const { user } = useAuth();
     const [activeTab, setActiveTab] = useState("Match");
     const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
     const [selectedDifficulty, setSelectedDifficulty] = useState<string>("Intermediate Level");
@@ -85,15 +87,17 @@ function Match() {
             return;
         }
 
+        if (!user?.id) {
+            setError("User not authenticated");
+            return;
+        }
+
         setIsLoading(true);
         setError(null);
 
         try {
-            // TODO: Replace with actual user ID from auth context once auth has been wired into FE
-            const userId = "user-" + Math.random().toString(36).substring(2, 11);
-            
             const response = await matchingService.createMatchRequest({
-                userId,
+                userId: user.id,
                 difficulty: mapDifficultyToApi(selectedDifficulty),
                 topics: selectedTopics,
                 languages: [selectedLanguage],
@@ -101,7 +105,7 @@ function Match() {
 
             // Store the request ID in sessionStorage to use in wait page
             sessionStorage.setItem("matchRequestId", response.reqId);
-            sessionStorage.setItem("matchUserId", userId);
+            sessionStorage.setItem("matchUserId", user.id);
 
             router.push("/wait");
         } catch (err) {
