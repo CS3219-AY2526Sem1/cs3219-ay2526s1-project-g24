@@ -308,3 +308,22 @@ export async function submitSolution(questionId: number, request: SubmissionRequ
 
     return response.json();
 }
+
+/**
+ * Fetch all topics from the question service
+ * Endpoint: GET /api/topics
+ */
+export async function getTopics(): Promise<TopicResponse[]> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/topics`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch topics: ${response.statusText}`);
+    }
+
+    return response.json();
+}

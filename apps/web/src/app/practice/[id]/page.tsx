@@ -36,6 +36,11 @@ export default function PracticePage() {
     const containerRef = useRef<HTMLDivElement>(null);
     const rightPanelRef = useRef<HTMLDivElement>(null);
 
+    // Helper function to get localStorage key for code
+    const getCodeStorageKey = (qId: number, lang: Language) => {
+        return `peerprep_code_q${qId}_${lang}`;
+    };
+
     // Fetch question data on mount
     useEffect(() => {
         const fetchQuestion = async () => {
@@ -45,10 +50,17 @@ export default function PracticePage() {
                 const data = await getQuestionById(questionId);
                 setQuestion(data);
                 
-                // Set initial code from template
-                const template = data.code_templates[selectedLanguage];
-                if (template) {
-                    setCode(template);
+                // Try to load saved code from localStorage first
+                const savedCode = localStorage.getItem(getCodeStorageKey(questionId, selectedLanguage));
+                
+                if (savedCode) {
+                    setCode(savedCode);
+                } else {
+                    // Fall back to template if no saved code
+                    const template = data.code_templates[selectedLanguage];
+                    if (template) {
+                        setCode(template);
+                    }
                 }
             } catch (err) {
                 setQuestionError(err instanceof Error ? err.message : 'Failed to load question');
@@ -63,12 +75,27 @@ export default function PracticePage() {
     // Update code when language changes
     useEffect(() => {
         if (question) {
-            const template = question.code_templates[selectedLanguage];
-            if (template) {
-                setCode(template);
+            // Try to load saved code from localStorage first
+            const savedCode = localStorage.getItem(getCodeStorageKey(questionId, selectedLanguage));
+            
+            if (savedCode) {
+                setCode(savedCode);
+            } else {
+                // Fall back to template if no saved code
+                const template = question.code_templates[selectedLanguage];
+                if (template) {
+                    setCode(template);
+                }
             }
         }
     }, [selectedLanguage, question]);
+
+    // Save code to localStorage whenever it changes
+    useEffect(() => {
+        if (code && question) {
+            localStorage.setItem(getCodeStorageKey(questionId, selectedLanguage), code);
+        }
+    }, [code, questionId, selectedLanguage, question]);
 
     // Handle Run Code button
     const handleRunCode = async () => {
