@@ -84,6 +84,7 @@ class Judge0Service:
             if language == LanguageEnum.PYTHON:
                 # Wrap user code to instantiate Solution class and call method
                 wrapper = f"""
+from typing import List, Optional, Dict, Tuple, Set, Union
 import json
 import sys
 
