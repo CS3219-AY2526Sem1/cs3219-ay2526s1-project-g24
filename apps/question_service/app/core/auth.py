@@ -10,6 +10,8 @@ from typing import Optional, Dict, Any, List
 from fastapi import HTTPException, status, Request
 from functools import lru_cache
 import requests
+from jose import jwk
+from jose.backends import RSAKey
 
 from .config import settings
 
@@ -52,22 +54,21 @@ def get_public_key() -> str:
     """
     Extract the public key from JWKS for JWT verification.
     
-    For RS256, the JWKS contains the public key components (n, e).
-    We can also use the x5c (X.509 certificate chain) if available.
+    For RS256, the JWKS contains the public key components (n, e) in JWK format.
+    We convert it to PEM format for PyJWT to use.
     """
     jwks = get_jwks()
     
-    # For simplicity, we'll assume the User Service provides the key in PEM format
-    # In the keys array. Adjust based on actual JWKS structure.
     if "keys" in jwks and len(jwks["keys"]) > 0:
-        key = jwks["keys"][0]
-        if "x5c" in key and len(key["x5c"]) > 0:
-            # X.509 certificate format
-            cert = key["x5c"][0]
-            return f"-----BEGIN CERTIFICATE-----\n{cert}\n-----END CERTIFICATE-----"
-        # If using JWK format, you'd need to convert it to PEM
-        # For now, we'll handle this in the JWT verification
-        return key
+        key_data = jwks["keys"][0]
+        
+        # Convert JWK to PEM format using python-jose
+        try:
+            rsa_key = RSAKey(key_data, algorithm='RS256')
+            # Get the public key in PEM format
+            return rsa_key.to_pem().decode('utf-8')
+        except Exception as e:
+            raise AuthenticationError(f"Failed to convert JWK to PEM: {str(e)}")
     
     raise AuthenticationError("No valid key found in JWKS")
 
