@@ -124,6 +124,7 @@ export async function getQuestions(params?: {
         headers: {
             'Content-Type': 'application/json',
         },
+        credentials: 'include', // Send cookies with request
     });
 
     if (!response.ok) {
@@ -148,6 +149,7 @@ export async function getQuestionById(id: number, userId?: string): Promise<Ques
         headers: {
             'Content-Type': 'application/json',
         },
+        credentials: 'include', // Send cookies with request
     });
 
     if (!response.ok) {
@@ -184,6 +186,7 @@ export async function getRandomQuestion(params?: {
         headers: {
             'Content-Type': 'application/json',
         },
+        credentials: 'include', // Send cookies with request
     });
 
     if (!response.ok) {
@@ -211,6 +214,7 @@ export async function getDailyQuestion(userId?: string): Promise<QuestionDetail>
         headers: {
             'Content-Type': 'application/json',
         },
+        credentials: 'include', // Send cookies with request
     });
 
     if (!response.ok) {
@@ -262,6 +266,7 @@ export async function runCode(questionId: number, request: CodeExecutionRequest)
         headers: {
             'Content-Type': 'application/json',
         },
+        credentials: 'include', // Send cookies with request
         body: JSON.stringify(request),
     });
 
@@ -298,6 +303,7 @@ export async function submitSolution(questionId: number, request: SubmissionRequ
         headers: {
             'Content-Type': 'application/json',
         },
+        credentials: 'include', // Send cookies with request
         body: JSON.stringify(request),
     });
 
@@ -319,6 +325,7 @@ export async function getTopics(): Promise<TopicResponse[]> {
         headers: {
             'Content-Type': 'application/json',
         },
+        credentials: 'include', // Send cookies with request
     });
 
     if (!response.ok) {

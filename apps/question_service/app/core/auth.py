@@ -78,15 +78,15 @@ def extract_token_from_request(request: Request) -> Optional[str]:
     
     Checks in order:
     1. Authorization header (Bearer token)
-    2. Cookie (auth_token)
+    2. Cookie (access_token) - matches User Service cookie name
     """
     # Check Authorization header
     auth_header = request.headers.get("Authorization")
     if auth_header and auth_header.startswith("Bearer "):
         return auth_header.split(" ", 1)[1]
     
-    # Check cookies
-    token = request.cookies.get("auth_token")
+    # Check cookies - use 'access_token' to match User Service
+    token = request.cookies.get("access_token")
     if token:
         return token
     
