@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { getUsers, updateUserRole, deleteUser, User } from "../../../lib/user.service";
+import { getUsers, updateUserRole, deleteUser, User } from "../../../lib/api/user.service";
 
 import withAuth from "../../../components/withAuth";
 
@@ -25,7 +25,7 @@ function AdminUsers() {
         fetchUsers();
     }, []);
 
-    const handleUpdateRole = async (userId: string, newRole: "USER" | "ADMIN") => {
+    const handleUpdateRole = async (userId: string, newRole: "user" | "admin") => {
         try {
             const updatedUser = await updateUserRole(userId, newRole);
             setUsers(users.map(user => user.id === userId ? updatedUser : user));
@@ -151,7 +151,7 @@ function AdminUsers() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span
-                                                    className={`px-3 py-1 rounded-full text-xs font-montserrat ${user.role === "ADMIN"
+                                                    className={`px-3 py-1 rounded-full text-xs font-montserrat ${user.role === "admin"
                                                         ? "bg-[#DCC8FE] text-black"
                                                         : "bg-gray-200 text-black"
                                                         }`}
@@ -170,12 +170,12 @@ function AdminUsers() {
                                                         onClick={() =>
                                                             handleUpdateRole(
                                                                 user.id,
-                                                                user.role === "ADMIN" ? "USER" : "ADMIN"
+                                                                user.role === "admin" ? "user" : "admin"
                                                             )
                                                         }
                                                         className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-black font-montserrat text-xs rounded-full transition-colors"
                                                     >
-                                                        {user.role === "ADMIN" ? "Demote" : "Promote"}
+                                                        {user.role === "admin" ? "Demote" : "Promote"}
                                                     </button>
                                                     <button
                                                         onClick={() => setSelectedUser(user)}
