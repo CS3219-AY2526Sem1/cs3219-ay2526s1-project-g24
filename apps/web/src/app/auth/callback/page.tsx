@@ -8,7 +8,14 @@ export default function AuthCallback() {
   const router = useRouter();
 
   useEffect(() => {
-    router.replace("/home");
+    // Check for post-login redirect
+    const redirect = typeof window !== 'undefined' ? sessionStorage.getItem('postLoginRedirect') : null;
+    if (redirect) {
+      sessionStorage.removeItem('postLoginRedirect');
+      router.replace(redirect);
+    } else {
+      router.replace("/home");
+    }
   }, [router]);
 
   return <Spinner text="Signing you in..." />;
