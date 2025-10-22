@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useState } from "react";
 
-export default function AdminDashboard() {
+import { withAdminAuth } from "../../components/withAuth";
+
+function AdminDashboard() {
     const [stats, setStats] = useState({
         totalUsers: 847,
         totalQuestions: 127,
@@ -131,3 +133,5 @@ export default function AdminDashboard() {
         </div>
     );
 }
+
+export default withAdminAuth(AdminDashboard);

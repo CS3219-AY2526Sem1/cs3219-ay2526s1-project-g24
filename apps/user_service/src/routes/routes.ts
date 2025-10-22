@@ -421,7 +421,7 @@ export function RegisterRoutes(app: Router) {
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsAuthController_handleGoogleCallback: Record<string, TsoaRoute.ParameterSchema> = {
                 code: {"in":"query","name":"code","required":true,"dataType":"string"},
-                res: {"in":"res","name":"200","required":true,"ref":"AuthResponse"},
+                res: {"in":"res","name":"302","required":true,"dataType":"void"},
         };
         app.get('/v1/auth/google/callback',
             ...(fetchMiddlewares<RequestHandler>(AuthController)),
@@ -451,6 +451,7 @@ export function RegisterRoutes(app: Router) {
         });
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsAuthController_logout: Record<string, TsoaRoute.ParameterSchema> = {
+                req: {"in":"request","name":"req","required":true,"dataType":"object"},
                 res: {"in":"res","name":"200","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"message":{"dataType":"string","required":true}}},
         };
         app.post('/v1/auth/logout',
@@ -699,7 +700,7 @@ export function RegisterRoutes(app: Router) {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"roleId":{"dataType":"double","required":true}}},
         };
         app.post('/v1/admin/users/:userId/roles',
-            authenticateMiddleware([{"jwt":["admin:users:edit-roles"]}]),
+            authenticateMiddleware([{"jwt":["admin:users:edit"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.assignRoleToUser)),
 
@@ -731,7 +732,7 @@ export function RegisterRoutes(app: Router) {
                 roleId: {"in":"path","name":"roleId","required":true,"dataType":"double"},
         };
         app.delete('/v1/admin/users/:userId/roles/:roleId',
-            authenticateMiddleware([{"jwt":["admin:users:edit-roles"]}]),
+            authenticateMiddleware([{"jwt":["admin:users:edit"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.removeRoleFromUser)),
 
@@ -763,7 +764,7 @@ export function RegisterRoutes(app: Router) {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"permissionId":{"dataType":"double","required":true}}},
         };
         app.post('/v1/admin/roles/:roleId/permissions',
-            authenticateMiddleware([{"jwt":["admin:roles:edit-permissions"]}]),
+            authenticateMiddleware([{"jwt":["admin:roles:edit"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.grantPermissionToRole)),
 
@@ -795,7 +796,7 @@ export function RegisterRoutes(app: Router) {
                 permissionId: {"in":"path","name":"permissionId","required":true,"dataType":"double"},
         };
         app.delete('/v1/admin/roles/:roleId/permissions/:permissionId',
-            authenticateMiddleware([{"jwt":["admin:roles:edit-permissions"]}]),
+            authenticateMiddleware([{"jwt":["admin:roles:edit"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.revokePermissionFromRole)),
 

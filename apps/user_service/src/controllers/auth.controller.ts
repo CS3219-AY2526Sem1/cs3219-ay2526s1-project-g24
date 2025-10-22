@@ -1,5 +1,5 @@
 import * as jose from "jose";
-import { config } from "../config";
+import { jwtConfig } from "../config";
 import {
   Controller,
   Get,
@@ -120,8 +120,8 @@ export class AuthController extends Controller {
         undefined,
         {
           "Set-Cookie": [
-            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
-            `refresh_token=${refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `refresh_token=${refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
           ],
           "Location": "http://localhost:3000/auth/callback"
         },
@@ -146,7 +146,7 @@ export class AuthController extends Controller {
     const refreshToken = req.cookies.refresh_token;
     if (refreshToken) {
       try {
-        const JWKS = jose.createRemoteJWKSet(new URL(config.jwt.jwksUri));
+        const JWKS = jose.createRemoteJWKSet(new URL(jwtConfig.jwksUri));
         const { payload } = await jose.jwtVerify(refreshToken, JWKS, {
           algorithms: ["RS256"],
         });
@@ -186,7 +186,7 @@ export class AuthController extends Controller {
     }
 
     try {
-      const JWKS = jose.createRemoteJWKSet(new URL(config.jwt.jwksUri));
+      const JWKS = jose.createRemoteJWKSet(new URL(jwtConfig.jwksUri));
       const { payload } = await jose.jwtVerify(refreshToken, JWKS, {
         algorithms: ["RS256"],
       });
@@ -269,8 +269,8 @@ export class AuthController extends Controller {
         { accessToken },
         {
           "Set-Cookie": [
-            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
-            `refresh_token=${newRefreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${config.jwt.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `refresh_token=${newRefreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
           ],
         },
       );
@@ -284,6 +284,12 @@ export class AuthController extends Controller {
   @Security("jwt")
   @Get("session")
   public async getSession(@Request() req: { user: any }) {
-    return req.user;
+    const user = req.user;
+    let isAdmin = false;
+    // user.roles is always an array of { role: { name: string, ... }, ... }
+    if (user.roles && Array.isArray(user.roles)) {
+      isAdmin = user.roles.some((r: any) => r.role?.name?.toLowerCase() === 'admin');
+    }
+    return { user, isAdmin };
   }
 }
