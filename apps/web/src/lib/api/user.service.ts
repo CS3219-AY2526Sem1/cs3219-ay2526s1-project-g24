@@ -1,5 +1,18 @@
 const API_URL = "http://localhost:8001/v1";
 
+export enum ProficiencyLevel {
+  BEGINNER = "beginner",
+  INTERMEDIATE = "intermediate",
+  ADVANCED = "advanced",
+}
+
+export enum ProgrammingLanguage {
+  CPP = "cpp",
+  JAVA = "java",
+  PYTHON = "python",
+  JAVASCRIPT = "javascript",
+}
+
 export interface User {
   id: string;
   username: string;
@@ -8,7 +21,8 @@ export interface User {
   avatar_url: string;
   google_id: string;
   description: string;
-  programming_proficiency: "beginner" | "intermediate" | "advanced";
+  programming_proficiency: ProficiencyLevel;
+  preferred_language: ProgrammingLanguage;
   role: "user" | "admin";
   created_at: string;
   updated_at: string;
