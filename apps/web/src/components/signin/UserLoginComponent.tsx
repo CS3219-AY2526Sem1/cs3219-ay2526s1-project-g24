@@ -5,7 +5,7 @@ import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { getGoogleSignInUrl } from "../../lib/api/user.service";
 
-export default function SignIn() {
+export default function UserLoginComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams.get("redirect");
@@ -13,10 +13,9 @@ export default function SignIn() {
   const handleGoogleSignIn = async () => {
     try {
       const url = await getGoogleSignInUrl();
-      // Store the redirect param in sessionStorage so the callback page can use it
-      if (redirect) {
-        sessionStorage.setItem("postLoginRedirect", redirect);
-      }
+      // Always store a redirect, default to /home
+      const redirectTarget = redirect || "/home";
+      sessionStorage.setItem("postLoginRedirect", redirectTarget);
       router.push(url);
     } catch (error) {
       console.error("Failed to get Google Sign-In URL", error);

@@ -10,7 +10,10 @@ export default function AuthCallback() {
   useEffect(() => {
     // Check for post-login redirect
     const redirect = typeof window !== 'undefined' ? sessionStorage.getItem('postLoginRedirect') : null;
+
+    // Redirect accordingly
     if (redirect) {
+      // Clear the stored redirect after using it
       sessionStorage.removeItem('postLoginRedirect');
       router.replace(redirect);
     } else {
