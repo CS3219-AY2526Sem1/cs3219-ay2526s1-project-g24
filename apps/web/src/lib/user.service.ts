@@ -9,9 +9,14 @@ export interface User {
   google_id: string;
   description: string;
   programming_proficiency: 'beginner' | 'intermediate' | 'advanced';
-  role: "USER" | "ADMIN";
+  role: "user" | "admin";
   created_at: string;
   updated_at: string;
+}
+
+export interface Session {
+  user: User;
+  isAdmin: boolean;
 }
 
 
@@ -33,7 +38,7 @@ export const logoutUser = async (): Promise<void> => {
   });
 };
 
-export const getSession = async (): Promise<User | null> => {
+export const getSession = async (): Promise<Session | null> => {
   const response = await fetch(`${API_URL}/auth/session`, {
         // Include credentials to send cookies
         credentials: 'include',
@@ -41,7 +46,8 @@ export const getSession = async (): Promise<User | null> => {
     if (!response.ok) {
         return null;
     }
-    return response.json();
+    let res = await response.json();
+    return { user: res.user, isAdmin: res.isAdmin };
 };
 
 // User Service
@@ -57,7 +63,7 @@ export const getUser = async (): Promise<User> => {
 };
 
 export const getUsers = async (): Promise<User[]> => {
-    const response = await fetch(`${API_URL}/users`);
+    const response = await fetch(`${API_URL}/admin/users`);
     if (!response.ok) {
         throw new Error('Failed to fetch users');
     }
