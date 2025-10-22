@@ -1,7 +1,7 @@
 // Type definitions for Admin API responses
 
 export type Difficulty = "EASY" | "MEDIUM" | "HARD";
-export type UserRole = "USER" | "ADMIN";
+export type UserRole = "user" | "admin";
 export type ProgrammingLanguage = "python" | "javascript" | "java" | "cpp";
 
 // ========== QUESTION TYPES ==========
@@ -77,7 +77,7 @@ export interface TestCaseValidationResult {
     }[];
 }
 
-// ========== USER TYPES ==========
+// ========== user TYPES ==========
 
 export interface UserProfile {
     id: string;
