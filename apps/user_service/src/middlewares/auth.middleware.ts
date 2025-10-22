@@ -1,7 +1,7 @@
 import { Request } from "express";
 import * as jose from "jose";
 import { getUserById } from "../services/user.service";
-import { config } from "../config";
+import { jwtConfig } from "../config";
 import logger from "../logger";
 
 export function expressAuthentication(
@@ -36,7 +36,7 @@ export function expressAuthentication(
     }
 
     try {
-      const JWKS = jose.createRemoteJWKSet(new URL(config.jwt.jwksUri));
+      const JWKS = jose.createRemoteJWKSet(new URL(jwtConfig.jwksUri));
       let decoded;
       try {
         const result = await jose.jwtVerify(token, JWKS, {
@@ -57,13 +57,12 @@ export function expressAuthentication(
       // Scope-based authorization check
       if (scopes && scopes.length > 0) {
         const userScopes = (decoded.scopes as string[]) || [];
-        logger.debug({ scopes }, "Required route scopes");
-        logger.debug({ userScopes }, "JWT scopes");
+        logger.debug({ decoded, scopes, userScopes }, "[DEBUG] JWT payload, required route scopes, and JWT scopes");
         const hasAllScopes = scopes.every((scope) =>
           userScopes.includes(scope)
         );
         if (!hasAllScopes) {
-          logger.error({ scopes, userScopes }, "Missing required scopes.");
+          logger.error({ scopes, userScopes, decoded }, "Missing required scopes.");
           const error = new Error("Forbidden: Insufficient permissions");
           (error as any).status = 403;
           return reject(error);

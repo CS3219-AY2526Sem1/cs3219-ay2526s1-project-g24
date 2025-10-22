@@ -134,24 +134,17 @@ describe("AuthController", () => {
       expect(prisma.refreshTokenFamily.create).toHaveBeenCalledWith({
         data: { user_id: user.id },
       });
-      expect(generateRefreshTokenSpy).toHaveBeenCalledWith(
-        user,
-        "family_id"
-      );
+      expect(generateRefreshTokenSpy).toHaveBeenCalledWith(user, "family_id");
       expect(prisma.refreshToken.create).toHaveBeenCalledWith({
         data: { id: fakeUuid, family_id: "family_id" },
       });
-      expect(tsoaRes).toHaveBeenCalledWith(
-        302,
-        undefined,
-        {
-          "Location": "http://localhost:3000/auth/callback",
-          "Set-Cookie": [
-            "access_token=test_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=900",
-            "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800",
-          ],
-        }
-      );
+      expect(tsoaRes).toHaveBeenCalledWith(302, undefined, {
+        Location: "http://localhost:3000/auth/callback",
+        "Set-Cookie": [
+          "access_token=test_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=900",
+          "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800",
+        ],
+      });
       expect(result).toEqual(undefined);
     });
 
@@ -195,24 +188,17 @@ describe("AuthController", () => {
       expect(prisma.refreshTokenFamily.create).toHaveBeenCalledWith({
         data: { user_id: user.id },
       });
-      expect(generateRefreshTokenSpy).toHaveBeenCalledWith(
-        user,
-        "family_id"
-      );
+      expect(generateRefreshTokenSpy).toHaveBeenCalledWith(user, "family_id");
       expect(prisma.refreshToken.create).toHaveBeenCalledWith({
         data: { id: fakeUuid, family_id: "family_id" },
       });
-      expect(tsoaRes).toHaveBeenCalledWith(
-        302,
-        undefined,
-        {
-          "Location": "http://localhost:3000/auth/callback",
-          "Set-Cookie": [
-            "access_token=test_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=900",
-            "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800",
-          ],
-        }
-      );
+      expect(tsoaRes).toHaveBeenCalledWith(302, undefined, {
+        Location: "http://localhost:3000/auth/callback",
+        "Set-Cookie": [
+          "access_token=test_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=900",
+          "refresh_token=refresh_token; HttpOnly; SameSite=Strict; Path=/; Max-Age=604800",
+        ],
+      });
       expect(result).toEqual(undefined);
     });
   });
@@ -269,10 +255,7 @@ describe("AuthController", () => {
       const result = await authController.refresh(req as any, tsoaRes);
 
       expect(generateAccessTokenSpy).toHaveBeenCalledWith(user);
-      expect(generateRefreshTokenSpy).toHaveBeenCalledWith(
-        user,
-        "family_id"
-      );
+      expect(generateRefreshTokenSpy).toHaveBeenCalledWith(user, "family_id");
       expect(prisma.refreshToken.create).toHaveBeenCalledWith({
         data: { id: fakeUuid, family_id: "family_id" },
       });
@@ -294,7 +277,13 @@ describe("AuthController", () => {
     it("should return the user from the request", async () => {
       const req = { user: { id: "user_id", display_name: "Test User" } };
       const result = await authController.getSession(req as any);
-      expect(result).toEqual(req.user);
+      expect(result).toEqual({
+        isAdmin: false,
+        user: {
+          display_name: "Test User",
+          id: "user_id",
+        },
+      });
     });
   });
 });
