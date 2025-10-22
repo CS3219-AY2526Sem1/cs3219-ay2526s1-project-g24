@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { getUser, updateUser, User } from "../../lib/user.service";
+import { getUser, updateUser, User } from "../../lib/api/user.service";
 
 import withAuth from "../../components/withAuth";
 import { useAuth } from "../../hooks/useAuth";
