@@ -52,8 +52,8 @@ services:
     environment:
       DATABASE_URL: postgresql://questionuser:${QUESTION_DB_PASSWORD:-questionpass123}@question-db:5432/questiondb
       ENV: development
-      # CORS configuration - allow web service and localhost for development
-      CORS_ORIGINS: http://web:3000,http://localhost:3000
+      USER_SERVICE_URL: http://user-service:8000
+      CODE_EXECUTOR_URL: http://code-execution:8003
     depends_on:
       question-db:
         condition: service_healthy
@@ -102,6 +102,7 @@ services:
       - ./apps/user_service/.env
     environment:
       USERDB_DATABASE_URL: postgresql://user:${USER_DB_PASSWORD:-password123}@user-db:5432/userdb
+      LOG_LEVEL: info
     depends_on:
       user-db:
         condition: service_healthy

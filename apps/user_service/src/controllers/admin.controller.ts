@@ -20,13 +20,19 @@ import {
   revokePermissionFromRole,
 } from "../services/admin.service";
 import { getAllUsers } from "../services/user.service";
+import { ADMIN_PERMISSIONS } from "../utils/constants";
 
+/**
+ * @author Ryam - Added Security Decorators to AdminController methods.
+ * We can only use String literals in the Security decorator due to tsoa limitations. Means we cannot use ADMIN_PERMISSIONS.ADMIN_USERS_READ directly, but have to use the string "admin:users:read" instead.
+ */
 @Route("v1/admin")
 @Tags("Admin")
 @Security("jwt")
 export class AdminController extends Controller {
   // User Management
   @Get("users")
+  // ADMIN_PERMISSIONS.ADMIN_USERS_READ
   @Security("jwt", ["admin:users:read"])
   public async getAllUsers() {
     return getAllUsers();
@@ -34,12 +40,14 @@ export class AdminController extends Controller {
 
   // Role Management
   @Post("roles")
+  // ADMIN_PERMISSIONS.ADMIN_ROLES_CREATE
   @Security("jwt", ["admin:roles:create"])
   public async createRole(@Body() body: { name: string }) {
     return createRole(body.name);
   }
 
   @Get("roles")
+  // ADMIN_PERMISSIONS.ADMIN_ROLES_READ
   @Security("jwt", ["admin:roles:read"])
   public async getAllRoles() {
     return getAllRoles();
@@ -47,12 +55,14 @@ export class AdminController extends Controller {
 
   // Permission Management
   @Post("permissions")
+  // ADMIN_PERMISSIONS.ADMIN_PERMISSIONS_CREATE
   @Security("jwt", ["admin:permissions:create"])
   public async createPermission(@Body() body: { name: string }) {
     return createPermission(body.name);
   }
 
   @Get("permissions")
+  // ADMIN_PERMISSIONS.ADMIN_PERMISSIONS_READ
   @Security("jwt", ["admin:permissions:read"])
   public async getAllPermissions() {
     return getAllPermissions();
@@ -60,7 +70,8 @@ export class AdminController extends Controller {
 
   // User-Role Management
   @Post("users/{userId}/roles")
-  @Security("jwt", ["admin:users:edit-roles"])
+  // ADMIN_PERMISSIONS.ADMIN_USERS_EDIT
+  @Security("jwt", ["admin:users:edit"])
   public async assignRoleToUser(
     @Path() userId: string,
     @Body() body: { roleId: number }
@@ -69,7 +80,8 @@ export class AdminController extends Controller {
   }
 
   @Delete("users/{userId}/roles/{roleId}")
-  @Security("jwt", ["admin:users:edit-roles"])
+  // ADMIN_PERMISSIONS.ADMIN_USERS_EDIT
+  @Security("jwt", ["admin:users:edit"])
   public async removeRoleFromUser(
     @Path() userId: string,
     @Path() roleId: number
@@ -79,7 +91,8 @@ export class AdminController extends Controller {
 
   // Role-Permission Management
   @Post("roles/{roleId}/permissions")
-  @Security("jwt", ["admin:roles:edit-permissions"])
+  // ADMIN_PERMISSIONS.ADMIN_ROLES_EDIT
+  @Security("jwt", ["admin:roles:edit"])
   public async grantPermissionToRole(
     @Path() roleId: number,
     @Body() body: { permissionId: number }
@@ -88,7 +101,8 @@ export class AdminController extends Controller {
   }
 
   @Delete("roles/{roleId}/permissions/{permissionId}")
-  @Security("jwt", ["admin:roles:edit-permissions"])
+  // ADMIN_PERMISSIONS.ADMIN_ROLES_EDIT
+  @Security("jwt", ["admin:roles:edit"])
   public async revokePermissionFromRole(
     @Path() roleId: number,
     @Path() permissionId: number

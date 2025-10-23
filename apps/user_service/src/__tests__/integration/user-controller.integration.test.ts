@@ -3,6 +3,12 @@ import request from "supertest";
 import { PostgreSqlContainer } from "@testcontainers/postgresql";
 import { execSync } from "child_process";
 import { PrismaClient } from "@prisma/client";
+import {
+  ADMIN,
+  ADMIN_PERMISSIONS,
+  USER,
+  USER_PERMISSIONS,
+} from "../../utils/constants.js";
 
 let publicKey: any;
 let user1Token: string;
@@ -64,8 +70,8 @@ describe("User Controller Integration (Testcontainers)", () => {
     user1Token = await new jose.SignJWT({
       userId: user1.id,
       email: user1.email,
-      scopes: ["users:read:self", "users:read"],
-      roles: ["user"],
+      scopes: [USER_PERMISSIONS.USER_READ_SELF, USER_PERMISSIONS.USER_READ],
+      roles: [USER],
     })
       .setProtectedHeader({ alg: "RS256", kid: "test-kid" })
       .setIssuedAt()
@@ -76,26 +82,28 @@ describe("User Controller Integration (Testcontainers)", () => {
     admin1Token = await new jose.SignJWT({
       userId: "admin-user-id",
       email: "admin@example.com",
-      roles: ["admin"],
+      roles: [ADMIN],
       scopes: [
         // User-level permissions
-        "users:read:self", // A user's own permissions, often implied
-        "users:read", // Permission to read any user's data
+        USER_PERMISSIONS.USER_READ,
+        USER_PERMISSIONS.USER_READ_SELF,
 
         // Admin-level permissions for user management
-        "admin:users:read",
-        "admin:users:edit",
-        "admin:users:delete",
-        "admin:users:edit-roles",
+        ADMIN_PERMISSIONS.ADMIN_USERS_READ,
+        ADMIN_PERMISSIONS.ADMIN_USERS_EDIT,
+        ADMIN_PERMISSIONS.ADMIN_USERS_DELETE,
 
         // Admin-level permissions for role management
-        "admin:roles:create",
-        "admin:roles:read",
-        "admin:roles:edit-permissions",
+        ADMIN_PERMISSIONS.ADMIN_ROLES_CREATE,
+        ADMIN_PERMISSIONS.ADMIN_ROLES_READ,
+        ADMIN_PERMISSIONS.ADMIN_ROLES_EDIT,
+        ADMIN_PERMISSIONS.ADMIN_ROLES_DELETE,
 
         // Admin-level permissions for permission management
-        "admin:permissions:create",
-        "admin:permissions:read",
+        ADMIN_PERMISSIONS.ADMIN_PERMISSIONS_CREATE,
+        ADMIN_PERMISSIONS.ADMIN_PERMISSIONS_READ,
+        ADMIN_PERMISSIONS.ADMIN_PERMISSIONS_EDIT,
+        ADMIN_PERMISSIONS.ADMIN_PERMISSIONS_DELETE,
       ],
     })
       .setProtectedHeader({ alg: "RS256", kid: "test-kid" })

@@ -239,7 +239,8 @@ def treenode_to_array(root):
         else:
             result_conversion = ""
         
-        wrapper_code = f'''{helper_code}{conversion_functions}{user_code}
+        wrapper_code = f'''from typing import List, Optional, Dict, Tuple, Set, Union
+{helper_code}{conversion_functions}{user_code}
 
 if __name__ == "__main__":
     import json

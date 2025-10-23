@@ -1,15 +1,15 @@
 import { google } from "googleapis";
-import { config } from "../config";
 import axios from "axios";
 import prisma from "../prisma";
 import type { User } from "@prisma/client";
 import * as jose from "jose";
 import { randomUUID } from "crypto";
+import { jwtConfig, oauthConfig } from "../config";
 
 const oauth2Client = new google.auth.OAuth2(
-  config.google.clientId,
-  config.google.clientSecret,
-  config.google.redirectUri,
+  oauthConfig.clientId,
+  oauthConfig.clientSecret,
+  oauthConfig.redirectUri,
 );
 
 export const getGoogleAuthUrl = () => {
@@ -28,7 +28,7 @@ export const getGoogleAuthUrl = () => {
 export const getGoogleUser = async (code: string) => {
   const { tokens } = await oauth2Client.getToken({
     code,
-    redirect_uri: config.google.redirectUri,
+    redirect_uri: oauthConfig.redirectUri,
   });
   oauth2Client.setCredentials(tokens);
 
@@ -77,7 +77,7 @@ export const generateAccessToken = async (user: User & { roles: any[] }) => {
   const scopes = [...new Set(permissions)]; // Remove duplicates
 
   // We sign the JWT with the private key (This should be the most recently rotated key)
-  const privateKey = await jose.importPKCS8(config.jwt.privateKey, "RS256");
+  const privateKey = await jose.importPKCS8(jwtConfig.privateKey, "RS256");
 
   const accessToken = await new jose.SignJWT({
     userId: user.id,
@@ -97,7 +97,7 @@ export const generateRefreshToken = async (
   user: Pick<User, "id">,
   familyId: string,
 ) => {
-  const privateKey = await jose.importPKCS8(config.jwt.privateKey, "RS256");
+  const privateKey = await jose.importPKCS8(jwtConfig.privateKey, "RS256");
   const jti = randomUUID();
 
   const refreshToken = await new jose.SignJWT({

@@ -1,28 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { getDifficultyStyles } from "@/lib/difficulty";
 import { matchingService, type Difficulty } from "@/lib/api/matchingService";
 import withAuth from "@/components/withAuth";
-import { useAuth } from "@/hooks/useAuth";
-
-const topics = [
-    { name: "Arrays &\nHashing", subtitle: "Two pointers, Sliding window" },
-    { name: "String\nManipulation", subtitle: "Pattern matching, KMP" },
-    { name: "Binary\nTrees", subtitle: "Tree traversal, Binary Search Tree" },
-    { name: "Graph\nAlgorithms", subtitle: "DFS, BFS, Shortest paths" },
-    { name: "Dynamic\nProgramming", subtitle: "Memoization, Tabulation" },
-    { name: "Recursion\n& Search", subtitle: "Permutations, N-Queens" },
-    { name: "List\nOperations", subtitle: "Pointers, Manipulation" },
-    { name: "LIFO\nFIFO", subtitle: "Applications, Monotonic" },
-    { name: "Priority\nQueue", subtitle: "Min/max heap operations" },
-    { name: "Prefix\nTrees", subtitle: "String search, Autocomplete" },
-    { name: "Sort\nAlgorithms", subtitle: "Quick, Merge, Radix" },
-    { name: "Search &\nBounds", subtitle: "Search Algorithms" },
-];
+import { getTopics, type TopicResponse } from "@/lib/api/questionService";
 
 const difficulties = [
     {
@@ -53,11 +38,29 @@ function Match() {
     const router = useRouter();
     const { user } = useAuth();
     const [activeTab, setActiveTab] = useState("Match");
+    const [topics, setTopics] = useState<TopicResponse[]>([]);
     const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
     const [selectedDifficulty, setSelectedDifficulty] = useState<string>("Intermediate Level");
     const [selectedLanguage, setSelectedLanguage] = useState<string>("Python");
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [isLoadingTopics, setIsLoadingTopics] = useState(true);
+
+    // Fetch topics from API
+    useEffect(() => {
+        const fetchTopics = async () => {
+            try {
+                const fetchedTopics = await getTopics();
+                setTopics(fetchedTopics);
+            } catch (error) {
+                console.error('Failed to fetch topics:', error);
+                // Keep empty array as fallback
+            } finally {
+                setIsLoadingTopics(false);
+            }
+        };
+        fetchTopics();
+    }, []);
 
     const tabs = [
         { name: "Home", href: "/home" },
@@ -166,30 +169,42 @@ function Match() {
                         <h3 className="font-montserrat text-3xl font-semibold text-white mb-8">
                             Choose Topic
                         </h3>
-                        <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-                            {topics.map((topic) => (
-                                <button
-                                    key={topic.name}
-                                    onClick={() => toggleTopic(topic.name)}
-                                    className={`p-6 rounded-2xl border-2 transition-all text-center ${selectedTopics.includes(topic.name)
-                                        ? "bg-[#2d2d2d] border-white/20 opacity-100 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-                                        : "bg-[#2d2d2d] border-white/10 opacity-40 hover:opacity-60"
-                                        }`}
-                                >
-                                    <h4
-                                        className={`font-montserrat text-lg font-semibold mb-2 leading-tight whitespace-pre-line ${selectedTopics.includes(topic.name)
-                                            ? "text-white"
-                                            : "text-gray-400"
+                        {isLoadingTopics ? (
+                            <div className="text-center py-12">
+                                <p className="text-white text-lg">Loading topics...</p>
+                            </div>
+                        ) : topics.length === 0 ? (
+                            <div className="text-center py-12">
+                                <p className="text-white text-lg">No topics available</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                                {topics.map((topic) => (
+                                    <button
+                                        key={topic.id}
+                                        onClick={() => toggleTopic(topic.name)}
+                                        className={`p-6 rounded-2xl border-2 transition-all text-center ${selectedTopics.includes(topic.name)
+                                            ? "bg-[#2d2d2d] border-white/20 opacity-100 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                                            : "bg-[#2d2d2d] border-white/10 opacity-40 hover:opacity-60"
                                             }`}
                                     >
-                                        {topic.name}
-                                    </h4>
-                                    <p className="font-montserrat text-xs text-gray-500">
-                                        {topic.subtitle}
-                                    </p>
-                                </button>
-                            ))}
-                        </div>
+                                        <h4
+                                            className={`font-montserrat text-lg font-semibold mb-2 leading-tight ${selectedTopics.includes(topic.name)
+                                                ? "text-white"
+                                                : "text-gray-400"
+                                                }`}
+                                        >
+                                            {topic.name}
+                                        </h4>
+                                        {topic.description && (
+                                            <p className="font-montserrat text-xs text-gray-500">
+                                                {topic.description}
+                                            </p>
+                                        )}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
                     </section>
 
                     <section className="mb-16">
