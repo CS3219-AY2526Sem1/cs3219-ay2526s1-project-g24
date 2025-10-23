@@ -157,6 +157,8 @@ services:
       MATCH_TIMEOUT_SECONDS: 30
       REQUEST_TTL_SECONDS: 60
       LOG_LEVEL: info
+      # CORS configuration - allow web service and localhost for development
+      CORS_ORIGIN: http://web:3000,http://localhost:3000
     depends_on:
       matching_redis:
         condition: service_healthy
@@ -184,6 +186,8 @@ services:
       DEFAULT_TIME_LIMIT: 5.0
       DEFAULT_MEMORY_LIMIT: 128000
       PORT: 3010
+      # CORS configuration - allow web service and localhost for development
+      CORS_ORIGINS: http://web:3000,http://localhost:3000
     depends_on:
       - judgezero-server
       - judgezero-workers
