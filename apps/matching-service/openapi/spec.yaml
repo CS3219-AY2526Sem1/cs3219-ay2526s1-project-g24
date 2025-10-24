@@ -24,6 +24,9 @@ info:
     - **Auto-cancel on disconnect**: Closing the SSE connection cancels the request
     - **Active connection required**: Users must maintain SSE connection to stay in queue
     
+    ## Authentication
+    - Every matching endpoint requires a valid RS256 JWT supplied via `Authorization: Bearer <token>` or an `access_token` cookie
+    
   ## Timeout Mechanism
   The service uses a Redis sorted set with **atomic popping** for timeouts:
   - Requests tracked with deadline timestamps in a single `match:timeouts` sorted set
@@ -63,6 +66,9 @@ paths:
 
         Use Server-Sent Events at `/v1/match/requests/{reqId}/events` to receive real-time updates.
       operationId: createMatchRequest
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       requestBody:
         required: true
         content:
@@ -97,6 +103,8 @@ paths:
                     reqId: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "409":
           description: User already has an active match request
           content:
@@ -129,6 +137,9 @@ paths:
       summary: Get match request status
       description: Retrieves the current status and details of a match request
       operationId: getMatchRequest
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       responses:
@@ -160,6 +171,8 @@ paths:
                     status: "matched"
                     createdAt: 1697040000000
                     sessionId: "session_xyz789"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -176,6 +189,9 @@ paths:
         **Note:** Closing the SSE connection also automatically cancels the request, 
         so explicit cancellation is optional.
       operationId: cancelMatchRequest
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       responses:
@@ -212,6 +228,8 @@ paths:
                     description: Collaboration session the user should join
                     format: uuid
                     example: "b4e0b981-2fd1-4d9f-86bb-6dfe0e31ac84"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -228,6 +246,8 @@ paths:
         **Critical:** Keeping this SSE connection open is required to stay in the matching queue.
         When the connection is closed (e.g., user closes tab), the match request is automatically cancelled.
 
+  Browsers should instantiate the SSE client with `withCredentials: true` so the `access_token` cookie is sent with every reconnect; non-browser clients can instead provide a bearer token.
+
         ## Event Format
         Events are sent as JSON in the `data` field with the following structure:
         - `status`: Current request status ("queued", "matched", "cancelled")
@@ -237,7 +257,9 @@ paths:
 
         ## Usage Example
         ```javascript
-        const eventSource = new EventSource(`/v1/match/requests/${reqId}/events`);
+        const eventSource = new EventSource(`/v1/match/requests/${reqId}/events`, {
+          withCredentials: true,
+        });
 
         eventSource.onmessage = (event) => {
           const data = JSON.parse(event.data);
@@ -256,6 +278,9 @@ paths:
         // eventSource.close();
         ```
       operationId: subscribeToMatchEvents
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
       parameters:
         - $ref: "#/components/parameters/RequestId"
       responses:
@@ -281,6 +306,8 @@ paths:
                   summary: Cancelled status event
                   value: |
                     data: {"status":"cancelled","timestamp":1697385650000}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
         "404":
           $ref: "#/components/responses/NotFound"
         "409":
@@ -392,6 +419,17 @@ paths:
                 matches_total{difficulty="easy"} 42
 
 components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: RS256 access token issued by the user service
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: Session cookie carrying the RS256 JWT
   parameters:
     RequestId:
       name: reqId
@@ -590,6 +628,18 @@ components:
               value:
                 error: "Missing required field: userId"
                 code: "MISSING_FIELD"
+
+    Unauthorized:
+      description: Authentication required or token invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            missingToken:
+              value:
+                error: "Unauthorized"
+                code: "UNAUTHORIZED"
 
     NotFound:
       description: Resource not found

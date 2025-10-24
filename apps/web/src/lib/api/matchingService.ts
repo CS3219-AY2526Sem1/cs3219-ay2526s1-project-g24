@@ -56,6 +56,7 @@ class MatchingServiceClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
       body: JSON.stringify(request),
     });
 
@@ -91,6 +92,7 @@ class MatchingServiceClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
     });
 
     if (!response.ok) {
@@ -118,6 +120,7 @@ class MatchingServiceClient {
       headers: {
         'Content-Type': 'application/json',
       },
+      credentials: 'include',
     });
 
     if (response.ok) {
@@ -166,6 +169,7 @@ class MatchingServiceClient {
   ): () => void {
     const eventSource = new EventSource(
       `${this.baseUrl}/v1/match/requests/${reqId}/events`,
+      { withCredentials: true },
     );
 
     eventSource.onmessage = (event) => {

@@ -153,6 +153,8 @@ jest.unstable_mockModule("../../services/redis.js", () => ({
   },
 }));
 
+process.env.AUTH_DISABLED = "true";
+
 describe("API Routes Integration Tests", () => {
   let app: express.Application;
 
@@ -179,6 +181,7 @@ describe("API Routes Integration Tests", () => {
     it("should create a match request successfully", async () => {
       const response = await request(app)
         .post("/v1/match/requests")
+        .set("x-test-user-id", "alice")
         .send({
           userId: "alice",
           difficulty: "easy",
@@ -194,6 +197,7 @@ describe("API Routes Integration Tests", () => {
     it("should reject invalid difficulty", async () => {
       const response = await request(app)
         .post("/v1/match/requests")
+        .set("x-test-user-id", "alice")
         .send({
           userId: "alice",
           difficulty: "invalid",
@@ -208,6 +212,7 @@ describe("API Routes Integration Tests", () => {
     it("should reject empty topics array", async () => {
       const response = await request(app)
         .post("/v1/match/requests")
+        .set("x-test-user-id", "alice")
         .send({
           userId: "alice",
           difficulty: "easy",
@@ -222,6 +227,7 @@ describe("API Routes Integration Tests", () => {
     it("should reject empty languages array", async () => {
       const response = await request(app)
         .post("/v1/match/requests")
+        .set("x-test-user-id", "alice")
         .send({
           userId: "alice",
           difficulty: "easy",
@@ -263,6 +269,7 @@ describe("API Routes Integration Tests", () => {
 
       const response = await request(app)
         .get(`/v1/match/requests/${reqId}`)
+        .set("x-test-user-id", "alice")
         .expect(200);
 
       expect(response.body).toMatchObject({
@@ -278,6 +285,7 @@ describe("API Routes Integration Tests", () => {
     it("should return 404 for non-existent request", async () => {
       const response = await request(app)
         .get("/v1/match/requests/non-existent")
+        .set("x-test-user-id", "alice")
         .expect(404);
 
       expect(response.body).toHaveProperty("error");
@@ -298,6 +306,7 @@ describe("API Routes Integration Tests", () => {
 
       const response = await request(app)
         .get(`/v1/match/requests/${reqId}`)
+        .set("x-test-user-id", "alice")
         .expect(200);
 
       expect(response.body.status).toBe("matched");
@@ -322,6 +331,7 @@ describe("API Routes Integration Tests", () => {
 
       const response = await request(app)
         .delete(`/v1/match/requests/${reqId}`)
+        .set("x-test-user-id", "alice")
         .expect(200);
 
       expect(response.body).toHaveProperty("success", true);
@@ -345,6 +355,7 @@ describe("API Routes Integration Tests", () => {
 
       const response = await request(app)
         .delete(`/v1/match/requests/${reqId}`)
+        .set("x-test-user-id", "bob")
         .expect(200);
 
       expect(response.body).toHaveProperty("success", true);
@@ -366,6 +377,7 @@ describe("API Routes Integration Tests", () => {
 
       const response = await request(app)
         .delete(`/v1/match/requests/${reqId}`)
+        .set("x-test-user-id", "charlie")
         .expect(200);
 
       expect(response.body).toHaveProperty("success", true);
@@ -389,6 +401,7 @@ describe("API Routes Integration Tests", () => {
       // Compensation pattern: cancel after match = 409 with sessionId (frontend expects this)
       const response = await request(app)
         .delete(`/v1/match/requests/${reqId}`)
+        .set("x-test-user-id", "alice")
         .expect(409);
 
       expect(response.body).toHaveProperty("error");
@@ -397,7 +410,10 @@ describe("API Routes Integration Tests", () => {
     });
 
     it("should return 404 for non-existent request", async () => {
-      await request(app).delete("/v1/match/requests/non-existent").expect(404);
+      await request(app)
+        .delete("/v1/match/requests/non-existent")
+        .set("x-test-user-id", "alice")
+        .expect(404);
     });
 
     it("should handle race condition when request is matched during cancellation", async () => {
@@ -436,6 +452,7 @@ describe("API Routes Integration Tests", () => {
       // Try to cancel - should get 409 with sessionId (compensation pattern)
       const response = await request(app)
         .delete(`/v1/match/requests/${reqId}`)
+        .set("x-test-user-id", "alice")
         .expect(409);
 
       expect(response.body).toHaveProperty("error");
@@ -485,6 +502,7 @@ describe("API Routes Integration Tests", () => {
         const difficulty = difficulties[i];
         const response = await request(app)
           .post("/v1/match/requests")
+          .set("x-test-user-id", `alice-${i}`)
           .send({
             userId: `alice-${i}`, // Use different userId to avoid deduplication
             difficulty,
@@ -500,6 +518,7 @@ describe("API Routes Integration Tests", () => {
     it("should handle multiple topics and languages", async () => {
       const response = await request(app)
         .post("/v1/match/requests")
+        .set("x-test-user-id", "alice")
         .send({
           userId: "alice",
           difficulty: "easy",
@@ -514,6 +533,7 @@ describe("API Routes Integration Tests", () => {
     it("should reject non-array topics", async () => {
       const response = await request(app)
         .post("/v1/match/requests")
+        .set("x-test-user-id", "alice")
         .send({
           userId: "alice",
           difficulty: "easy",
@@ -528,6 +548,7 @@ describe("API Routes Integration Tests", () => {
     it("should reject non-array languages", async () => {
       const response = await request(app)
         .post("/v1/match/requests")
+        .set("x-test-user-id", "alice")
         .send({
           userId: "alice",
           difficulty: "easy",

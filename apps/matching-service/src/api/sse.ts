@@ -3,11 +3,21 @@ import { logger } from "../observability/logger.js";
 import { metrics } from "../observability/metrics.js";
 import { redisOps } from "../services/redis.js";
 import { cancelMatchRequest } from "./routes.js";
+import type { AuthContext } from "../auth/types.js";
 
 /**
  * Handle SSE connection for a match request
  */
 export async function handleSSE(req: Request, res: Response) {
+  const auth = (req as Request & { auth?: AuthContext }).auth;
+  if (!auth) {
+    res.status(401).write(
+      `event: error\ndata: ${JSON.stringify({ error: "Unauthorized" })}\n\n`,
+    );
+    res.end();
+    return;
+  }
+
   const { reqId } = req.params;
 
   // Set SSE headers
@@ -75,6 +85,15 @@ export async function handleSSE(req: Request, res: Response) {
     if (!request) {
       res.write(
         `event: error\ndata: ${JSON.stringify({ error: "Request not found" })}\n\n`,
+      );
+      res.end();
+      await cleanup();
+      return;
+    }
+
+    if (request.userId !== auth.userId) {
+      res.write(
+        `event: error\ndata: ${JSON.stringify({ error: "Forbidden" })}\n\n`,
       );
       res.end();
       await cleanup();
@@ -160,7 +179,7 @@ export async function handleSSE(req: Request, res: Response) {
       if (currentRequest && currentRequest.status === "queued") {
         // Still queued, cancel it
         logger.info({ reqId }, "Cancelling queued request on disconnect");
-        await cancelMatchRequest(reqId, "client disconnected");
+  await cancelMatchRequest(reqId, auth.userId, "client disconnected");
       } else {
         // Already matched/cancelled/timed out
         logger.info(
@@ -178,7 +197,7 @@ export async function handleSSE(req: Request, res: Response) {
 
       const currentRequest = await redisOps.getRequest(reqId);
       if (currentRequest && currentRequest.status === "queued") {
-        await cancelMatchRequest(reqId, "connection error");
+        await cancelMatchRequest(reqId, auth.userId, "connection error");
       }
 
       await cleanup();

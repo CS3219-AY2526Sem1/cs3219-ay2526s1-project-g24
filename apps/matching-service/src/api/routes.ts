@@ -15,6 +15,8 @@ import type {
   MatchRequestResponse,
   MatchRequestStatusResponse,
 } from "../types.js";
+import { authenticate } from "../middleware/auth.js";
+import type { AuthContext } from "../auth/types.js";
 
 // Load OpenAPI spec
 const __filename = fileURLToPath(import.meta.url);
@@ -67,11 +69,30 @@ router.use("/docs", swaggerUi.serve, swaggerUi.setup(openapiSpec));
 
 router.use(trackMetrics);
 
+type RequestWithAuth = Request & { auth?: AuthContext };
+
+function ensureAuthenticated(
+  req: Request,
+  res: Response,
+): AuthContext | undefined {
+  const auth = (req as RequestWithAuth).auth;
+  if (!auth) {
+    res.status(401).json({ error: "Unauthorized" });
+    return undefined;
+  }
+  return auth;
+}
+
+router.use("/v1/match", authenticate);
+
 /**
  * POST /v1/match/requests
  * Create a new match request
  */
 router.post("/v1/match/requests", async (req: Request, res: Response) => {
+  const auth = ensureAuthenticated(req, res);
+  if (!auth) return;
+
   const reqId = uuidv4();
 
   try {
@@ -87,18 +108,24 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
       }
 
       const data = validation.data as MatchRequest;
+      if (data.userId && data.userId !== auth.userId) {
+        res.status(403).json({ error: "User mismatch" });
+        return;
+      }
 
-      span.setAttribute("user_id", data.userId);
+      const userId = auth.userId;
+
+      span.setAttribute("user_id", userId);
       span.setAttribute("difficulty", data.difficulty);
 
       // Check if user already has an active match request (deduplication)
-      const existingReqId = await redisOps.getUserActiveRequest(data.userId);
+      const existingReqId = await redisOps.getUserActiveRequest(userId);
       if (existingReqId) {
         // Check if the existing request is still valid
         const existingReq = await redisOps.getRequest(existingReqId);
         if (existingReq && existingReq.status === "queued") {
           logger.info(
-            { userId: data.userId, existingReqId },
+            { userId, existingReqId },
             "User already has active match request",
           );
           res.status(409).json({
@@ -108,13 +135,13 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
           return;
         }
         // Existing request is no longer active, clean up marker
-        await redisOps.removeUserActiveRequest(data.userId);
+        await redisOps.removeUserActiveRequest(userId);
       }
 
       logger.info(
         {
           reqId,
-          userId: data.userId,
+          userId,
           difficulty: data.difficulty,
           topics: data.topics,
           languages: data.languages,
@@ -135,7 +162,7 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
       await redisOps.createRequest(
         reqId,
         {
-          userId: data.userId,
+          userId,
           difficulty: data.difficulty,
           topics: data.topics.join(","),
           languages: data.languages.join(","),
@@ -151,7 +178,7 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
       await redisOps.addTimeout(reqId, data.difficulty, timeoutSeconds);
 
       // Mark user as having an active request (for deduplication)
-      await redisOps.setUserActiveRequest(data.userId, reqId, ttlSeconds);
+  await redisOps.setUserActiveRequest(userId, reqId, ttlSeconds);
 
       // Trigger matcher via pub/sub
       await redis.publish(
@@ -159,7 +186,7 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
         JSON.stringify({ difficulty: data.difficulty }),
       );
 
-      logger.info({ reqId, userId: data.userId }, "Match request created");
+      logger.info({ reqId, userId }, "Match request created");
 
       const response: MatchRequestResponse = { reqId };
       res.status(201).json(response);
@@ -176,6 +203,9 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
  * Get status of a match request
  */
 router.get("/v1/match/requests/:reqId", async (req: Request, res: Response) => {
+  const auth = ensureAuthenticated(req, res);
+  if (!auth) return;
+
   const { reqId } = req.params;
 
   try {
@@ -184,6 +214,11 @@ router.get("/v1/match/requests/:reqId", async (req: Request, res: Response) => {
 
       if (!request) {
         res.status(404).json({ error: "Request not found" });
+        return;
+      }
+
+      if (request.userId !== auth.userId) {
+        res.status(403).json({ error: "Forbidden" });
         return;
       }
 
@@ -214,6 +249,7 @@ router.get("/v1/match/requests/:reqId", async (req: Request, res: Response) => {
  */
 export async function cancelMatchRequest(
   reqId: string,
+  userId: string,
   reason: string = "user requested",
 ): Promise<{
   success: boolean;
@@ -227,6 +263,10 @@ export async function cancelMatchRequest(
 
     if (!request) {
       return { success: false, error: "Request not found", statusCode: 404 };
+    }
+
+    if (request.userId !== userId) {
+      return { success: false, error: "Forbidden", statusCode: 403 };
     }
 
     // If already matched, return 409 with session info
@@ -344,11 +384,14 @@ export async function cancelMatchRequest(
 router.delete(
   "/v1/match/requests/:reqId",
   async (req: Request, res: Response) => {
+    const auth = ensureAuthenticated(req, res);
+    if (!auth) return;
+
     const { reqId } = req.params;
 
     try {
       await withSpan("cancel_match_request", { reqId }, async () => {
-        const result = await cancelMatchRequest(reqId, "user requested");
+        const result = await cancelMatchRequest(reqId, auth.userId, "user requested");
 
         if (!result.success) {
           // Include sessionId in 409 response for already-matched case

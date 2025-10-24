@@ -16,6 +16,7 @@ The matching service queues users for matches based on their criteria. Users rem
 - 🔒 **SSE connection management** - Prevents multiple SSE connections to the same request
 - 💾 **Automatic cleanup** - TTL-based expiration plus atomic timeout popping prevent memory leaks or duplicate processing
 - 🎭 **Clear separation** - Matching service only matches; collaboration service handles sessions, if user cancels but is matched, collaboration service should handle it (i.e. indicate that the other user left).
+- 🔐 **JWT authentication** - Enforces RS256 access tokens from the user service (local overrides available for tests)
 
 ## Architecture
 
@@ -73,6 +74,17 @@ Client                API               Redis           Workers
 - `timeout` - No match found within timeout period
 
 **Note:** Once `matched`, the request is final. The collaboration service handles what happens next (user joins, doesn't join, leaves, etc.).
+
+## Authentication
+
+The matching API requires authenticated users:
+
+- The service expects an RS256 JWT issued by the user service. Provide it via the `Authorization: Bearer <token>` header or the `access_token` cookie.
+- The SSE endpoint reuses browser cookies, so initialize it with `withCredentials: true` to propagate the session token.
+- JWKS keys are fetched from `AUTH_JWKS_URI` (defaults to `http://localhost:8001/.well-known/jwks.json`).
+- Local development and automated tests can opt out by setting `AUTH_DISABLED=true`. When disabled, supply a `x-test-user-id` header or configure `AUTH_FAKE_USER_ID` to choose the acting user.
+
+Requests missing valid credentials receive `401 Unauthorized`.
 
 ### Redis Design
 
@@ -179,7 +191,10 @@ data: {"status":"matched","timestamp":1697385645000,"sessionId":"session456"}
 // 1. Submit match request
 const response = await fetch('/v1/match/requests', {
   method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
+  headers: {
+    'Content-Type': 'application/json',
+    'Authorization': 'Bearer <access-token>',
+  },
   body: JSON.stringify({
     userId: 'user123',
     difficulty: 'medium',
@@ -190,7 +205,9 @@ const response = await fetch('/v1/match/requests', {
 const { reqId } = await response.json();
 
 // 2. Open SSE connection
-const eventSource = new EventSource(`/v1/match/requests/${reqId}/events`);
+const eventSource = new EventSource(`/v1/match/requests/${reqId}/events`, {
+  withCredentials: true,
+});
 
 eventSource.onmessage = (event) => {
   const data = JSON.parse(event.data);
@@ -206,7 +223,11 @@ eventSource.onmessage = (event) => {
 
 // 3. Cancel manually (optional)
 async function cancel() {
-  await fetch(`/v1/match/requests/${reqId}`, { method: 'DELETE' });
+  await fetch(`/v1/match/requests/${reqId}`, {
+    method: 'DELETE',
+    headers: { 'Authorization': 'Bearer <access-token>' },
+    credentials: 'include',
+  });
   eventSource.close();
 }
 ```
@@ -217,6 +238,7 @@ async function cancel() {
 - This provides **clean separation of concerns** - matching service matches users, collaboration service manages sessions.
 - Users cannot create multiple simultaneous match requests - attempting to do so returns 409 Conflict.
 - Only one SSE connection is allowed per request to prevent duplicate event streams.
+- Authenticated clients must continue sending credentials (cookies/headers) when keeping the SSE stream open.
 
 ## Testing
 
@@ -279,14 +301,17 @@ You can also manually test specific scenarios:
 
 ```bash
 # Test concurrent cancellations
+# Requires either AUTH_DISABLED=true or a valid bearer token exported as $TOKEN
 REQ_ID=$(curl -s -X POST http://localhost:3000/v1/match/requests \
   -H "Content-Type: application/json" \
+  -H "Authorization: Bearer ${TOKEN:-test-token}" \
   -d '{"userId":"user1","difficulty":"easy","topics":["arrays"],"languages":["python"]}' \
   | jq -r '.reqId')
 
 # Fire 5 cancellations simultaneously
 for i in {1..5}; do
-  curl -X DELETE http://localhost:3000/v1/match/requests/$REQ_ID &
+  curl -X DELETE "http://localhost:3000/v1/match/requests/$REQ_ID" \
+    -H "Authorization: Bearer ${TOKEN:-test-token}" &
 done
 wait
 
@@ -341,6 +366,9 @@ MATCH_TIMEOUT_SECONDS=30           # Request timeout
 COLLABORATION_SERVICE_URL=...      # Collaboration service endpoint
 CORS_ORIGIN=*                      # CORS allowed origins
 LOG_LEVEL=info                     # Logging level
+AUTH_JWKS_URI=http://localhost:8001/.well-known/jwks.json  # JWKS endpoint for token verification
+AUTH_DISABLED=false                # Skip auth checks when true (local dev/tests)
+AUTH_FAKE_USER_ID=test-user        # Optional fallback userId when auth disabled
 ```
 
 ### Observability

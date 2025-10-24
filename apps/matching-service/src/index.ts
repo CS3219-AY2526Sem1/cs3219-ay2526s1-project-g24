@@ -5,6 +5,7 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
+import cookieParser from "cookie-parser";
 import { logger } from "./observability/logger.js";
 import { initTracing, shutdownTracing } from "./observability/tracing.js";
 import { initRedis, closeRedis } from "./services/redis.js";
@@ -48,7 +49,8 @@ async function start() {
     
     logger.info({ corsOrigin }, "CORS configured");
     
-    app.use(express.json());
+  app.use(express.json());
+  app.use(cookieParser());
 
     // Routes
     app.use("/", router);
