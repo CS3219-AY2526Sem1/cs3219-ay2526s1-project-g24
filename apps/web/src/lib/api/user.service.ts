@@ -23,8 +23,8 @@ export interface User {
   description?: string;
   programming_proficiency?: ProficiencyLevel;
   preferred_language?: ProgrammingLanguage;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Session {
