@@ -8,6 +8,7 @@ import { getDifficultyStyles } from "@/lib/difficulty";
 import { matchingService, type Difficulty } from "@/lib/api/matchingService";
 import withAuth from "@/components/withAuth";
 import { getTopics, type TopicResponse } from "@/lib/api/questionService";
+import { useAuth } from "@/hooks/useAuth";
 
 const difficulties = [
     {
@@ -291,9 +292,8 @@ function Match() {
                         <button
                             onClick={handleMatch}
                             disabled={isLoading}
-                            className={`glow-button primary-glow bg-white text-[#1e1e1e] px-12 py-3 rounded-full font-montserrat font-medium text-lg transition-all ${
-                                isLoading ? "opacity-50 cursor-not-allowed" : "hover:scale-105"
-                            }`}
+                            className={`glow-button primary-glow bg-white text-[#1e1e1e] px-12 py-3 rounded-full font-montserrat font-medium text-lg transition-all ${isLoading ? "opacity-50 cursor-not-allowed" : "hover:scale-105"
+                                }`}
                         >
                             {isLoading ? "Finding Match..." : "Match"}
                         </button>
