@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { getUser, updateUser, User } from "../../lib/api/user.service";
+import { getUser, updateUser, User, ProficiencyLevel } from "../../lib/api/user.service";
 
 import withAuth from "../../components/withAuth";
 import { useAuth } from "../../hooks/useAuth";
@@ -20,7 +20,7 @@ function Profile() {
         display_name: '',
         email: '',
         description: '',
-        programming_proficiency: 'beginner' as 'beginner' | 'intermediate' | 'advanced',
+        programming_proficiency: ProficiencyLevel.BEGINNER as ProficiencyLevel,
     });
 
     useEffect(() => {
@@ -33,7 +33,7 @@ function Profile() {
                     display_name: userData.display_name || '',
                     email: userData.email,
                     description: userData.description || '',
-                    programming_proficiency: userData.programming_proficiency || 'beginner',
+                    programming_proficiency: userData.programming_proficiency || ProficiencyLevel.BEGINNER,
                 });
                 setProfileImage(userData.avatar_url || "/bro_profile.png");
             } catch (error) {
@@ -78,7 +78,7 @@ function Profile() {
             reader.onloadend = () => {
                 setProfileImage(reader.result as string);
                 // Immediately update the avatar_url in the form data
-                setFormData(prev => ({...prev, avatar_url: reader.result as string}));
+                setFormData(prev => ({ ...prev, avatar_url: reader.result as string }));
             };
             reader.readAsDataURL(file);
         }
@@ -211,13 +211,13 @@ function Profile() {
                             <div className="relative">
                                 <select
                                     value={formData.programming_proficiency}
-                                    onChange={(e) => setFormData({ ...formData, programming_proficiency: e.target.value as 'beginner' | 'intermediate' | 'advanced' })}
+                                    onChange={(e) => setFormData({ ...formData, programming_proficiency: e.target.value as ProficiencyLevel })}
                                     disabled={!isEditing}
                                     className="w-full bg-transparent border-2 border-white/20 rounded-full pl-6 pr-12 py-3.5 font-montserrat font-medium text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    <option value="beginner" className="bg-[#333232] text-white">Beginner</option>
-                                    <option value="intermediate" className="bg-[#333232] text-white">Intermediate</option>
-                                    <option value="advanced" className="bg-[#333232] text-white">Advanced</option>
+                                    <option value={ProficiencyLevel.BEGINNER} className="bg-[#333232] text-white">Beginner</option>
+                                    <option value={ProficiencyLevel.INTERMEDIATE} className="bg-[#333232] text-white">Intermediate</option>
+                                    <option value={ProficiencyLevel.ADVANCED} className="bg-[#333232] text-white">Advanced</option>
                                 </select>
                                 <div className="absolute right-6 top-1/2 transform -translate-y-1/2 pointer-events-none">
                                     <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
