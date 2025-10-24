@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { getUsers, updateUserRole, deleteUser, User } from "../../../lib/api/user.service";
+import { getUsers, deleteUser, User } from "../../../lib/api/user.service";
 
 import withAuth from "../../../components/withAuth";
 
@@ -25,14 +25,16 @@ function AdminUsers() {
         fetchUsers();
     }, []);
 
+    // TODO: Role management needs to be updated to use the new RBAC system
+    // with assignRoleToUser/removeRoleFromUser instead of simple role field
     const handleUpdateRole = async (userId: string, newRole: "user" | "admin") => {
-        try {
-            const updatedUser = await updateUserRole(userId, newRole);
-            setUsers(users.map(user => user.id === userId ? updatedUser : user));
-        } catch (error) {
-            console.error("Failed to update user role", error);
-            // Handle error
-        }
+        console.warn("Role management not yet implemented with new RBAC system");
+        // try {
+        //     const updatedUser = await updateUserRole(userId, newRole);
+        //     setUsers(users.map(user => user.id === userId ? updatedUser : user));
+        // } catch (error) {
+        //     console.error("Failed to update user role", error);
+        // }
     };
 
     const handleDeleteUser = async (userId: string) => {
@@ -126,9 +128,6 @@ function AdminUsers() {
                                             User
                                         </th>
                                         <th className="px-6 py-4 text-left font-montserrat text-gray-500 text-sm font-medium">
-                                            Role
-                                        </th>
-                                        <th className="px-6 py-4 text-left font-montserrat text-gray-500 text-sm font-medium">
                                             Created At
                                         </th>
                                         <th className="px-6 py-4 text-left font-montserrat text-gray-500 text-sm font-medium">
@@ -150,33 +149,13 @@ function AdminUsers() {
                                                 </div>
                                             </td>
                                             <td className="px-6 py-4">
-                                                <span
-                                                    className={`px-3 py-1 rounded-full text-xs font-montserrat ${user.role === "admin"
-                                                        ? "bg-[#DCC8FE] text-black"
-                                                        : "bg-gray-200 text-black"
-                                                        }`}
-                                                >
-                                                    {user.role}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
                                                 <span className="font-montserrat text-gray-500 text-xs">
                                                     {new Date(user.created_at).toLocaleDateString()}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <div className="flex gap-2">
-                                                    <button
-                                                        onClick={() =>
-                                                            handleUpdateRole(
-                                                                user.id,
-                                                                user.role === "admin" ? "user" : "admin"
-                                                            )
-                                                        }
-                                                        className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-black font-montserrat text-xs rounded-full transition-colors"
-                                                    >
-                                                        {user.role === "admin" ? "Demote" : "Promote"}
-                                                    </button>
+                                                    {/* TODO: Re-implement role management with RBAC system */}
                                                     <button
                                                         onClick={() => setSelectedUser(user)}
                                                         className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 text-red-400 font-montserrat text-xs rounded-full transition-colors"
