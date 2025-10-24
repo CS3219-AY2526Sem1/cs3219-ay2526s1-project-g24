@@ -150,7 +150,7 @@ function AdminUsers() {
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className="font-montserrat text-gray-500 text-xs">
-                                                    {new Date(user.created_at).toLocaleDateString()}
+                                                    {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                                                 </span>
                                             </td>
                                             <td className="px-6 py-4">
