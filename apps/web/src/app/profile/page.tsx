@@ -29,11 +29,11 @@ function Profile() {
                 const userData = await getUser();
                 setUser(userData);
                 setFormData({
-                    username: userData.username,
-                    display_name: userData.display_name,
+                    username: userData.username || '',
+                    display_name: userData.display_name || '',
                     email: userData.email,
-                    description: userData.description,
-                    programming_proficiency: userData.programming_proficiency,
+                    description: userData.description || '',
+                    programming_proficiency: userData.programming_proficiency || 'beginner',
                 });
                 setProfileImage(userData.avatar_url || "/bro_profile.png");
             } catch (error) {
