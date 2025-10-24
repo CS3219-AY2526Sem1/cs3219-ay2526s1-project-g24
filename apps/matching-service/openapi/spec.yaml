@@ -24,12 +24,12 @@ info:
     - **Auto-cancel on disconnect**: Closing the SSE connection cancels the request
     - **Active connection required**: Users must maintain SSE connection to stay in queue
     
-    ## Timeout Mechanism
-    The service uses **Sorted Set with Periodic Scanning** for timeouts:
-    - Requests tracked in Redis sorted set with deadline timestamps
-    - Worker scans every 5 seconds for expired requests
-    - Provides accurate difficulty labels in timeout metrics
-    - More portable than keyspace notifications across Redis deployments
+  ## Timeout Mechanism
+  The service uses a Redis sorted set with **atomic popping** for timeouts:
+  - Requests tracked with deadline timestamps in a single `match:timeouts` sorted set
+  - Timeout worker pops expired items in one atomic operation every ~5 seconds to avoid duplicate handling
+  - Provides accurate timeout metrics without relying on keyspace notifications
+  - Works consistently across managed Redis deployments and replicas
   contact:
     name: PeerPrep Team
     email: support@peerprep.example.com
@@ -94,9 +94,31 @@ paths:
               examples:
                 success:
                   value:
-                    reqId: "req_abc123xyz"
+                    reqId: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
         "400":
           $ref: "#/components/responses/BadRequest"
+        "409":
+          description: User already has an active match request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                  - reqId
+                properties:
+                  error:
+                    type: string
+                    example: "User already has an active match request"
+                  reqId:
+                    type: string
+                    format: uuid
+                    description: Existing active request identifier
+              examples:
+                conflict:
+                  value:
+                    error: "User already has an active match request"
+                    reqId: "a9a8f1f9-e53c-4b47-8b8f-cc6ed2190d55"
         "500":
           $ref: "#/components/responses/InternalError"
 
@@ -120,7 +142,7 @@ paths:
                 queued:
                   summary: Request still searching
                   value:
-                    reqId: "req_abc123xyz"
+                    reqId: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
                     userId: "user-123"
                     difficulty: "easy"
                     topics: ["arrays", "strings"]
@@ -130,7 +152,7 @@ paths:
                 matched:
                   summary: Successfully matched
                   value:
-                    reqId: "req_abc123xyz"
+                    reqId: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
                     userId: "user-123"
                     difficulty: "easy"
                     topics: ["arrays", "strings"]
@@ -149,7 +171,7 @@ paths:
       summary: Cancel a match request
       description: |
         Cancels an active match request. Only works if the request is still in "queued" status.
-        Returns 400 if the request is already matched or cancelled.
+        Returns 409 with session details if the request was already matched.
 
         **Note:** Closing the SSE connection also automatically cancels the request, 
         so explicit cancellation is optional.
@@ -163,21 +185,33 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - success
                 properties:
+                  success:
+                    type: boolean
+                    example: true
                   message:
                     type: string
-                    example: "Request cancelled"
-        "400":
-          description: Cannot cancel - request already completed
+                    example: "Request already cancelled"
+        "409":
+          description: Request already matched; join existing collaboration session instead
           content:
             application/json:
               schema:
-                $ref: "#/components/schemas/Error"
-              examples:
-                alreadyMatched:
-                  value:
-                    error: "Cannot cancel request - already matched"
-                    code: "ALREADY_COMPLETED"
+                type: object
+                required:
+                  - error
+                  - sessionId
+                properties:
+                  error:
+                    type: string
+                    example: "Request already matched"
+                  sessionId:
+                    type: string
+                    description: Collaboration session the user should join
+                    format: uuid
+                    example: "b4e0b981-2fd1-4d9f-86bb-6dfe0e31ac84"
         "404":
           $ref: "#/components/responses/NotFound"
         "500":
@@ -249,6 +283,18 @@ paths:
                     data: {"status":"cancelled","timestamp":1697385650000}
         "404":
           $ref: "#/components/responses/NotFound"
+        "409":
+          description: Duplicate SSE connection detected; request remains active via existing stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                format: binary
+              examples:
+                duplicateConnection:
+                  value: |
+                    event: error
+                    data: {"error":"Another SSE connection already exists for this request"}
 
   /-/health:
     get:
@@ -354,8 +400,8 @@ components:
       description: Unique identifier for the match request
       schema:
         type: string
-        pattern: "^req_[a-zA-Z0-9]+$"
-        example: "req_abc123xyz"
+        format: uuid
+        example: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
 
   schemas:
     Difficulty:
@@ -393,7 +439,7 @@ components:
           type: string
           description: Unique identifier for the user
           minLength: 1
-          maxLength: 128
+          maxLength: 100
           example: "user-123"
         difficulty:
           $ref: "#/components/schemas/Difficulty"
@@ -405,7 +451,7 @@ components:
           items:
             type: string
             minLength: 1
-            maxLength: 64
+            maxLength: 50
           example: ["arrays", "strings", "hashmaps"]
         languages:
           type: array
@@ -415,7 +461,7 @@ components:
           items:
             type: string
             minLength: 1
-            maxLength: 32
+            maxLength: 20
           example: ["python", "javascript", "java"]
 
     CreateMatchResponse:
@@ -426,8 +472,8 @@ components:
         reqId:
           type: string
           description: Unique identifier for the created match request
-          pattern: "^req_[a-zA-Z0-9]+$"
-          example: "req_abc123xyz"
+            format: uuid
+            example: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
 
     MatchRequest:
       type: object
@@ -443,7 +489,8 @@ components:
         reqId:
           type: string
           description: Unique identifier for the match request
-          example: "req_abc123xyz"
+            format: uuid
+            example: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
         userId:
           type: string
           description: User who created the request

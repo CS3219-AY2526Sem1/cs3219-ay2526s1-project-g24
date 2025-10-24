@@ -50,6 +50,23 @@ jest.unstable_mockModule("../../services/redis.js", () => ({
         await mockRedis.hset(`match:req:${reqId}`, updates);
       },
     ),
+    atomicUpdateRequestStatus: jest.fn(
+      async (
+        reqId: string,
+        expectedStatus: string,
+        newStatus: string,
+        sessionId?: string,
+      ) => {
+        const data = await mockRedis.hgetall(`match:req:${reqId}`);
+        if (Object.keys(data).length === 0 || data.status !== expectedStatus) {
+          return false;
+        }
+        const updates: any = { status: newStatus };
+        if (sessionId) updates.sessionId = sessionId;
+        await mockRedis.hset(`match:req:${reqId}`, updates);
+        return true;
+      },
+    ),
     enqueue: jest.fn(
       async (reqId: string, difficulty: string, score: number) => {
         await mockRedis.zadd(`queue:${difficulty}`, score, reqId);
@@ -67,10 +84,16 @@ jest.unstable_mockModule("../../services/redis.js", () => ({
     healthCheck: jest.fn(async () => true),
     createSubscriber: jest.fn(() => mockRedis),
     // Timeout operations
-    addTimeout: jest.fn(async (reqId: string, difficulty: string, timeoutSeconds: number) => {
-      const deadline = Date.now() + timeoutSeconds * 1000;
-      await mockRedis.zadd("match:timeouts", deadline, `${reqId}:${difficulty}`);
-    }),
+    addTimeout: jest.fn(
+      async (reqId: string, difficulty: string, timeoutSeconds: number) => {
+        const deadline = Date.now() + timeoutSeconds * 1000;
+        await mockRedis.zadd(
+          "match:timeouts",
+          deadline,
+          `${reqId}:${difficulty}`,
+        );
+      },
+    ),
     removeTimeout: jest.fn(async (reqId: string) => {
       // In real implementation, we'd need to find the member by reqId prefix
       // For testing, we'll just remove by reqId pattern
@@ -83,14 +106,49 @@ jest.unstable_mockModule("../../services/redis.js", () => ({
     }),
     getExpiredTimeouts: jest.fn(async () => {
       const now = Date.now();
-      return await mockRedis.zrangebyscore("match:timeouts", "-inf", now.toString());
+      return await mockRedis.zrangebyscore(
+        "match:timeouts",
+        "-inf",
+        now.toString(),
+      );
     }),
     removeExpiredTimeouts: jest.fn(async (count: number) => {
       const now = Date.now();
-      await mockRedis.zremrangebyscore("match:timeouts", "-inf", now.toString());
+      await mockRedis.zremrangebyscore(
+        "match:timeouts",
+        "-inf",
+        now.toString(),
+      );
     }),
     getTimeoutCount: jest.fn(async () => {
       return await mockRedis.zcard("match:timeouts");
+    }),
+    // User deduplication operations
+    getUserActiveRequest: jest.fn(async (userId: string) => {
+      return await mockRedis.store.get(`user:active:${userId}`) || null;
+    }),
+    setUserActiveRequest: jest.fn(
+      async (userId: string, reqId: string, ttl: number) => {
+        mockRedis.store.set(`user:active:${userId}`, reqId);
+      },
+    ),
+    removeUserActiveRequest: jest.fn(async (userId: string) => {
+      mockRedis.store.delete(`user:active:${userId}`);
+    }),
+    // SSE connection tracking operations
+    setActiveSSEConnection: jest.fn(async (reqId: string, ttl: number) => {
+      const key = `sse:active:${reqId}`;
+      if (mockRedis.store.has(key)) {
+        return false; // Already exists
+      }
+      mockRedis.store.set(key, Date.now().toString());
+      return true;
+    }),
+    removeActiveSSEConnection: jest.fn(async (reqId: string) => {
+      mockRedis.store.delete(`sse:active:${reqId}`);
+    }),
+    hasActiveSSEConnection: jest.fn(async (reqId: string) => {
+      return mockRedis.store.has(`sse:active:${reqId}`);
     }),
   },
 }));
@@ -266,11 +324,53 @@ describe("API Routes Integration Tests", () => {
         .delete(`/v1/match/requests/${reqId}`)
         .expect(200);
 
-      expect(response.body).toHaveProperty("message");
+      expect(response.body).toHaveProperty("success", true);
 
       // Verify status updated
       const updatedReq = await mockRedis.hgetall(`match:req:${reqId}`);
       expect(updatedReq.status).toBe("cancelled");
+    });
+
+    it("should be idempotent - cancelling already-cancelled request succeeds", async () => {
+      const reqId = "cancelled-req-456";
+
+      await mockRedis.hset(`match:req:${reqId}`, {
+        userId: "bob",
+        difficulty: "medium",
+        topics: "graphs",
+        languages: "java",
+        status: "cancelled",
+        createdAt: Date.now().toString(),
+      });
+
+      const response = await request(app)
+        .delete(`/v1/match/requests/${reqId}`)
+        .expect(200);
+
+      expect(response.body).toHaveProperty("success", true);
+      expect(response.body).toHaveProperty("message");
+      expect(response.body.message).toContain("cancelled");
+    });
+
+    it("should be idempotent - cancelling timed-out request succeeds", async () => {
+      const reqId = "timeout-req-789";
+
+      await mockRedis.hset(`match:req:${reqId}`, {
+        userId: "charlie",
+        difficulty: "hard",
+        topics: "dp",
+        languages: "python",
+        status: "timeout",
+        createdAt: Date.now().toString(),
+      });
+
+      const response = await request(app)
+        .delete(`/v1/match/requests/${reqId}`)
+        .expect(200);
+
+      expect(response.body).toHaveProperty("success", true);
+      expect(response.body).toHaveProperty("message");
+      expect(response.body.message).toContain("timeout");
     });
 
     it("should not cancel a matched request", async () => {
@@ -286,16 +386,66 @@ describe("API Routes Integration Tests", () => {
         createdAt: Date.now().toString(),
       });
 
+      // Compensation pattern: cancel after match = 409 with sessionId (frontend expects this)
       const response = await request(app)
         .delete(`/v1/match/requests/${reqId}`)
-        .expect(400);
+        .expect(409);
 
       expect(response.body).toHaveProperty("error");
       expect(response.body.error).toContain("matched");
+      expect(response.body).toHaveProperty("sessionId", "session-123");
     });
 
     it("should return 404 for non-existent request", async () => {
       await request(app).delete("/v1/match/requests/non-existent").expect(404);
+    });
+
+    it("should handle race condition when request is matched during cancellation", async () => {
+      const reqId = "race-condition-req-123";
+
+      // Setup: Create a queued request
+      await mockRedis.hset(`match:req:${reqId}`, {
+        userId: "alice",
+        difficulty: "easy",
+        topics: "arrays",
+        languages: "python",
+        status: "queued",
+        createdAt: Date.now().toString(),
+      });
+
+      await mockRedis.zadd("queue:easy", Date.now(), reqId);
+
+      // Simulate race condition: update status to "matched" before cancel completes
+      // This simulates the matcher matching the request between the status check and update
+      const originalAtomicUpdate = (await import("../../services/redis.js"))
+        .redisOps.atomicUpdateRequestStatus;
+
+      // Mock atomicUpdateRequestStatus to simulate the request being matched
+      const { redisOps } = await import("../../services/redis.js");
+      (redisOps.atomicUpdateRequestStatus as jest.Mock).mockImplementationOnce(
+        async () => {
+          // Simulate matcher updating status to "matched" right before we try to cancel
+          await mockRedis.hset(`match:req:${reqId}`, {
+            status: "matched",
+            sessionId: "session-789",
+          });
+          return false; // Atomic update fails because status changed
+        },
+      );
+
+      // Try to cancel - should get 409 with sessionId (compensation pattern)
+      const response = await request(app)
+        .delete(`/v1/match/requests/${reqId}`)
+        .expect(409);
+
+      expect(response.body).toHaveProperty("error");
+      expect(response.body.error).toContain("matched");
+      expect(response.body).toHaveProperty("sessionId", "session-789");
+
+      // Verify status is still "matched" (we don't rollback, just notify partner left)
+      const finalReq = await mockRedis.hgetall(`match:req:${reqId}`);
+      expect(finalReq.status).toBe("matched");
+      expect(finalReq.sessionId).toBe("session-789");
     });
   });
 
@@ -331,11 +481,12 @@ describe("API Routes Integration Tests", () => {
     it("should validate all difficulty values", async () => {
       const difficulties = ["easy", "medium", "hard"];
 
-      for (const difficulty of difficulties) {
+      for (let i = 0; i < difficulties.length; i++) {
+        const difficulty = difficulties[i];
         const response = await request(app)
           .post("/v1/match/requests")
           .send({
-            userId: "alice",
+            userId: `alice-${i}`, // Use different userId to avoid deduplication
             difficulty,
             topics: ["arrays"],
             languages: ["python"],

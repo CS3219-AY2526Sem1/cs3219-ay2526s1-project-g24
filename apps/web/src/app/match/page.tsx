@@ -8,6 +8,7 @@ import { getDifficultyStyles } from "@/lib/difficulty";
 import { matchingService, type Difficulty } from "@/lib/api/matchingService";
 import withAuth from "@/components/withAuth";
 import { getTopics, type TopicResponse } from "@/lib/api/questionService";
+import { useAuth } from "@/hooks/useAuth";
 
 const difficulties = [
     {
@@ -44,6 +45,7 @@ function Match() {
     const [selectedLanguage, setSelectedLanguage] = useState<string>("Python");
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [statusMessage, setStatusMessage] = useState<string | null>(null);
     const [isLoadingTopics, setIsLoadingTopics] = useState(true);
 
     // Fetch topics from API
@@ -97,6 +99,7 @@ function Match() {
 
         setIsLoading(true);
         setError(null);
+        setStatusMessage(null);
 
         try {
             const response = await matchingService.createMatchRequest({
@@ -106,6 +109,12 @@ function Match() {
                 languages: [selectedLanguage],
             });
 
+            if (response.alreadyQueued) {
+                setStatusMessage("You already have an active match request. Resuming it now...");
+            } else {
+                setStatusMessage("Match request created. Redirecting you to the waiting room...");
+            }
+
             // Store the request ID in sessionStorage to use in wait page
             sessionStorage.setItem("matchRequestId", response.reqId);
             sessionStorage.setItem("matchUserId", user.id);
@@ -114,6 +123,7 @@ function Match() {
         } catch (err) {
             console.error("Failed to create match request:", err);
             setError(err instanceof Error ? err.message : "Failed to create match request");
+            setStatusMessage(null);
         } finally {
             setIsLoading(false);
         }
@@ -286,6 +296,11 @@ function Match() {
                         {error && (
                             <div className="bg-red-500/20 border border-red-500 text-red-200 px-6 py-3 rounded-lg font-montserrat text-sm">
                                 {error}
+                            </div>
+                        )}
+                        {statusMessage && !error && (
+                            <div className="bg-blue-500/20 border border-blue-500 text-blue-100 px-6 py-3 rounded-lg font-montserrat text-sm text-center">
+                                {statusMessage}
                             </div>
                         )}
                         <button

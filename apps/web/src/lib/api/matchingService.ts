@@ -17,6 +17,7 @@ export interface MatchRequest {
 
 export interface MatchRequestResponse {
   reqId: string;
+  alreadyQueued?: boolean;
 }
 
 export interface MatchRequestStatus {
@@ -34,6 +35,7 @@ export interface MatchEvent {
   status: MatchStatus;
   sessionId?: string;
   timestamp: number;
+  elapsed?: number;
 }
 
 class MatchingServiceClient {
@@ -46,7 +48,9 @@ class MatchingServiceClient {
   /**
    * Create a new match request
    */
-  async createMatchRequest(request: MatchRequest): Promise<MatchRequestResponse> {
+  async createMatchRequest(
+    request: MatchRequest,
+  ): Promise<MatchRequestResponse> {
     const response = await fetch(`${this.baseUrl}/v1/match/requests`, {
       method: 'POST',
       headers: {
@@ -55,12 +59,27 @@ class MatchingServiceClient {
       body: JSON.stringify(request),
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to create match request');
+    if (response.ok) {
+      return response.json() as Promise<MatchRequestResponse>;
     }
 
-    return response.json();
+    let errorPayload: any = null;
+    try {
+      errorPayload = await response.json();
+    } catch (err) {
+      console.error('Failed to parse error response:', err);
+    }
+
+    if (response.status === 409 && errorPayload?.reqId) {
+      return {
+        reqId: errorPayload.reqId,
+        alreadyQueued: true,
+      };
+    }
+
+    throw new Error(
+      errorPayload?.error || 'Failed to create match request',
+    );
   }
 
   /**
@@ -84,8 +103,16 @@ class MatchingServiceClient {
 
   /**
    * Cancel a match request
+   * @throws Error if cancellation fails (except for 409 Conflict - already matched)
+   * @returns Object indicating if request was cancelled or already matched
    */
-  async cancelMatchRequest(reqId: string): Promise<void> {
+  async cancelMatchRequest(
+    reqId: string,
+  ): Promise<{
+    cancelled: boolean;
+    alreadyMatched: boolean;
+    sessionId?: string;
+  }> {
     const response = await fetch(`${this.baseUrl}/v1/match/requests/${reqId}`, {
       method: 'DELETE',
       headers: {
@@ -93,10 +120,36 @@ class MatchingServiceClient {
       },
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.error || 'Failed to cancel match request');
+    if (response.ok) {
+      // Successfully cancelled
+      return { cancelled: true, alreadyMatched: false };
     }
+
+    // Handle 409 Conflict - request was already matched
+    if (response.status === 409) {
+      // Extract session ID directly from 409 response body (optimization)
+      try {
+        const data = await response.json();
+        if (data.sessionId) {
+          return {
+            cancelled: false,
+            alreadyMatched: true,
+            sessionId: data.sessionId,
+          };
+        }
+      } catch (err) {
+        console.error('Failed to parse 409 response:', err);
+      }
+
+      // Fallback: Even if we can't parse the response, indicate it was matched
+      return { cancelled: false, alreadyMatched: true };
+    }
+
+    // Other errors
+    const error = await response
+      .json()
+      .catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to cancel match request');
   }
 
   /**
@@ -109,10 +162,10 @@ class MatchingServiceClient {
   subscribeToMatchEvents(
     reqId: string,
     onEvent: (event: MatchEvent) => void,
-    onError?: (error: Error) => void
+    onError?: (error: Error) => void,
   ): () => void {
     const eventSource = new EventSource(
-      `${this.baseUrl}/v1/match/requests/${reqId}/events`
+      `${this.baseUrl}/v1/match/requests/${reqId}/events`,
     );
 
     eventSource.onmessage = (event) => {
@@ -127,7 +180,32 @@ class MatchingServiceClient {
 
     eventSource.onerror = (error) => {
       console.error('SSE connection error:', error);
-      onError?.(new Error('SSE connection error'));
+      
+      // Check if this is a duplicate connection error (409)
+      // EventSource doesn't expose status codes, but we can check readyState
+      if (eventSource.readyState === EventSource.CLOSED) {
+        // Try to get the current status to see if it was a duplicate connection
+        this.getMatchRequestStatus(reqId)
+          .then(status => {
+            if (status.status === 'matched' && status.sessionId) {
+              // Request was matched, treat as success
+              onEvent({
+                status: 'matched',
+                sessionId: status.sessionId,
+                timestamp: Date.now(),
+              });
+            } else {
+              onError?.(new Error('SSE connection error'));
+            }
+          })
+          .catch(err => {
+            console.error('Failed to get status after SSE error:', err);
+            onError?.(new Error('SSE connection error'));
+          });
+      } else {
+        onError?.(new Error('SSE connection error'));
+      }
+      
       eventSource.close();
     };
 

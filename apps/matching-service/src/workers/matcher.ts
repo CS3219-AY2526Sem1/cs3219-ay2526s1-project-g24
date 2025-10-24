@@ -6,7 +6,7 @@ import { logger } from "../observability/logger.js";
 import { metrics } from "../observability/metrics.js";
 import { withSpan } from "../observability/tracing.js";
 import { redisOps, redis } from "../services/redis.js";
-import { createSession } from "../services/collaboration.js";
+import { createSession, deleteSession } from "../services/collaboration.js";
 import type { StoredMatchRequest, Difficulty } from "../types.js";
 
 /**
@@ -16,10 +16,32 @@ export function isCompatible(
   req1: StoredMatchRequest,
   req2: StoredMatchRequest,
 ): boolean {
-  const topics1 = req1.topics.split(",").map((t) => t.trim());
-  const topics2 = req2.topics.split(",").map((t) => t.trim());
-  const langs1 = req1.languages.split(",").map((l) => l.trim());
-  const langs2 = req2.languages.split(",").map((l) => l.trim());
+  const topics1 = req1.topics
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  const topics2 = req2.topics
+    .split(",")
+    .map((t) => t.trim())
+    .filter((t) => t.length > 0);
+  const langs1 = req1.languages
+    .split(",")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+  const langs2 = req2.languages
+    .split(",")
+    .map((l) => l.trim())
+    .filter((l) => l.length > 0);
+
+  // Ensure both have valid topics and languages
+  if (
+    topics1.length === 0 ||
+    topics2.length === 0 ||
+    langs1.length === 0 ||
+    langs2.length === 0
+  ) {
+    return false;
+  }
 
   const hasTopicOverlap = topics1.some((t) => topics2.includes(t));
   const hasLangOverlap = langs1.some((l) => langs2.includes(l));
@@ -55,21 +77,61 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
       !req2 ||
       req2.status !== "queued"
     ) {
+      // Requeue any request that is still pending to avoid dropping it
+      const requeuePromises: Promise<void>[] = [];
+      const now = Date.now();
+
+      if (req1 && req1.status === "queued") {
+        requeuePromises.push(
+          redisOps.enqueue(item1.reqId, difficulty, item1.score ?? now),
+        );
+      }
+
+      if (req2 && req2.status === "queued") {
+        requeuePromises.push(
+          redisOps.enqueue(item2.reqId, difficulty, item2.score ?? now + 1),
+        );
+      }
+
+      if (requeuePromises.length > 0) {
+        await Promise.allSettled(requeuePromises);
+      }
+
       logger.info(
-        { req1Id: item1.reqId, req2Id: item2.reqId },
+        {
+          req1Id: item1.reqId,
+          req1Status: req1?.status ?? "missing",
+          req2Id: item2.reqId,
+          req2Status: req2?.status ?? "missing",
+        },
         "One or both requests no longer queued",
       );
       return;
     }
 
+    // Prevent matching same user with themselves
+    if (req1.userId === req2.userId) {
+      logger.warn(
+        { userId: req1.userId, req1Id: item1.reqId, req2Id: item2.reqId },
+        "Same user cannot match with themselves, re-queuing second request",
+      );
+      // Re-add the second request to back of queue
+      await redisOps.enqueue(item2.reqId, difficulty, Date.now());
+      // Re-add first request too to ensure fair ordering
+      await redisOps.enqueue(item1.reqId, difficulty, Date.now() + 1);
+      return;
+    }
+
     // Check compatibility
     if (!isCompatible(req1, req2)) {
-      // Incompatible - re-add to queue (back of line)
-      await redisOps.enqueue(item1.reqId, difficulty, item1.score);
-      await redisOps.enqueue(item2.reqId, difficulty, item2.score);
+      // Incompatible - re-add to queue (back of line with current timestamp)
+      // Use Date.now() instead of old score to prevent infinite matching loops
+      const now = Date.now();
+      await redisOps.enqueue(item1.reqId, difficulty, now);
+      await redisOps.enqueue(item2.reqId, difficulty, now + 1); // +1 to maintain order
       logger.debug(
         { req1Id: item1.reqId, req2Id: item2.reqId },
-        "Requests incompatible",
+        "Requests incompatible, re-queued with new timestamps",
       );
       return;
     }
@@ -90,21 +152,85 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
         ],
       });
 
-      // Update both requests as matched
-      await redisOps.updateRequestStatus(
+      // Atomically update both requests as matched (prevents timeout/cancel from overwriting)
+      const updated1 = await redisOps.atomicUpdateRequestStatus(
         item1.reqId,
+        "queued",
         "matched",
         session.sessionId,
       );
-      await redisOps.updateRequestStatus(
+      const updated2 = await redisOps.atomicUpdateRequestStatus(
         item2.reqId,
+        "queued",
         "matched",
         session.sessionId,
       );
 
+      // Check if either update failed (request was cancelled/timed out)
+      if (!updated1 || !updated2) {
+        logger.warn(
+          { req1Id: item1.reqId, updated1, req2Id: item2.reqId, updated2 },
+          "One or both requests couldn't be matched - status changed during operation",
+        );
+
+        // Get timeout configuration for re-adding
+        const timeoutSeconds = parseInt(
+          process.env.MATCH_TIMEOUT_SECONDS || "30",
+          10,
+        );
+
+        // Rollback: If one succeeded but the other failed, revert the successful one
+        // Use CAS to prevent race condition with timeout/cancel
+        if (updated1 && !updated2) {
+          const rolledBack = await redisOps.atomicUpdateRequestStatus(
+            item1.reqId,
+            "matched",
+            "queued",
+          );
+          if (rolledBack) {
+            await redisOps.enqueue(item1.reqId, difficulty, Date.now());
+            await redisOps.addTimeout(item1.reqId, difficulty, timeoutSeconds);
+          } else {
+            logger.warn(
+              { reqId: item1.reqId },
+              "Rollback failed - request status changed (likely cancelled/timeout)",
+            );
+          }
+        } else if (!updated1 && updated2) {
+          const rolledBack = await redisOps.atomicUpdateRequestStatus(
+            item2.reqId,
+            "matched",
+            "queued",
+          );
+          if (rolledBack) {
+            await redisOps.enqueue(item2.reqId, difficulty, Date.now());
+            await redisOps.addTimeout(item2.reqId, difficulty, timeoutSeconds);
+          } else {
+            logger.warn(
+              { reqId: item2.reqId },
+              "Rollback failed - request status changed (likely cancelled/timeout)",
+            );
+          }
+        }
+
+        // Cleanup the orphaned session
+        await deleteSession(session.sessionId).catch((error) => {
+          logger.warn(
+            { sessionId: session.sessionId, error },
+            "Failed to cleanup orphaned session (best effort)",
+          );
+        });
+
+        return;
+      }
+
       // Remove from timeout tracking (they've been matched)
       await redisOps.removeTimeout(item1.reqId, difficulty);
       await redisOps.removeTimeout(item2.reqId, difficulty);
+
+      // Remove user active request markers
+      await redisOps.removeUserActiveRequest(req1.userId);
+      await redisOps.removeUserActiveRequest(req2.userId);
 
       // Publish events
       await redisOps.publishEvent(item1.reqId, {
@@ -136,12 +262,21 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
       span.setAttribute("matched", true);
       span.setAttribute("sessionId", session.sessionId);
     } catch (error) {
-      // Session creation failed - re-add to queue
-      await redisOps.enqueue(item1.reqId, difficulty, item1.score);
-      await redisOps.enqueue(item2.reqId, difficulty, item2.score);
+      // Session creation failed - re-add to queue with proper timestamps and timeouts
+      const timeoutSeconds = parseInt(
+        process.env.MATCH_TIMEOUT_SECONDS || "30",
+        10,
+      );
+      const now = Date.now();
+      
+      await redisOps.enqueue(item1.reqId, difficulty, now);
+      await redisOps.enqueue(item2.reqId, difficulty, now + 1);
+      await redisOps.addTimeout(item1.reqId, difficulty, timeoutSeconds);
+      await redisOps.addTimeout(item2.reqId, difficulty, timeoutSeconds);
+      
       logger.error(
         { error, req1Id: item1.reqId, req2Id: item2.reqId },
-        "Failed to create session",
+        "Failed to create session, re-queued both requests",
       );
       throw error;
     }
@@ -177,3 +312,8 @@ export function startMatcher(): void {
 
   logger.info("Matcher worker started");
 }
+
+// Export internal helpers for targeted unit testing
+export const __testExports = {
+  attemptMatch,
+};

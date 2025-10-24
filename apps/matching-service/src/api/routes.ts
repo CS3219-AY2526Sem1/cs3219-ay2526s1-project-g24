@@ -26,10 +26,22 @@ const router: Router = express.Router();
 
 // Request validation schema
 const createRequestSchema = z.object({
-  userId: z.string().min(1),
+  userId: z.string().min(1).max(100),
   difficulty: z.enum(["easy", "medium", "hard"]),
-  topics: z.array(z.string().min(1)).min(1),
-  languages: z.array(z.string().min(1)).min(1),
+  topics: z
+    .array(z.string().min(1).max(50))
+    .min(1)
+    .max(10)
+    .refine((topics) => new Set(topics).size === topics.length, {
+      message: "Topics must be unique (no duplicates)",
+    }),
+  languages: z
+    .array(z.string().min(1).max(20))
+    .min(1)
+    .max(10)
+    .refine((languages) => new Set(languages).size === languages.length, {
+      message: "Languages must be unique (no duplicates)",
+    }),
 });
 
 /**
@@ -79,6 +91,26 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
       span.setAttribute("user_id", data.userId);
       span.setAttribute("difficulty", data.difficulty);
 
+      // Check if user already has an active match request (deduplication)
+      const existingReqId = await redisOps.getUserActiveRequest(data.userId);
+      if (existingReqId) {
+        // Check if the existing request is still valid
+        const existingReq = await redisOps.getRequest(existingReqId);
+        if (existingReq && existingReq.status === "queued") {
+          logger.info(
+            { userId: data.userId, existingReqId },
+            "User already has active match request",
+          );
+          res.status(409).json({
+            error: "User already has an active match request",
+            reqId: existingReqId,
+          });
+          return;
+        }
+        // Existing request is no longer active, clean up marker
+        await redisOps.removeUserActiveRequest(data.userId);
+      }
+
       logger.info(
         {
           reqId,
@@ -90,7 +122,16 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
         "Creating match request",
       );
 
-      // Store request in Redis (no TTL - persists until matched or cancelled)
+      // Get timeout configuration
+      const timeoutSeconds = parseInt(
+        process.env.MATCH_TIMEOUT_SECONDS || "30",
+        10,
+      );
+      
+      // Store request in Redis with TTL to prevent memory leaks
+      // TTL = timeout + buffer to allow for processing and cleanup
+      const ttlSeconds = timeoutSeconds + 300; // 5 minute buffer after timeout
+      
       await redisOps.createRequest(
         reqId,
         {
@@ -99,7 +140,7 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
           topics: data.topics.join(","),
           languages: data.languages.join(","),
         },
-        0, // 0 = no expiration
+        ttlSeconds,
       );
 
       // Add to queue
@@ -107,11 +148,10 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
       await redisOps.enqueue(reqId, data.difficulty, createdAt);
 
       // Add to timeout tracking (sorted set with deadline)
-      const timeoutSeconds = parseInt(
-        process.env.MATCH_TIMEOUT_SECONDS || "30",
-        10,
-      );
       await redisOps.addTimeout(reqId, data.difficulty, timeoutSeconds);
+
+      // Mark user as having an active request (for deduplication)
+      await redisOps.setUserActiveRequest(data.userId, reqId, ttlSeconds);
 
       // Trigger matcher via pub/sub
       await redis.publish(
@@ -169,11 +209,19 @@ router.get("/v1/match/requests/:reqId", async (req: Request, res: Response) => {
 /**
  * Cancel a match request (internal function)
  * Used by both DELETE endpoint and SSE disconnect
+ *
+ * Uses atomic status update to prevent race conditions with matching operations
  */
 export async function cancelMatchRequest(
   reqId: string,
   reason: string = "user requested",
-): Promise<{ success: boolean; error?: string; statusCode?: number }> {
+): Promise<{
+  success: boolean;
+  error?: string;
+  message?: string;
+  statusCode?: number;
+  sessionId?: string;
+}> {
   try {
     const request = await redisOps.getRequest(reqId);
 
@@ -181,22 +229,87 @@ export async function cancelMatchRequest(
       return { success: false, error: "Request not found", statusCode: 404 };
     }
 
-    if (request.status !== "queued") {
+    // If already matched, return 409 with session info
+    // The user should join the session - collaboration service handles if they don't
+    if (request.status === "matched") {
+      logger.info(
+        { reqId, userId: request.userId, sessionId: request.sessionId, reason },
+        "Request already matched - user should join session",
+      );
+
+      // Remove user's active request marker (cleanup)
+      await redisOps.removeUserActiveRequest(request.userId);
+
+      // Return 409 Conflict with session info (frontend redirects to session)
+      // Collaboration service will handle if user never joins
       return {
         success: false,
-        error: `Cannot cancel request - already ${request.status}`,
-        statusCode: 400,
+        error: "Request already matched",
+        statusCode: 409,
+        sessionId: request.sessionId,
       };
     }
 
-    // Update status
-    await redisOps.updateRequestStatus(reqId, "cancelled");
+    // Terminal states - idempotent
+    if (request.status === "cancelled" || request.status === "timeout") {
+      logger.info(
+        { reqId, status: request.status, reason },
+        "Cancel request idempotent - already in terminal state",
+      );
+      return {
+        success: true,
+        message: `Request already ${request.status}`,
+      };
+    }
 
+    // Atomically update status from "queued" to "cancelled"
+    // This prevents race condition where matcher updates to "matched" between our check and update
+    const updated = await redisOps.atomicUpdateRequestStatus(
+      reqId,
+      "queued",
+      "cancelled",
+    );
+
+    if (!updated) {
+      // Status was changed by another operation (likely matched or timeout)
+      // Re-fetch to get current status and handle accordingly
+      const currentRequest = await redisOps.getRequest(reqId);
+      const currentStatus = currentRequest?.status || "unknown";
+
+      logger.info(
+        { reqId, reason, currentStatus },
+        "CAS failed - request status changed during operation",
+      );
+
+      // If it was matched during our attempt, redirect to session
+      if (currentStatus === "matched") {
+        await redisOps.removeUserActiveRequest(request.userId);
+        
+        // Return 409 with session ID - collaboration service handles the rest
+        return {
+          success: false,
+          error: "Request already matched",
+          statusCode: 409,
+          sessionId: currentRequest?.sessionId,
+        };
+      }
+
+      // Already in terminal state - idempotent
+      return {
+        success: true,
+        message: `Request already ${currentStatus}`,
+      };
+    }
+
+    // Status successfully updated to "cancelled" - proceed with cleanup
     // Remove from queue
     await redisOps.dequeue(reqId, request.difficulty);
 
     // Remove from timeout tracking
     await redisOps.removeTimeout(reqId, request.difficulty);
+
+    // Remove user's active request marker
+    await redisOps.removeUserActiveRequest(request.userId);
 
     // Notify via pub/sub
     const event = {
@@ -238,13 +351,17 @@ router.delete(
         const result = await cancelMatchRequest(reqId, "user requested");
 
         if (!result.success) {
-          res
-            .status(result.statusCode || 500)
-            .json({ error: result.error || "Failed to cancel" });
+          // Include sessionId in 409 response for already-matched case
+          const responseBody: any = { error: result.error || "Failed to cancel" };
+          if (result.sessionId) {
+            responseBody.sessionId = result.sessionId;
+          }
+          res.status(result.statusCode || 500).json(responseBody);
           return;
         }
 
-        res.status(200).json({ message: "Request cancelled" });
+        // Successfully cancelled
+        res.status(200).json(result);
       });
     } catch (error) {
       logger.error({ error, reqId }, "Failed to cancel match request");
