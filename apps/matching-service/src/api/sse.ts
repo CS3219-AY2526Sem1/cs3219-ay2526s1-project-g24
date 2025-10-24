@@ -31,6 +31,7 @@ export async function handleSSE(req: Request, res: Response) {
   let timerInterval: NodeJS.Timeout | null = null;
   let subscriber: any = null;
   let connectionMarked = false;
+  let metricsAdjusted = false;
 
   // Cleanup function to prevent leaks
   const cleanup = async () => {
@@ -46,7 +47,10 @@ export async function handleSSE(req: Request, res: Response) {
       await redisOps.removeActiveSSEConnection(reqId);
       connectionMarked = false;
     }
-    metrics.decrementSseConnections();
+    if (!metricsAdjusted) {
+      metrics.decrementSseConnections();
+      metricsAdjusted = true;
+    }
   };
 
   try {
@@ -78,7 +82,8 @@ export async function handleSSE(req: Request, res: Response) {
     }
     connectionMarked = true;
 
-    metrics.incrementSseConnections();
+  metrics.incrementSseConnections();
+  metricsAdjusted = false;
 
     // Load request to verify it exists
     const request = await redisOps.getRequest(reqId);
@@ -127,7 +132,7 @@ export async function handleSSE(req: Request, res: Response) {
     await subscriber.subscribe(channel);
 
     // Handle incoming messages
-    subscriber.on("message", (ch: string, message: string) => {
+    subscriber.on("message", async (ch: string, message: string) => {
       if (ch === channel) {
         try {
           const event = JSON.parse(message);
@@ -143,7 +148,7 @@ export async function handleSSE(req: Request, res: Response) {
               { reqId, status: event.status },
               "Terminal state reached, closing SSE",
             );
-            cleanup();
+            await cleanup();
             res.end();
           }
         } catch (error) {

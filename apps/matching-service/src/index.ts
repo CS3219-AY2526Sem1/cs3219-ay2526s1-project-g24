@@ -34,23 +34,25 @@ async function start() {
     // Middleware
     // CORS configuration - allows frontend to communicate with the service
     // Parse CORS_ORIGIN as array if it contains commas, otherwise use as single value or wildcard
-    const corsOrigin = process.env.CORS_ORIGIN 
-      ? process.env.CORS_ORIGIN.includes(',')
-        ? process.env.CORS_ORIGIN.split(',').map(origin => origin.trim())
+    const corsOrigin = process.env.CORS_ORIGIN
+      ? process.env.CORS_ORIGIN.includes(",")
+        ? process.env.CORS_ORIGIN.split(",").map((origin) => origin.trim())
         : process.env.CORS_ORIGIN
       : "*";
-    
-    app.use(cors({
+
+    app.use(
+      cors({
       origin: corsOrigin,
       credentials: true,
       methods: ["GET", "POST", "DELETE", "OPTIONS"],
       allowedHeaders: ["Content-Type", "Authorization"],
-    }));
-    
+      }),
+    );
+
     logger.info({ corsOrigin }, "CORS configured");
-    
-  app.use(express.json());
-  app.use(cookieParser());
+
+    app.use(express.json());
+    app.use(cookieParser());
 
     // Routes
     app.use("/", router);
@@ -61,9 +63,9 @@ async function start() {
     });
 
     // Start workers
-  startMatcher();
-  // Start timeout worker (uses sorted set scanning to detect timeouts)
-  startTimeoutWorker();
+    startMatcher();
+    // Start timeout worker (uses sorted set scanning to detect timeouts)
+    startTimeoutWorker();
 
     logger.info("Workers started");
     logger.info("Matching Service ready");

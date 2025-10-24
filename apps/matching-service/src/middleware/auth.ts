@@ -88,7 +88,7 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-  mutableReq.auth = buildContext(userId, payload, token);
+    mutableReq.auth = buildContext(userId, payload, token);
     next();
   } catch (error) {
     logger.warn({ error }, "Authentication failed");
