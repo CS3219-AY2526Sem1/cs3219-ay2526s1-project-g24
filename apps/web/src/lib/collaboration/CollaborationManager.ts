@@ -101,10 +101,10 @@ export class CollaborationManager {
         // Preserve callbacks before disconnect
         const savedPresenceCallback = this.onPresenceChange;
         const savedErrorCallback = this.onError;
-        
+
         // Clean up existing connection
         this.disconnect();
-        
+
         // Restore callbacks
         this.onPresenceChange = savedPresenceCallback;
         this.onError = savedErrorCallback;
@@ -142,7 +142,7 @@ export class CollaborationManager {
                 new Set([editor]),
                 this.provider.awareness
             );
-            
+
             console.log('[Collaboration] MonacoBinding created:', this.binding);
             console.log('[Collaboration] Awareness states after binding:', this.provider.awareness.getStates());
 
@@ -168,7 +168,7 @@ export class CollaborationManager {
                 name: this.userName,
                 color: this.userColor,
             });
-            
+
             // Manually track cursor position changes
             // y-monaco v0.1.6 doesn't do this automatically
             editor.onDidChangeCursorPosition((e) => {
@@ -183,22 +183,22 @@ export class CollaborationManager {
                             absolutePos += model.getLineLength(line) + 1; // +1 for newline
                         }
                         absolutePos += position.column - 1;
-                        
+
                         this.awareness.setLocalStateField('cursor', {
                             line: position.lineNumber,
                             column: position.column,
                             absolutePosition: absolutePos,
                         });
-                        
-                        console.log('[Collaboration] Cursor moved:', { 
-                            line: position.lineNumber, 
+
+                        console.log('[Collaboration] Cursor moved:', {
+                            line: position.lineNumber,
                             column: position.column,
-                            absolutePos 
+                            absolutePos
                         });
                     }
                 }
             });
-            
+
             // Log awareness changes to see what MonacoBinding is doing
             console.log('[Collaboration] Awareness states after setting user:', Array.from(this.awareness.getStates().entries()));
 
@@ -211,7 +211,7 @@ export class CollaborationManager {
                     totalClients: this.awareness.getStates().size,
                 });
                 this.handleAwarenessChange();
-                
+
                 // Update remote cursors
                 if (this.cursorManager && this.localClientId !== null) {
                     this.cursorManager.updateCursors(this.awareness.getStates(), this.localClientId);
@@ -227,7 +227,7 @@ export class CollaborationManager {
                 if (event.status === 'connected') {
                     this.reconnectAttempts = 0; // Reset on successful connection
                     onStatusChange('connected');
-                    
+
                     // Trigger presence update when connection is established
                     this.handleAwarenessChange();
                 } else if (event.status === 'disconnected') {
@@ -291,12 +291,12 @@ export class CollaborationManager {
      */
     disconnect(): void {
         console.log('[Collaboration] Disconnecting...');
-        
+
         if (this.cursorManager) {
             this.cursorManager.dispose();
             this.cursorManager = null;
         }
-        
+
         if (this.binding) {
             try {
                 this.binding.destroy();
@@ -305,7 +305,7 @@ export class CollaborationManager {
             }
             this.binding = null;
         }
-        
+
         if (this.awareness) {
             try {
                 // Clear local state before destroying
@@ -314,7 +314,7 @@ export class CollaborationManager {
                 console.error('[Collaboration] Error clearing awareness:', error);
             }
         }
-        
+
         if (this.provider) {
             try {
                 this.provider.destroy();
@@ -323,7 +323,7 @@ export class CollaborationManager {
             }
             this.provider = null;
         }
-        
+
         if (this.ydoc) {
             try {
                 this.ydoc.destroy();
@@ -332,10 +332,10 @@ export class CollaborationManager {
             }
             this.ydoc = null;
         }
-        
+
         this.awareness = null;
         this.localClientId = null;
-        
+
         console.log('[Collaboration] Disconnected successfully');
     }
 
@@ -386,7 +386,7 @@ export class CollaborationManager {
         const states = this.awareness.getStates();
 
         console.log('[Collaboration] Getting connected users. Total states:', states.size);
-        
+
         states.forEach((state: any, clientId: number) => {
             console.log('[Collaboration] Client', clientId, 'state:', JSON.stringify(state, null, 2));
             if (state.user) {
@@ -395,7 +395,7 @@ export class CollaborationManager {
                     name: state.user.name || 'Anonymous',
                     color: state.user.color || '#808080',
                 };
-                
+
                 // Check for cursor data in different possible formats
                 // y-monaco might store cursor in 'cursor' or in state directly
                 if (state.cursor) {
@@ -407,7 +407,7 @@ export class CollaborationManager {
                         column: state.selection.start?.column || 0,
                     };
                 }
-                
+
                 users.push(user);
             }
         });
