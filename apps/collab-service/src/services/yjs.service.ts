@@ -2,6 +2,12 @@ import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
 import { config } from '../config';
 import { YjsDocument } from '../types';
+import { getRedisClient, getRedisPubClient, getRedisSubClient } from '../utils/redis';
+import { randomUUID } from 'crypto';
+import { ErrorHandler } from '../utils/errors';
+
+// Unique server instance ID to prevent applying our own pub/sub messages
+const SERVER_ID = process.env.INSTANCE_ID || randomUUID();
 
 /**
  * YjsService manages Y.Doc instances for collaborative editing
@@ -11,6 +17,7 @@ import { YjsDocument } from '../types';
  * - Initialize documents from snapshots
  * - Track connected clients and last activity
  * - Garbage collect inactive documents
+ * - Sync state across server instances via Redis pub/sub
  */
 export class YjsService {
     // Cache of active documents: sessionId -> YjsDocument
@@ -21,50 +28,226 @@ export class YjsService {
     private static readonly GC_INTERVAL_MS = 60000; // 1 minute
     private static readonly INACTIVE_TIMEOUT_MS = 300000; // 5 minutes
 
+    // Redis integration
+    private static readonly REDIS_STATE_KEY_PREFIX = 'session:';
+    private static readonly REDIS_CHANNEL_SUFFIX = ':updates';
+    private static redisSubscribed = new Set<string>();
+    private static updateHandlers = new Map<string, (update: Uint8Array, origin: any) => void>();
+
     /**
      * Get or create a Y.Doc for a session
      */
     static getDocument(sessionId: string, initialState?: Uint8Array): YjsDocument {
-        let yjsDoc = this.documents.get(sessionId);
+        try {
+            let yjsDoc = this.documents.get(sessionId);
 
-        if (!yjsDoc) {
-            console.log(`📄 Creating new Y.Doc for session ${sessionId}`);
+            if (!yjsDoc) {
+                console.log(`📄 Creating new Y.Doc for session ${sessionId}`);
 
-            const doc = new Y.Doc();
-            const awareness = new Awareness(doc);
+                const doc = new Y.Doc();
+                const awareness = new Awareness(doc);
 
-            // Apply initial state if provided (from snapshot)
-            if (initialState && initialState.length > 0) {
+                // Apply initial state if provided (from snapshot)
+                if (initialState && initialState.length > 0) {
+                    try {
+                        Y.applyUpdate(doc, initialState);
+                        console.log(`✓ Applied initial state to Y.Doc (${initialState.length} bytes)`);
+                    } catch (error) {
+                        ErrorHandler.logError(error, 'Failed to apply initial state', { sessionId });
+                        // Continue anyway - document will start empty
+                    }
+                }
+
+                // Create the document structure
+                // Initialize the Y.Doc for this session
+                doc.getText('code');
+                const metadata = doc.getMap('metadata');
+
+                // Set default metadata if empty
+                if (metadata.size === 0) {
+                    metadata.set('language', 'python');
+                    metadata.set('createdAt', Date.now());
+                }
+
+                yjsDoc = {
+                    doc,
+                    awareness,
+                    lastActivity: Date.now(),
+                    connectedClients: new Set<string>(),
+                };
+
+                this.documents.set(sessionId, yjsDoc);
+
+                // Setup Redis integration asynchronously (non-blocking)
+                void this.setupRedisIntegration(sessionId, doc).catch(err => {
+                    ErrorHandler.logError(err, `Failed to setup Redis integration`, { sessionId });
+                    // Continue without Redis - local-only mode
+                });
+            }
+
+            return yjsDoc;
+        } catch (error) {
+            ErrorHandler.logError(error, 'Error creating Y.Doc', { sessionId });
+            throw ErrorHandler.handleDocumentError(error, sessionId);
+        }
+    }
+
+    /**
+     * Setup Redis pub/sub and state caching for a session
+     * Enables cross-server collaboration and state persistence
+     */
+    private static async setupRedisIntegration(sessionId: string, doc: Y.Doc): Promise<void> {
+        try {
+            const stateKey = `${this.REDIS_STATE_KEY_PREFIX}${sessionId}:state`;
+            const channel = `${this.REDIS_STATE_KEY_PREFIX}${sessionId}${this.REDIS_CHANNEL_SUFFIX}`;
+
+            // Step 1: Try to load latest state from Redis cache
+            let stateLoaded = false;
+            try {
+                const redis = getRedisClient();
+                const cachedState = await redis.get(stateKey);
+                if (cachedState) {
+                    const stateBuffer = Buffer.from(cachedState, 'base64');
+                    Y.applyUpdate(doc, new Uint8Array(stateBuffer), 'redis-init');
+                    console.log(`[Redis] ✓ Restored state for ${sessionId} (${stateBuffer.length} bytes)`);
+                    stateLoaded = true;
+                }
+            } catch (err) {
+                ErrorHandler.logError(err, 'Redis cache load failed', { sessionId, operation: 'load state' });
+                // Non-fatal - continue to PostgreSQL fallback
+            }
+
+            // Step 1b: If Redis cache miss, try PostgreSQL snapshot
+            if (!stateLoaded) {
                 try {
-                    Y.applyUpdate(doc, initialState);
-                    console.log(`✓ Applied initial state to Y.Doc (${initialState.length} bytes)`);
-                } catch (error) {
-                    console.error('Failed to apply initial state:', error);
+                    const { SnapshotService } = await import('./snapshot.service');
+                    const snapshot = await SnapshotService.loadLatestSnapshot(sessionId);
+                    if (snapshot && snapshot.length > 0) {
+                        Y.applyUpdate(doc, snapshot, 'postgres-init');
+                        console.log(`[PostgreSQL] ✓ Restored state from snapshot for ${sessionId} (${snapshot.length} bytes)`);
+
+                        // Warm up Redis cache with the PostgreSQL snapshot
+                        try {
+                            const redis = getRedisClient();
+                            await redis.set(stateKey, Buffer.from(snapshot).toString('base64'), {
+                                EX: 7200, // 2 hour TTL
+                            });
+                            console.log(`[Redis] ✓ Warmed cache from PostgreSQL snapshot`);
+                        } catch (cacheErr) {
+                            ErrorHandler.logError(cacheErr, 'Failed to warm Redis cache', { sessionId });
+                            // Non-fatal
+                        }
+                    }
+                } catch (err) {
+                    ErrorHandler.logError(err, 'PostgreSQL snapshot load failed', { sessionId });
+                    // Non-fatal - document will start empty
                 }
             }
 
-            // Create the document structure
-            // Initialize the Y.Doc for this session
-            doc.getText('code');
-            const metadata = doc.getMap('metadata');
+            // Step 2: Subscribe to Redis pub/sub channel for cross-server updates
+            if (!this.redisSubscribed.has(sessionId)) {
+                try {
+                    const sub = await getRedisSubClient();
 
-            // Set default metadata if empty
-            if (metadata.size === 0) {
-                metadata.set('language', 'python');
-                metadata.set('createdAt', Date.now());
+                    await sub.subscribe(channel, (message: string) => {
+                        try {
+                            const payload = JSON.parse(message);
+
+                            // Ignore our own messages to prevent echo
+                            if (payload.serverId === SERVER_ID) return;
+
+                            if (payload.update) {
+                                const updateBuffer = Buffer.from(payload.update, 'base64');
+                                Y.applyUpdate(doc, new Uint8Array(updateBuffer), 'redis-pubsub');
+                                this.updateActivity(sessionId);
+                                console.log(`[Redis] ↔ Received update for ${sessionId} from server ${payload.serverId} (${updateBuffer.length} bytes)`);
+                            }
+                        } catch (err) {
+                            ErrorHandler.logError(err, 'Failed to process pub/sub message', { sessionId, channel });
+                        }
+                    });
+
+                    this.redisSubscribed.add(sessionId);
+                    console.log(`[Redis] ✓ Subscribed to ${channel}`);
+                } catch (err) {
+                    ErrorHandler.logError(err, 'Failed to subscribe to Redis channel', { sessionId, channel });
+                    throw ErrorHandler.handleRedisError(err, `Subscribe to ${channel}`);
+                }
             }
 
-            yjsDoc = {
-                doc,
-                awareness,
-                lastActivity: Date.now(),
-                connectedClients: new Set<string>(),
+            // Step 3: Register Y.Doc update handler to publish changes to Redis
+            const updateHandler = (update: Uint8Array, origin: any) => {
+                // Don't publish updates that came from Redis to avoid infinite loop
+                if (origin === 'redis-init' || origin === 'redis-pubsub') return;
+
+                // Publish update asynchronously (fire and forget)
+                (async () => {
+                    try {
+                        const pub = await getRedisPubClient();
+                        const redis = getRedisClient();
+
+                        // Publish incremental update to channel
+                        const message = JSON.stringify({
+                            serverId: SERVER_ID,
+                            update: Buffer.from(update).toString('base64'),
+                            timestamp: Date.now(),
+                        });
+                        await pub.publish(channel, message);
+
+                        // Update full state cache in Redis
+                        const fullState = Y.encodeStateAsUpdate(doc);
+                        await redis.set(stateKey, Buffer.from(fullState).toString('base64'), {
+                            EX: 7200, // 2 hour TTL
+                        });
+
+                        console.log(`[Redis] → Published update for ${sessionId} (${update.length} bytes)`);
+                    } catch (err) {
+                        ErrorHandler.logError(err, 'Failed to publish update to Redis', { sessionId });
+                        // Non-fatal - local edits still work
+                    }
+                })();
             };
 
-            this.documents.set(sessionId, yjsDoc);
-        }
+            this.updateHandlers.set(sessionId, updateHandler);
+            doc.on('update', updateHandler);
+            console.log(`[Redis] ✓ Setup complete for ${sessionId}`);
 
-        return yjsDoc;
+        } catch (error) {
+            ErrorHandler.logError(error, 'Redis integration setup failed', { sessionId });
+            // Non-fatal - document works in local-only mode
+        }
+    }
+
+    /**
+     * Teardown Redis subscriptions and handlers for a session
+     */
+    private static async teardownRedisIntegration(sessionId: string): Promise<void> {
+        try {
+            const channel = `${this.REDIS_STATE_KEY_PREFIX}${sessionId}${this.REDIS_CHANNEL_SUFFIX}`;
+
+            // Unsubscribe from Redis channel
+            if (this.redisSubscribed.has(sessionId)) {
+                try {
+                    const sub = await getRedisSubClient();
+                    await sub.unsubscribe(channel);
+                    this.redisSubscribed.delete(sessionId);
+                    console.log(`[Redis] ✓ Unsubscribed from ${channel}`);
+                } catch (err) {
+                    ErrorHandler.logError(err, 'Failed to unsubscribe from Redis', { sessionId, channel });
+                }
+            }
+
+            // Remove Y.Doc update handler
+            const handler = this.updateHandlers.get(sessionId);
+            const yjsDoc = this.documents.get(sessionId);
+            if (handler && yjsDoc) {
+                yjsDoc.doc.off('update', handler);
+                this.updateHandlers.delete(sessionId);
+            }
+
+        } catch (error) {
+            ErrorHandler.logError(error, 'Redis teardown failed', { sessionId });
+        }
     }
 
     /**
@@ -169,6 +352,11 @@ export class YjsService {
 
             // Destroy the document
             yjsDoc.doc.destroy();
+
+            // Teardown Redis integration asynchronously
+            void this.teardownRedisIntegration(sessionId).catch(err => {
+                console.error(`[Redis] Error tearing down ${sessionId}:`, err);
+            });
 
             this.documents.delete(sessionId);
             console.log(`🗑️  Deleted Y.Doc for session ${sessionId}`);
@@ -289,17 +477,26 @@ export class YjsService {
      * Validate document size doesn't exceed limit
      */
     static validateSize(sessionId: string): boolean {
-        const state = this.getState(sessionId);
-        if (!state) return true;
+        try {
+            const state = this.getState(sessionId);
+            if (!state) return true;
 
-        const sizeBytes = state.length;
-        const maxBytes = config.maxDocumentSizeBytes;
+            const sizeBytes = state.length;
+            const maxBytes = config.maxDocumentSizeBytes;
 
-        if (sizeBytes > maxBytes) {
-            console.warn(`⚠️  Document ${sessionId} exceeds size limit: ${sizeBytes} > ${maxBytes} bytes`);
+            if (sizeBytes > maxBytes) {
+                ErrorHandler.logError(
+                    new Error('Document size limit exceeded'),
+                    'Document size validation failed',
+                    { sessionId, sizeBytes, maxBytes }
+                );
+                return false;
+            }
+
+            return true;
+        } catch (error) {
+            ErrorHandler.logError(error, 'Document size validation error', { sessionId });
             return false;
         }
-
-        return true;
     }
 }

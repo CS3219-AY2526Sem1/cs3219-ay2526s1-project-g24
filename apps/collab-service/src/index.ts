@@ -1,8 +1,9 @@
 import { createServer, startServer } from './server';
 import { connectDatabase, disconnectDatabase } from './utils/prisma';
-import { connectRedis, disconnectRedis } from './utils/redis';
+import { connectRedis, disconnectRedis, getRedisPubClient, getRedisSubClient } from './utils/redis';
 import { WebSocketHandler } from './websocket/handler';
 import { YjsService } from './services/yjs.service';
+import { SnapshotService } from './services/snapshot.service';
 import { config } from './config';
 
 async function main() {
@@ -12,6 +13,14 @@ async function main() {
 
         // Connect to Redis
         await connectRedis();
+
+        // Warm up Redis pub/sub clients for YjsService
+        try {
+            await Promise.all([getRedisPubClient(), getRedisSubClient()]);
+            console.log('✓ Redis pub/sub clients ready');
+        } catch (err) {
+            console.warn('⚠️  Redis pub/sub initialization failed:', err);
+        }
 
         // Create and start server
         const { app, wss } = createServer();
@@ -24,6 +33,9 @@ async function main() {
         // Start Yjs garbage collection
         YjsService.startGarbageCollection();
 
+        // Start periodic snapshot saves to PostgreSQL
+        SnapshotService.startPeriodicSnapshots();
+
         // Graceful shutdown
         const gracefulShutdown = async (signal: string) => {
             console.log(`\n${signal} received. Starting graceful shutdown...`);
@@ -33,6 +45,9 @@ async function main() {
 
             // Stop garbage collection
             YjsService.stopGarbageCollection();
+
+            // Stop periodic snapshots
+            SnapshotService.stopPeriodicSnapshots();
 
             // Close all WebSocket connections
             await wsHandler.closeAll();

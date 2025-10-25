@@ -4,6 +4,8 @@ import { SessionService } from '../services/session.service';
 import { YjsService } from '../services/yjs.service';
 import { CreateSessionRequest, AppError } from '../types';
 import { z } from 'zod';
+import { getRedisClient } from '../utils/redis';
+import * as Y from 'yjs';
 
 const router: Router = Router();
 
@@ -139,15 +141,44 @@ router.get('/sessions/:sessionId/snapshot', authenticate, async (req: Request, r
             throw new AppError('Unauthorized: You are not a participant in this session', 403);
         }
 
-        // Get current Y.Doc state if document exists
+        // Get current Y.Doc state if document exists in memory
         const hasDocument = YjsService.hasDocument(sessionId);
-        if (!hasDocument) {
-            throw new AppError('No active document found for this session', 404);
-        }
+        let state = YjsService.getState(sessionId);
+        let code = YjsService.getCode(sessionId);
+        let metadata = YjsService.getMetadata(sessionId);
 
-        const state = YjsService.getState(sessionId);
-        const code = YjsService.getCode(sessionId);
-        const metadata = YjsService.getMetadata(sessionId);
+        // If no in-memory document, try to load from Redis cache
+        if (!hasDocument) {
+            try {
+                const redis = getRedisClient();
+                const stateKey = `session:${sessionId}:state`;
+                const cachedState = await redis.get(stateKey);
+
+                if (cachedState) {
+                    const stateBuffer = Buffer.from(cachedState, 'base64');
+
+                    // Create temporary Y.Doc to extract code and metadata
+                    const tempDoc = new Y.Doc();
+                    Y.applyUpdate(tempDoc, new Uint8Array(stateBuffer));
+
+                    const text = tempDoc.getText('code');
+                    code = text.toString();
+
+                    const map = tempDoc.getMap('metadata');
+                    metadata = map.toJSON();
+
+                    state = new Uint8Array(stateBuffer);
+
+                    console.log(`[Redis] ✓ Retrieved snapshot for ${sessionId} from cache`);
+                } else {
+                    throw new AppError('No active document found for this session', 404);
+                }
+            } catch (err) {
+                if (err instanceof AppError) throw err;
+                console.warn(`[Redis] Failed to retrieve snapshot for ${sessionId}:`, err);
+                throw new AppError('No active document found for this session', 404);
+            }
+        }
 
         res.status(200).json({
             message: 'Snapshot retrieved successfully',

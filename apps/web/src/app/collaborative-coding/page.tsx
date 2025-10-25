@@ -5,7 +5,14 @@ import { useRouter } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
 import type { editor } from 'monaco-editor';
-import { CollaborationManager, ConnectionStatus } from '@/lib/collaboration/CollaborationManager';
+import {
+  CollaborationManager,
+  ConnectionStatus,
+  UserPresence,
+  CollaborationErrorInfo,
+} from '@/lib/collaboration/CollaborationManager';
+import PresenceIndicator from '@/components/PresenceIndicator';
+import ToastNotification, { Toast } from '@/components/ToastNotification';
 
 const questions = [
   {
@@ -51,8 +58,11 @@ export default function CollaborativeCodingPage() {
   // Collaboration state
   const [sessionId, setSessionId] = useState('');
   const [sessionInputValue, setSessionInputValue] = useState('');
+  const [userIdInputValue, setUserIdInputValue] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
+  const [connectedUsers, setConnectedUsers] = useState<UserPresence[]>([]);
+  const [toasts, setToasts] = useState<Toast[]>([]);
 
   // Collaboration manager and editor ref
   const collaborationManagerRef = useRef<CollaborationManager | null>(null);
@@ -62,6 +72,21 @@ export default function CollaborativeCodingPage() {
   const rightPanelRef = useRef<HTMLDivElement>(null);
 
   const question = questions[currentQuestion];
+
+  // Toast notification helpers
+  const addToast = (message: string, type: Toast['type'] = 'info', duration?: number) => {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    setToasts((prev) => [...prev, { id, message, type, duration }]);
+  };
+
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  };
+
+  const handleCollaborationError = (error: CollaborationErrorInfo) => {
+    console.error('[Collaboration Error]', error);
+    addToast(error.message, 'error', error.recoverable ? 5000 : 10000);
+  };
 
   const languageConfig = {
     python: {
@@ -89,16 +114,22 @@ export default function CollaborativeCodingPage() {
   // Connect to collaboration session
   const connectToSession = async () => {
     if (!sessionInputValue.trim()) {
-      alert('Please enter a session ID');
+      addToast('Please enter a session ID', 'warning');
+      return;
+    }
+
+    if (!userIdInputValue.trim()) {
+      addToast('Please enter a user ID', 'warning');
       return;
     }
 
     if (!editorRef.current) {
-      alert('Editor not ready. Please try again.');
+      addToast('Editor not ready. Please try again.', 'warning');
       return;
     }
 
     const trimmedSessionId = sessionInputValue.trim();
+    const trimmedUserId = userIdInputValue.trim();
     setSessionId(trimmedSessionId);
     setConnectionStatus('connecting');
 
@@ -107,19 +138,39 @@ export default function CollaborativeCodingPage() {
         collaborationManagerRef.current = new CollaborationManager();
       }
 
-      await collaborationManagerRef.current.connect(trimmedSessionId, editorRef.current, (status) => {
-        setConnectionStatus(status);
-        setIsConnected(status === 'connected');
+      // Set up presence update callback
+      collaborationManagerRef.current.onPresenceUpdate((users) => {
+        setConnectedUsers(users);
       });
+
+      // Set up error notification callback
+      collaborationManagerRef.current.onErrorNotification(handleCollaborationError);
+
+      await collaborationManagerRef.current.connect(
+        trimmedSessionId,
+        editorRef.current,
+        (status) => {
+          setConnectionStatus(status);
+          setIsConnected(status === 'connected');
+
+          if (status === 'connected') {
+            addToast('Successfully connected to session', 'success', 3000);
+          }
+        },
+        trimmedUserId
+      );
     } catch (error) {
       console.error('[CollaborativeCoding] Failed to connect:', error);
       setConnectionStatus('error');
       setIsConnected(false);
+      addToast('Failed to connect to session. Please try again.', 'error');
     }
   };
 
   // Disconnect from collaboration session
   const disconnectFromSession = () => {
+    console.log('[CollaborativeCoding] Disconnecting from session');
+
     if (collaborationManagerRef.current) {
       collaborationManagerRef.current.disconnect();
       collaborationManagerRef.current = null;
@@ -127,11 +178,18 @@ export default function CollaborativeCodingPage() {
 
     setSessionId('');
     setSessionInputValue('');
+    setUserIdInputValue('');
     setIsConnected(false);
     setConnectionStatus('disconnected');
+    setConnectedUsers([]);
 
     // Reset code to default
-    setCode(languageConfig[selectedLanguage].defaultCode);
+    if (editorRef.current) {
+      editorRef.current.setValue(languageConfig[selectedLanguage].defaultCode);
+    }
+
+    addToast('Disconnected from session', 'info', 3000);
+    console.log('[CollaborativeCoding] Disconnected successfully');
   };
 
   // Handle editor mount
@@ -210,10 +268,22 @@ export default function CollaborativeCodingPage() {
               <>
                 <input
                   type='text'
+                  value={userIdInputValue}
+                  onChange={(e) => setUserIdInputValue(e.target.value)}
+                  placeholder='User ID'
+                  className='bg-[#1e1e1e] border border-[#3e3e3e] text-white text-sm px-3 py-1 rounded focus:outline-none focus:border-[#5e5e5e] w-32'
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      connectToSession();
+                    }
+                  }}
+                />
+                <input
+                  type='text'
                   value={sessionInputValue}
                   onChange={(e) => setSessionInputValue(e.target.value)}
-                  placeholder='Enter Session ID'
-                  className='bg-[#1e1e1e] border border-[#3e3e3e] text-white text-sm px-3 py-1 rounded focus:outline-none focus:border-[#5e5e5e]'
+                  placeholder='Session ID'
+                  className='bg-[#1e1e1e] border border-[#3e3e3e] text-white text-sm px-3 py-1 rounded focus:outline-none focus:border-[#5e5e5e] w-40'
                   onKeyDown={(e) => {
                     if (e.key === 'Enter') {
                       connectToSession();
@@ -244,6 +314,15 @@ export default function CollaborativeCodingPage() {
                   />
                   <span className='text-xs text-gray-400'>{connectionStatus}</span>
                 </div>
+
+                {/* Presence Indicator */}
+                {isConnected && (
+                  <PresenceIndicator
+                    users={connectedUsers}
+                    localClientId={collaborationManagerRef.current?.getLocalUser().clientId || null}
+                  />
+                )}
+
                 <button
                   onClick={disconnectFromSession}
                   className='px-3 py-1 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors rounded'
@@ -538,6 +617,9 @@ export default function CollaborativeCodingPage() {
           </div>
         </div>
       </div>
+
+      {/* Toast Notifications */}
+      <ToastNotification toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
 }
