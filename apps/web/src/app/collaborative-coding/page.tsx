@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
+
 import type { editor } from 'monaco-editor';
 import {
   CollaborationManager,
@@ -13,6 +14,9 @@ import {
 } from '@/lib/collaboration/CollaborationManager';
 import PresenceIndicator from '@/components/PresenceIndicator';
 import ToastNotification, { Toast } from '@/components/ToastNotification';
+
+import withAuth from '@/components/withAuth';
+
 
 const questions = [
   {
@@ -623,3 +627,5 @@ export default function CollaborativeCodingPage() {
     </div>
   );
 }
+
+export default withAuth(CollaborativeCodingPage);

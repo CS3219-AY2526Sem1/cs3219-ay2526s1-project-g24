@@ -1,30 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getDifficultyStyles } from "@/lib/difficulty";
+import withAuth from "@/components/withAuth";
+import { getQuestions, QuestionListItem } from "@/lib/api/questionService";
 
-const mockQuestions = [
-    { id: 1, title: 'Two Sum', topics: ['Arrays', 'Hash Table'], difficulty: 'EASY' },
-    { id: 2, title: 'Add Two Numbers', topics: ['Linked List'], difficulty: 'MEDIUM' },
-    { id: 3, title: 'Longest Palindromic Substring', topics: ['Strings', 'DP'], difficulty: 'MEDIUM' },
-    { id: 4, title: 'Median of Two Sorted Array', topics: ['Arrays', 'Binary Search'], difficulty: 'HARD' },
-    { id: 5, title: 'Container With Most Water', topics: ['Arrays'], difficulty: 'MEDIUM' },
-    { id: 6, title: 'Roman to Integer', topics: ['Hash Table'], difficulty: 'EASY' },
-    { id: 7, title: 'Longest Common Prefix', topics: ['Strings'], difficulty: 'EASY' },
-    { id: 8, title: 'Valid Parentheses', topics: ['Strings'], difficulty: 'EASY' },
-    { id: 9, title: 'Word Search', topics: ['DFS'], difficulty: 'MEDIUM' },
-    { id: 10, title: '3Sum', topics: ['Arrays', 'Sorting'], difficulty: 'MEDIUM' },
-    { id: 11, title: 'Binary Tree Inorder Traversal', topics: ['Tree'], difficulty: 'MEDIUM' },
-];
-
-export default function Questions() {
+function Questions() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("Questions");
     const [searchQuery, setSearchQuery] = useState('');
     const [topicFilter, setTopicFilter] = useState('All topics');
     const [difficultyFilter, setDifficultyFilter] = useState('All difficulty');
+    
+    // API state
+    const [questions, setQuestions] = useState<QuestionListItem[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const [page, setPage] = useState(1);
+    const [totalQuestions, setTotalQuestions] = useState(0);
+
+    // Fetch questions from API
+    useEffect(() => {
+        const fetchQuestions = async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                const data = await getQuestions({
+                    page,
+                    page_size: 50, // Get a larger batch for client-side filtering
+                    difficulties: difficultyFilter !== 'All difficulty' ? difficultyFilter.toLowerCase() : undefined,
+                });
+                setQuestions(data.questions);
+                setTotalQuestions(data.total);
+            } catch (err) {
+                setError(err instanceof Error ? err.message : 'Failed to load questions');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchQuestions();
+    }, [page, difficultyFilter]);
 
     const tabs = [
         { name: "Home", href: "/home" },
@@ -33,12 +51,12 @@ export default function Questions() {
         { name: "Profile", href: "/profile" },
     ];
 
-    const filteredQuestions = mockQuestions.filter(q => {
+    // Client-side filtering
+    const filteredQuestions = questions.filter(q => {
         const matchesSearch = q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            q.topics.some(topic => topic.toLowerCase().includes(searchQuery.toLowerCase()));
-        const matchesTopic = topicFilter === 'All topics' || q.topics.includes(topicFilter);
-        const matchesDifficulty = difficultyFilter === 'All difficulty' || q.difficulty === difficultyFilter;
-        return matchesSearch && matchesTopic && matchesDifficulty;
+            q.topics.some(topic => topic.name.toLowerCase().includes(searchQuery.toLowerCase()));
+        const matchesTopic = topicFilter === 'All topics' || q.topics.some(topic => topic.name === topicFilter);
+        return matchesSearch && matchesTopic;
     });
 
     const handleQuestionClick = (questionId: number) => {
@@ -152,7 +170,15 @@ export default function Questions() {
                     </div>
 
                     {/* Questions List */}
-                    {filteredQuestions.length > 0 ? (
+                    {isLoading ? (
+                        <div className="text-center py-12">
+                            <p className="text-white text-lg">Loading questions...</p>
+                        </div>
+                    ) : error ? (
+                        <div className="text-center py-12">
+                            <p className="text-red-400 text-lg">{error}</p>
+                        </div>
+                    ) : filteredQuestions.length > 0 ? (
                         <div className="space-y-3">
                             {filteredQuestions.map((question) => (
                                 <div
@@ -164,7 +190,7 @@ export default function Questions() {
                                         <h3 className="text-white text-lg font-medium">{question.title}</h3>
                                     </div>
                                     <div className="flex-1 text-center">
-                                        <p className="text-[#9e9e9e] text-sm">{question.topics.join(', ')}</p>
+                                        <p className="text-[#9e9e9e] text-sm">{question.topics.map(t => t.name).join(', ')}</p>
                                     </div>
                                     <div className="flex-1 flex justify-end">
                                         <span className={`text-xs px-4 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
@@ -185,3 +211,4 @@ export default function Questions() {
     );
 }
 
+export default withAuth(Questions);

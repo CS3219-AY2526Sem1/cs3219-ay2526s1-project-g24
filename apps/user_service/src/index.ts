@@ -4,10 +4,11 @@ import { createServer } from "./server";
 import "./controllers/health.controller";
 import "./controllers/auth.controller";
 import "./controllers/users.controller";
+import logger from './logger';
 
 const port = process.env.PORT || 8000;
 const server = createServer();
 
 server.listen(port, () => {
-  console.log(`User service listening on port ${port}`);
+  logger.info(`User service listening on port ${port}`);
 });
