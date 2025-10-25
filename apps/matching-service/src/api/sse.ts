@@ -184,7 +184,7 @@ export async function handleSSE(req: Request, res: Response) {
       if (currentRequest && currentRequest.status === "queued") {
         // Still queued, cancel it
         logger.info({ reqId }, "Cancelling queued request on disconnect");
-  await cancelMatchRequest(reqId, auth.userId, "client disconnected");
+        await cancelMatchRequest(reqId, auth.userId, "client disconnected");
       } else {
         // Already matched/cancelled/timed out
         logger.info(

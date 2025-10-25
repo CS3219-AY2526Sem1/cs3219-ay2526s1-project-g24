@@ -79,18 +79,31 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
     ) {
       // Requeue any request that is still pending to avoid dropping it
       const requeuePromises: Promise<void>[] = [];
-      const now = Date.now();
 
       if (req1 && req1.status === "queued") {
-        requeuePromises.push(
-          redisOps.enqueue(item1.reqId, difficulty, item1.score ?? now),
-        );
+        if (typeof item1.score === "undefined") {
+          logger.error(
+            { reqId: item1.reqId, difficulty, item: item1 },
+            "Cannot requeue request: score is undefined (data consistency issue)",
+          );
+        } else {
+          requeuePromises.push(
+            redisOps.enqueue(item1.reqId, difficulty, item1.score),
+          );
+        }
       }
 
       if (req2 && req2.status === "queued") {
-        requeuePromises.push(
-          redisOps.enqueue(item2.reqId, difficulty, item2.score ?? now + 1),
-        );
+        if (typeof item2.score === "undefined") {
+          logger.error(
+            { reqId: item2.reqId, difficulty, item: item2 },
+            "Cannot requeue request: score is undefined (data consistency issue)",
+          );
+        } else {
+          requeuePromises.push(
+            redisOps.enqueue(item2.reqId, difficulty, item2.score),
+          );
+        }
       }
 
       if (requeuePromises.length > 0) {
