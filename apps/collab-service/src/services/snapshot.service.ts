@@ -188,7 +188,7 @@ export class SnapshotService {
             // If we have more than keepCount, delete the oldest ones
             if (snapshots.length > keepCount) {
                 const toDelete = snapshots.slice(keepCount);
-                const deleteIds = toDelete.map(s => s.id);
+                const deleteIds = toDelete.map((s: { id: string }) => s.id);
 
                 await prisma.snapshot.deleteMany({
                     where: { id: { in: deleteIds } },
@@ -218,7 +218,7 @@ export class SnapshotService {
                 prisma.snapshot.groupBy({
                     by: ['sessionId'],
                     _count: true,
-                }).then(result => result.length),
+                }).then((result: any[]) => result.length),
                 prisma.snapshot.findFirst({
                     orderBy: { createdAt: 'asc' },
                     select: { createdAt: true },
@@ -233,7 +233,7 @@ export class SnapshotService {
             const snapshots = await prisma.snapshot.findMany({
                 select: { yjsState: true },
             });
-            const totalSize = snapshots.reduce((sum, s) => sum + s.yjsState.length, 0);
+            const totalSize = snapshots.reduce((sum: number, s: { yjsState: Buffer }) => sum + s.yjsState.length, 0);
 
             return {
                 totalSnapshots,
