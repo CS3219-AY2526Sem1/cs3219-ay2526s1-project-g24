@@ -17,7 +17,6 @@ import ToastNotification, { Toast } from '@/components/ToastNotification';
 
 import withAuth from '@/components/withAuth';
 
-
 const questions = [
   {
     title: 'Divide Two Integers',
@@ -45,7 +44,7 @@ Return the quotient after dividing dividend by divisor.`,
   },
 ];
 
-export default function CollaborativeCodingPage() {
+function CollaborativeCodingPage() {
   const router = useRouter();
   const [currentQuestion] = useState(0);
   const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
