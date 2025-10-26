@@ -7,14 +7,16 @@ info:
 servers:
   - url: http://localhost:8001
     description: User Service
-  - url: http://localhost:8002
+  - url: http://localhost:3002
     description: Matching Service
-  - url: http://localhost:8003
+  - url: http://localhost:8000
     description: Question Service
+  - url: http://localhost:3010
+    description: Code Execution Service
   - url: http://localhost:8005
-    description: Collaboration Service
+    description: Collaboration Service (future)
   - url: http://localhost:8006
-    description: Queue Service (Internal)
+    description: Queue Service (Internal, future)
 
 tags:
   - name: Authentication
@@ -645,7 +647,7 @@ paths:
                     type: object
 
   # ========== QUESTION SERVICE ==========
-  /v1/questions:
+  /api/questions:
     get:
       tags:
         - Questions
@@ -703,7 +705,7 @@ paths:
                   limit:
                     type: integer
 
-  /v1/questions/{qid}:
+  /api/questions/{qid}:
     get:
       tags:
         - Questions
@@ -725,11 +727,11 @@ paths:
         "404":
           description: Question not found
 
-  /v1/questions/{qid}/execute:
+  /api/questions/{qid}/run:
     post:
       tags:
         - Questions
-      summary: Execute code for solo practice
+      summary: Run code against test cases
       description: Run code against test cases for a specific question in solo practice mode
       security:
         - bearerAuth: []
@@ -778,7 +780,7 @@ paths:
         "401":
           $ref: "#/components/responses/UnauthorizedError"
 
-  /v1/questions/{qid}/submit:
+  /api/questions/{qid}/submit:
     post:
       tags:
         - Questions
@@ -831,7 +833,7 @@ paths:
         "401":
           $ref: "#/components/responses/UnauthorizedError"
 
-  /v1/topics:
+  /api/topics:
     get:
       tags:
         - Questions
@@ -861,6 +863,8 @@ paths:
                   ]
 
   # ========== QUESTION SERVICE - ADMIN ENDPOINTS ==========
+  # Note: Admin endpoints use the same base path (/api/questions) but require authentication
+  # The spec duplicates them here for clarity, but the backend uses the same router with auth checks
   /v1/admin/questions:
     get:
       tags:
