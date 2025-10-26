@@ -5,6 +5,7 @@ module.exports = {
   roots: ['<rootDir>/src'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
   collectCoverageFrom: ['src/**/*.ts', '!src/**/*.d.ts', '!src/**/__tests__/**', '!src/index.ts'],
+  setupFilesAfterEnv: ['<rootDir>/jest.setup.js'],
   coverageThreshold: {
     global: {
       branches: 80,
