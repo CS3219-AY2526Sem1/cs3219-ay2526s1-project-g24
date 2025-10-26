@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
+import { updateQuestion, getTopics, type TopicResponse } from "@/lib/api/questionService";
 
 type Example = {
     input: string;
@@ -17,7 +18,8 @@ type TestCase = {
 
 export default function EditQuestion() {
     const params = useParams();
-    const questionId = params.qid as string;
+    const router = useRouter();
+    const questionId = Number(params.qid);
 
     const [title, setTitle] = useState("Two Sum");
     const [difficulty, setDifficulty] = useState<"EASY" | "MEDIUM" | "HARD">("EASY");
@@ -37,27 +39,22 @@ export default function EditQuestion() {
         { input: "[3,2,4]\n6", expectedOutput: "[1,2]" },
         { input: "[3,3]\n6", expectedOutput: "[0,1]" }
     ]);
+    const [topics, setTopics] = useState<TopicResponse[]>([]);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [error, setError] = useState<string | null>(null);
 
-    const availableTopics = [
-        "Arrays",
-        "Strings",
-        "Hash Table",
-        "Dynamic Programming",
-        "Binary Search",
-        "DFS",
-        "BFS",
-        "Tree",
-        "Graph",
-        "Sorting",
-        "Greedy",
-        "Recursion",
-        "Backtracking",
-        "Linked List",
-        "Stack",
-        "Queue",
-    ];
+    const availableTopics = topics.map(t => t.name);
 
     useEffect(() => {
+        const fetchTopics = async () => {
+            try {
+                const fetchedTopics = await getTopics();
+                setTopics(fetchedTopics);
+            } catch (error) {
+                console.error('Failed to fetch topics:', error);
+            }
+        };
+        fetchTopics();
     }, [questionId]);
 
     const toggleTopic = (topic: string) => {
@@ -111,15 +108,38 @@ export default function EditQuestion() {
     };
 
     const handleSubmit = async () => {
-        // TODO: API call to update question
-        const questionData = {
-            title,
-            difficulty,
-            topics: selectedTopics,
-            description,
-            examples: examples.filter((ex) => ex.input || ex.output),
-            constraints: constraints.filter((c) => c.trim()),
-        };
+        if (!title.trim()) {
+            setError("Title is required");
+            return;
+        }
+        if (selectedTopics.length === 0) {
+            setError("At least one topic must be selected");
+            return;
+        }
+
+        setIsSubmitting(true);
+        setError(null);
+
+        try {
+            const topicIds = topics
+                .filter(t => selectedTopics.includes(t.name))
+                .map(t => t.id);
+
+            await updateQuestion(questionId, {
+                title,
+                difficulty,
+                topic_ids: topicIds,
+                description,
+                constraints: constraints.filter((c) => c.trim()).join('\n'),
+            });
+
+            router.push('/admin/questions');
+        } catch (err) {
+            console.error('Failed to update question:', err);
+            setError(err instanceof Error ? err.message : 'Failed to update question');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     return (
@@ -398,6 +418,11 @@ export default function EditQuestion() {
 
                         {/* Submit */}
                         <div className="flex gap-4 justify-end">
+                            {error && (
+                                <div className="flex-1 bg-red-50 border border-red-300 text-red-600 px-4 py-3 rounded-lg font-montserrat text-sm">
+                                    {error}
+                                </div>
+                            )}
                             <Link href="/admin/questions">
                                 <button className="px-8 py-3 bg-gray-200 hover:bg-gray-300 text-black font-montserrat text-sm rounded-full transition-colors">
                                     Cancel
@@ -405,9 +430,11 @@ export default function EditQuestion() {
                             </Link>
                             <button
                                 onClick={handleSubmit}
-                                className="px-8 py-3 bg-[#DCC8FE] hover:bg-[#d4b8f7] text-black font-montserrat font-medium text-sm rounded-full transition-colors"
+                                disabled={isSubmitting}
+                                className={`px-8 py-3 bg-[#DCC8FE] text-black font-montserrat font-medium text-sm rounded-full transition-colors ${isSubmitting ? 'opacity-50 cursor-not-allowed' : 'hover:bg-[#d4b8f7]'
+                                    }`}
                             >
-                                Save Changes
+                                {isSubmitting ? 'Saving...' : 'Save Changes'}
                             </button>
                         </div>
                     </div>

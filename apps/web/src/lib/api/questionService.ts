@@ -4,7 +4,7 @@
  */
 
 // In Next.js, environment variables starting with NEXT_PUBLIC_ are available to the browser
-const QUESTION_SERVICE_URL = typeof window !== 'undefined' 
+const QUESTION_SERVICE_URL = typeof window !== 'undefined'
     ? (window as any).ENV?.NEXT_PUBLIC_QUESTION_SERVICE_URL || 'http://localhost:8000'
     : 'http://localhost:8000';
 
@@ -102,7 +102,7 @@ export async function getQuestions(params?: {
     user_id?: string;
 }): Promise<QuestionListResponse> {
     const queryParams = new URLSearchParams();
-    
+
     // Add all parameters
     if (params?.difficulties) queryParams.append('difficulties', params.difficulties);
     if (params?.topic_ids) queryParams.append('topic_ids', params.topic_ids);
@@ -118,7 +118,7 @@ export async function getQuestions(params?: {
     if (params?.user_id) queryParams.append('user_id', params.user_id);
 
     const url = `${QUESTION_SERVICE_URL}/api/questions/?${queryParams.toString()}`;
-    
+
     const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -141,9 +141,9 @@ export async function getQuestions(params?: {
 export async function getQuestionById(id: number, userId?: string): Promise<QuestionDetail> {
     const queryParams = new URLSearchParams();
     if (userId) queryParams.append('user_id', userId);
-    
+
     const url = `${QUESTION_SERVICE_URL}/api/questions/${id}${queryParams.toString() ? `?${queryParams}` : ''}`;
-    
+
     const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -173,14 +173,14 @@ export async function getRandomQuestion(params?: {
     user_id?: string;
 }): Promise<QuestionDetail> {
     const queryParams = new URLSearchParams();
-    
+
     if (params?.difficulties) queryParams.append('difficulties', params.difficulties);
     if (params?.topic_ids) queryParams.append('topic_ids', params.topic_ids);
     if (params?.company_ids) queryParams.append('company_ids', params.company_ids);
     if (params?.user_id) queryParams.append('user_id', params.user_id);
 
     const url = `${QUESTION_SERVICE_URL}/api/questions/random${queryParams.toString() ? `?${queryParams}` : ''}`;
-    
+
     const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -206,9 +206,9 @@ export async function getRandomQuestion(params?: {
 export async function getDailyQuestion(userId?: string): Promise<QuestionDetail> {
     const queryParams = new URLSearchParams();
     if (userId) queryParams.append('user_id', userId);
-    
+
     const url = `${QUESTION_SERVICE_URL}/api/questions/daily${queryParams.toString() ? `?${queryParams}` : ''}`;
-    
+
     const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -325,7 +325,7 @@ export async function getTopics(): Promise<TopicResponse[]> {
         headers: {
             'Content-Type': 'application/json',
         },
-        credentials: 'include', // Send cookies with request
+        credentials: 'include',
     });
 
     if (!response.ok) {
@@ -333,4 +333,76 @@ export async function getTopics(): Promise<TopicResponse[]> {
     }
 
     return response.json();
+}
+
+export interface QuestionUpdateRequest {
+    title?: string;
+    description?: string;
+    difficulty?: 'EASY' | 'MEDIUM' | 'HARD';
+    topic_ids?: number[];
+    company_ids?: number[];
+    code_templates?: Record<string, string>;
+    function_signature?: {
+        function_name: string;
+        arguments: Array<{ name: string; type: string }>;
+        return_type: string;
+    };
+    constraints?: string;
+    hints?: string[];
+    time_limit?: Record<string, number>;
+    memory_limit?: Record<string, number>;
+}
+
+export async function updateQuestion(
+    questionId: number,
+    updates: QuestionUpdateRequest
+): Promise<QuestionDetail> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}`, {
+        method: 'PUT',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(updates),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `Failed to update question: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+export async function createQuestion(question: QuestionUpdateRequest): Promise<QuestionDetail> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+        body: JSON.stringify(question),
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `Failed to create question: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+export async function deleteQuestion(questionId: number): Promise<void> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `Failed to delete question: ${response.statusText}`);
+    }
 }

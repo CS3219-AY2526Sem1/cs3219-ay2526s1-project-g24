@@ -1,17 +1,30 @@
 const API_URL = "http://localhost:8001/v1";
 
+export enum ProficiencyLevel {
+  BEGINNER = "beginner",
+  INTERMEDIATE = "intermediate",
+  ADVANCED = "advanced",
+}
+
+export enum ProgrammingLanguage {
+  CPP = "cpp",
+  JAVA = "java",
+  PYTHON = "python",
+  JAVASCRIPT = "javascript",
+}
+
 export interface User {
   id: string;
-  username: string;
-  display_name: string;
+  username?: string;
+  display_name?: string;
   email: string;
-  avatar_url: string;
-  google_id: string;
-  description: string;
-  programming_proficiency: "beginner" | "intermediate" | "advanced";
-  role: "user" | "admin";
-  created_at: string;
-  updated_at: string;
+  avatar_url?: string;
+  google_id?: string;
+  description?: string;
+  programming_proficiency?: ProficiencyLevel;
+  preferred_language?: ProgrammingLanguage;
+  created_at?: string;
+  updated_at?: string;
 }
 
 export interface Session {
@@ -86,22 +99,34 @@ export const updateUser = async (user: Partial<User>): Promise<User> => {
   return response.json();
 };
 
-export const updateUserRole = async (
+export const assignRoleToUser = async (
   userId: string,
-  role: string
-): Promise<User> => {
-  const response = await fetch(`${API_URL}/users/${userId}/role`, {
-    method: "PATCH",
+  roleId: number
+): Promise<void> => {
+  const response = await fetch(`${API_URL}/admin/users/${userId}/roles`, {
+    method: "POST",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ role }),
+    body: JSON.stringify({ roleId }),
   });
   if (!response.ok) {
-    throw new Error("Failed to update user role");
+    throw new Error("Failed to assign role to user");
   }
-  return response.json();
+};
+
+export const removeRoleFromUser = async (
+  userId: string,
+  roleId: number
+): Promise<void> => {
+  const response = await fetch(`${API_URL}/admin/users/${userId}/roles/${roleId}`, {
+    method: "DELETE",
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to remove role from user");
+  }
 };
 
 export const deleteUser = async (userId: string): Promise<void> => {
