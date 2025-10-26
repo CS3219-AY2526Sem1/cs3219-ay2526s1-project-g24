@@ -171,7 +171,7 @@ Run the container:
 
 ```bash
 docker run -p 3003:3003 \
-  -e DATABASE_URL=postgresql://... \
+  -e DATABASE_URL=postgresql://.. \
   -e REDIS_HOST=redis \
   collab-service
 ```
