@@ -67,8 +67,8 @@ class MatchingServiceClient {
     let errorPayload: any = null;
     try {
       errorPayload = await response.json();
-    } catch (err) {
-      console.error('Failed to parse error response:', err);
+    } catch {
+      // Ignore JSON parse failures for error payloads
     }
 
     if (response.status === 409 && errorPayload?.reqId) {
@@ -172,6 +172,26 @@ class MatchingServiceClient {
       { withCredentials: true },
     );
 
+    // Listen for application-level SSE error events sent by the server.
+    // The matching service emits a custom SSE event with name "error" and a JSON payload
+    // when rejecting duplicate connections (HTTP 409). If we can parse that payload and
+    // detect the duplicate message, surface a precise error instead of inferring.
+    eventSource.addEventListener('error', (evt) => {
+      try {
+        // Some browsers dispatch built-in network errors here without data so we guard accordingly.
+        const dataStr = (evt as MessageEvent).data as string | undefined;
+        if (!dataStr) return;
+        const payload = JSON.parse(dataStr);
+        
+        if (payload?.code === 'DUPLICATE_SSE') {
+          onError?.(new Error('Duplicate SSE connection'));
+          eventSource.close();
+        }
+      } catch {
+        // Ignore malformed payloads
+      }
+    });
+
     eventSource.onmessage = (event) => {
       try {
         const data = JSON.parse(event.data) as MatchEvent;
@@ -182,35 +202,37 @@ class MatchingServiceClient {
       }
     };
 
-    eventSource.onerror = (error) => {
-      console.error('SSE connection error:', error);
-      
-      // Check if this is a duplicate connection error (409)
-      // EventSource doesn't expose status codes, but we can check readyState
-      if (eventSource.readyState === EventSource.CLOSED) {
-        // Try to get the current status to see if it was a duplicate connection
-        this.getMatchRequestStatus(reqId)
-          .then(status => {
-            if (status.status === 'matched' && status.sessionId) {
-              // Request was matched, treat as success
-              onEvent({
-                status: 'matched',
-                sessionId: status.sessionId,
-                timestamp: Date.now(),
-              });
-            } else {
-              onError?.(new Error('SSE connection error'));
-            }
-          })
-          .catch(err => {
-            console.error('Failed to get status after SSE error:', err);
+    eventSource.onerror = (_error) => {
+      // On SSE errors (including normal server-initiated close after a terminal event),
+      // fetch the latest status and treat terminal states as normal outcomes instead of errors.
+      this.getMatchRequestStatus(reqId)
+        .then((status) => {
+          if (status.status === 'matched' && status.sessionId) {
+            onEvent({ 
+              status: 'matched', 
+              sessionId: status.sessionId, 
+              timestamp: Date.now() 
+            });
+          } else if (status.status === 'timeout' || status.status === 'cancelled') {
+            onEvent({ 
+              status: status.status, 
+              timestamp: Date.now() 
+            });
+          } else if (status.status === 'queued') {
+                // If still queued, this is likely a transient error or the server rejected us.
+                // We rely on the application-level SSE 'error' event (handled above) to flag true duplicates.
+                onError?.(new Error('SSE connection error'));
+          } else {
             onError?.(new Error('SSE connection error'));
-          });
-      } else {
-        onError?.(new Error('SSE connection error'));
-      }
-      
-      eventSource.close();
+          }
+        })
+        .catch((err) => {
+          console.error('Failed to get status after SSE error:', err);
+          onError?.(new Error('SSE connection error'));
+        })
+        .finally(() => {
+          eventSource.close();
+        });
     };
 
     // Return cleanup function

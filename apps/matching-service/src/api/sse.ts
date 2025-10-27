@@ -60,7 +60,8 @@ export async function handleSSE(req: Request, res: Response) {
       logger.warn({ reqId }, "Rejecting duplicate SSE connection");
       res.status(409).write(
         `event: error\ndata: ${JSON.stringify({ 
-          error: "Another SSE connection already exists for this request" 
+          error: "Another SSE connection already exists for this request",
+          code: "DUPLICATE_SSE"
         })}\n\n`,
       );
       res.end();
@@ -74,7 +75,8 @@ export async function handleSSE(req: Request, res: Response) {
       logger.warn({ reqId }, "Race: SSE connection established concurrently");
       res.status(409).write(
         `event: error\ndata: ${JSON.stringify({ 
-          error: "Another SSE connection was just established" 
+          error: "Another SSE connection was just established",
+          code: "DUPLICATE_SSE"
         })}\n\n`,
       );
       res.end();
