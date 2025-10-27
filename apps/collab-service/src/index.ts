@@ -37,7 +37,14 @@ async function main() {
         SnapshotService.startPeriodicSnapshots();
 
         // Graceful shutdown
+        let isShuttingDown = false;
         const gracefulShutdown = async (signal: string) => {
+            if (isShuttingDown) {
+                console.log(`${signal} received, but shutdown already in progress...`);
+                return;
+            }
+            isShuttingDown = true;
+
             console.log(`\n${signal} received. Starting graceful shutdown...`);
 
             // Stop heartbeat
