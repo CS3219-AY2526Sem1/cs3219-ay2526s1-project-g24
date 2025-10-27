@@ -19,7 +19,7 @@ async function main() {
             await Promise.all([getRedisPubClient(), getRedisSubClient()]);
             console.log('✓ Redis pub/sub clients ready');
         } catch (err) {
-            console.warn('⚠️  Redis pub/sub initialization failed:', err);
+            console.warn('Redis pub/sub initialization failed:', err);
         }
 
         // Create and start server
