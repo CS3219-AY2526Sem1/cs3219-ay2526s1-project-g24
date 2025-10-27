@@ -27,6 +27,9 @@ function Wait() {
         const cleanup = matchingService.subscribeToMatchEvents(
             reqId,
             (event) => {
+                // TODO: replace with some actual logger, or just ignore tbh
+                // console.log("Match event received:", event);
+
                 if (typeof event.elapsed === "number") {
                     setSeconds(event.elapsed);
                 }
