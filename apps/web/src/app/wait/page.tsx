@@ -27,8 +27,6 @@ function Wait() {
         const cleanup = matchingService.subscribeToMatchEvents(
             reqId,
             (event) => {
-                console.log("Match event received:", event);
-
                 if (typeof event.elapsed === "number") {
                     setSeconds(event.elapsed);
                 }
@@ -51,6 +49,9 @@ function Wait() {
         );
 
         return () => {
+            // Clear local state
+            sessionStorage.removeItem("matchRequestId");
+            sessionStorage.removeItem("matchUserId");
             cleanup();
         };
     }, [router]);
