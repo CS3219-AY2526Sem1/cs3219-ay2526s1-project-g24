@@ -79,9 +79,9 @@ export async function disconnectRedis(): Promise<void> {
         if (client && client.isOpen) {
             try {
                 await client.quit();
-                console.log(`✓ Redis ${name} client disconnected`);
+                console.log(`Redis ${name} client disconnected`);
             } catch (error) {
-                console.warn(`⚠️  Error disconnecting Redis ${name} client:`, error);
+                console.warn(`Error disconnecting Redis ${name} client:`, error);
             }
         }
     }

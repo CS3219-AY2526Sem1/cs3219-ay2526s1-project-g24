@@ -17,7 +17,7 @@ async function main() {
         // Warm up Redis pub/sub clients for YjsService
         try {
             await Promise.all([getRedisPubClient(), getRedisSubClient()]);
-            console.log('✓ Redis pub/sub clients ready');
+            console.log('Redis pub/sub clients ready');
         } catch (err) {
             console.warn('Redis pub/sub initialization failed:', err);
         }
@@ -66,7 +66,7 @@ async function main() {
 
             // Close HTTP server
             server.close(async () => {
-                console.log('✓ HTTP server closed');
+                console.log('HTTP server closed');
 
                 // Clean up all Y.Docs
                 YjsService.clearAll();
@@ -75,7 +75,7 @@ async function main() {
                 await disconnectRedis();
                 await disconnectDatabase();
 
-                console.log('✓ Graceful shutdown complete');
+                console.log('Graceful shutdown complete');
                 process.exit(0);
             });
 
