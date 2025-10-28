@@ -17,17 +17,17 @@ export function authenticate(
         if (config.enableMockAuth) {
             console.log('🔓 Mock authentication enabled - bypassing JWT verification');
 
-            // Extract userId from header if provided, otherwise use default
+            // Extract userId from Authorization: Bearer <userId> if provided; else default mock user
             const authHeader = req.headers.authorization;
             let userId = '123e4567-e89b-12d3-a456-426614174001'; // Default mock user
 
             if (authHeader && authHeader.startsWith('Bearer ')) {
                 const token = authHeader.substring(7);
-                userId = token.split(' ')[1] || '123e4567-e89b-12d3-a456-426614174001'; // Use token as userId directly
+                userId = token && token.length > 0 ? token : userId;
             }
 
             req.user = {
-                userId: userId,
+                userId,
                 email: `${userId}@mock.local`,
             };
 

@@ -153,7 +153,7 @@ services:
       REDIS_HOST: matching_redis
       REDIS_PORT: 6379
       REDIS_PASSWORD: ""
-      COLLABORATION_SERVICE_URL: http://collaboration_service:4000
+      COLLABORATION_SERVICE_URL: http://collab-service:3003
       MATCH_TIMEOUT_SECONDS: 30
       REQUEST_TTL_SECONDS: 60
       LOG_LEVEL: info
@@ -168,6 +168,70 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s
+    networks:
+      - app_network
+
+  collab-db:
+    container_name: collab-db
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${COLLAB_DB_PASSWORD:-postgres}
+      POSTGRES_DB: collab_dev
+    ports:
+      - "5435:5432"
+    volumes:
+      - collab_db_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d collab_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  collab-redis:
+    container_name: collab-redis
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6380:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - collab_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app_network
+
+  collab-service:
+    container_name: collab-service
+    build:
+      context: ./apps/collab-service
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3003:3003"
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      DATABASE_URL: postgresql://postgres:${COLLAB_DB_PASSWORD:-postgres}@collab-db:5432/collab_dev
+      REDIS_HOST: collab-redis
+      REDIS_PORT: 6379
+      # REDIS_PASSWORD: ""  # Uncomment and set if you secure Redis
+      ENABLE_MOCK_AUTH: "true"
+      JWT_SECRET: ${COLLAB_JWT_SECRET:-changeme-in-prod}
+    command: >
+      sh -c "prisma migrate deploy && node dist/index.js"
+    depends_on:
+      collab-db:
+        condition: service_healthy
+      collab-redis:
+        condition: service_healthy
     networks:
       - app_network
 
@@ -269,6 +333,10 @@ volumes:
   matching_redis_data:
     driver: local
   judgezero_db_data:
+    driver: local
+  collab_db_data:
+    driver: local
+  collab_redis_data:
     driver: local
 
 networks:
