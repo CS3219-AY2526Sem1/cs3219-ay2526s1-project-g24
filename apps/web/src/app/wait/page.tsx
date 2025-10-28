@@ -27,8 +27,13 @@ function Wait() {
         const cleanup = matchingService.subscribeToMatchEvents(
             reqId,
             (event) => {
-                console.log("Match event received:", event);
-                
+                // TODO: replace with some actual logger, or just ignore tbh
+                // console.log("Match event received:", event);
+
+                if (typeof event.elapsed === "number") {
+                    setSeconds(event.elapsed);
+                }
+
                 if (event.status === "matched" && event.sessionId) {
                     // Store session ID and redirect to collaborative coding
                     sessionStorage.setItem("sessionId", event.sessionId);
@@ -43,10 +48,13 @@ function Wait() {
             (error) => {
                 console.error("SSE error:", error);
                 setError("Connection error - please try again");
-            }
+            },
         );
 
         return () => {
+            // Clear local state
+            sessionStorage.removeItem("matchRequestId");
+            sessionStorage.removeItem("matchUserId");
             cleanup();
         };
     }, [router]);
@@ -62,14 +70,40 @@ function Wait() {
     const handleCancel = async () => {
         if (requestId) {
             try {
-                await matchingService.cancelMatchRequest(requestId);
+                const result = await matchingService.cancelMatchRequest(requestId);
+
+                if (result.alreadyMatched) {
+                    // Race condition: User was matched right when they clicked cancel
+                    console.log("Already matched - redirecting to session");
+
+                    if (result.sessionId) {
+                        // Store session ID and redirect to collaborative coding
+                        sessionStorage.setItem("sessionId", result.sessionId);
+                        sessionStorage.removeItem("matchRequestId");
+                        sessionStorage.removeItem("matchUserId");
+                        router.push("/collaborative-coding");
+                        return;
+                    }
+
+                    // If no session ID available, show message and wait for SSE event
+                    setError("Match found! Redirecting...");
+                    // SSE event handler will redirect when it receives the matched event
+                    return;
+                }
+
+                // Successfully cancelled
                 sessionStorage.removeItem("matchRequestId");
                 sessionStorage.removeItem("matchUserId");
+                router.push("/match");
             } catch (err) {
                 console.error("Failed to cancel match:", err);
+                setError("Failed to cancel - please try again");
+                // Still redirect after showing error briefly
+                setTimeout(() => router.push("/match"), 2000);
             }
+        } else {
+            router.push("/match");
         }
-        router.push("/match");
     };
 
     return (
@@ -108,7 +142,10 @@ function Wait() {
             </button>
 
             <p className="font-montserrat text-[#9e9e9e] text-sm">
-                wait time {Math.floor(seconds / TIME_FORMAT.SECONDS_PER_MINUTE)}:{(seconds % TIME_FORMAT.SECONDS_PER_MINUTE).toString().padStart(TIME_FORMAT.PAD_LENGTH, TIME_FORMAT.PAD_CHAR)}
+                wait time {Math.floor(seconds / TIME_FORMAT.SECONDS_PER_MINUTE)}:
+                {(seconds % TIME_FORMAT.SECONDS_PER_MINUTE)
+                    .toString()
+                    .padStart(TIME_FORMAT.PAD_LENGTH, TIME_FORMAT.PAD_CHAR)}
             </p>
         </div>
     );

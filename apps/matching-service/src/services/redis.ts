@@ -115,7 +115,9 @@ export const redisOps = {
     const redis = getRedis();
     const key = RedisKeys.request(reqId);
 
-    const data = await trackLatency("hgetall", () => redis.hgetall(key)) as Record<string, string>;
+    const data = (await trackLatency("hgetall", () =>
+      redis.hgetall(key),
+    )) as Record<string, string>;
 
     if (!data || Object.keys(data).length === 0) {
       return null;
@@ -148,6 +150,77 @@ export const redisOps = {
     await trackLatency("hset", () => redis.hset(key, updates));
   },
 
+  /**
+   * Atomically update request status only if current status matches expected status
+   * Uses Redis WATCH for optimistic locking to prevent race conditions
+   *
+   * @returns true if update succeeded, false if status was changed by another operation
+   */
+  async atomicUpdateRequestStatus(
+    reqId: string,
+    expectedStatus: StoredMatchRequest["status"],
+    newStatus: StoredMatchRequest["status"],
+    sessionId?: string,
+  ): Promise<boolean> {
+    const redis = getRedis();
+    const key = RedisKeys.request(reqId);
+
+    const maxRetries = 3;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      try {
+        // Watch the key for changes
+        await redis.watch(key);
+
+        // Get current status
+        const currentStatus = await redis.hget(key, "status");
+
+        // Check if status matches expected
+        if (currentStatus !== expectedStatus) {
+          await redis.unwatch();
+          logger.debug(
+            { reqId, expectedStatus, currentStatus, newStatus },
+            "Status mismatch - request status changed",
+          );
+          return false;
+        }
+
+        // Atomically update status if key hasn't changed
+        const updates: Record<string, string> = { status: newStatus };
+        if (sessionId) {
+          updates.sessionId = sessionId;
+        }
+
+        const result = await trackLatency("multi", () =>
+          redis.multi().hset(key, updates).exec(),
+        );
+
+        // result is null if transaction was aborted (key was modified)
+        if (result === null) {
+          logger.debug(
+            { reqId, attempt: attempt + 1 },
+            "Transaction aborted - retrying",
+          );
+          continue;
+        }
+
+        logger.debug(
+          { reqId, expectedStatus, newStatus },
+          "Atomic status update succeeded",
+        );
+        return true;
+      } catch (error) {
+        await redis.unwatch();
+        throw error;
+      }
+    }
+
+    logger.warn(
+      { reqId, expectedStatus, newStatus, maxRetries },
+      "Atomic status update failed after max retries",
+    );
+    return false;
+  },
+
   async enqueue(
     reqId: string,
     difficulty: Difficulty,
@@ -177,9 +250,9 @@ export const redisOps = {
     const queueKey = RedisKeys.queue(difficulty);
 
     // ZPOPMIN returns [member1, score1, member2, score2, ...]
-    const results = await trackLatency("zpopmin", () =>
+    const results = (await trackLatency("zpopmin", () =>
       redis.zpopmin(queueKey, count),
-    ) as string[];
+    )) as string[];
 
     // Extract reqId and score pairs
     const items: Array<{ reqId: string; score: number }> = [];
@@ -306,5 +379,106 @@ export const redisOps = {
   async getTimeoutCount(): Promise<number> {
     const redis = getRedis();
     return trackLatency("zcard", () => redis.zcard("match:timeouts"));
+  },
+
+  /**
+   * Atomically retrieve and remove all expired timeouts.
+   * Returns array of request identifiers that need to be processed.
+   */
+  async popExpiredTimeouts(limit?: number): Promise<
+    Array<{ reqId: string; difficulty: Difficulty }>
+  > {
+    const redis = getRedis();
+    const key = "match:timeouts";
+    const now = Date.now();
+
+    const multi = redis.multi();
+
+    if (limit && limit > 0) {
+      multi.zrangebyscore(key, "-inf", now, "LIMIT", 0, limit);
+    } else {
+      multi.zrangebyscore(key, "-inf", now);
+    }
+
+    multi.zremrangebyscore(key, "-inf", now);
+
+    const results = (await trackLatency("pop_expired_timeouts", () =>
+      multi.exec(),
+    )) as Array<[Error | null, unknown]> | null;
+
+    if (!results || results.length === 0) {
+      return [];
+    }
+
+    const members = (results[0]?.[1] as string[]) || [];
+
+    if (members.length === 0) {
+      return [];
+    }
+
+    return members.map((member) => {
+      const [reqId, difficulty] = member.split(":");
+      return { reqId, difficulty: difficulty as Difficulty };
+    });
+  },
+
+  /**
+   * Check if user has an active match request
+   * Returns reqId if found, null otherwise
+   */
+  async getUserActiveRequest(userId: string): Promise<string | null> {
+    const redis = getRedis();
+    return trackLatency("get", () => redis.get(`user:active:${userId}`));
+  },
+
+  /**
+   * Set user's active request (used for deduplication)
+   */
+  async setUserActiveRequest(
+    userId: string,
+    reqId: string,
+    ttlSeconds: number,
+  ): Promise<void> {
+    const redis = getRedis();
+    await trackLatency("setex", () =>
+      redis.setex(`user:active:${userId}`, ttlSeconds, reqId),
+    );
+  },
+
+  /**
+   * Remove user's active request marker
+   */
+  async removeUserActiveRequest(userId: string): Promise<void> {
+    const redis = getRedis();
+    await trackLatency("del", () => redis.del(`user:active:${userId}`));
+  },
+
+  /**
+   * Track active SSE connection for a request (prevents multiple connections)
+   */
+  async setActiveSSEConnection(reqId: string, ttlSeconds: number = 60): Promise<boolean> {
+    const redis = getRedis();
+    // Use SET with NX (only set if not exists) for atomic check-and-set
+    const result = await trackLatency("set", () =>
+      redis.set(`sse:active:${reqId}`, Date.now().toString(), "EX", ttlSeconds, "NX"),
+    );
+    return result === "OK";
+  },
+
+  /**
+   * Remove active SSE connection marker
+   */
+  async removeActiveSSEConnection(reqId: string): Promise<void> {
+    const redis = getRedis();
+    await trackLatency("del", () => redis.del(`sse:active:${reqId}`));
+  },
+
+  /**
+   * Check if SSE connection exists for a request
+   */
+  async hasActiveSSEConnection(reqId: string): Promise<boolean> {
+    const redis = getRedis();
+    const exists = await trackLatency("exists", () => redis.exists(`sse:active:${reqId}`));
+    return exists === 1;
   },
 };
