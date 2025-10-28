@@ -41,9 +41,14 @@ class TestErrorHandling:
             "title": "Invalid Topic",
             "description": "Test",
             "difficulty": "easy",
-            "code_templates": {},
-            "function_signature": {},
+            "code_templates": {"python": "def solution(): pass"},
+            "function_signature": {
+                "function_name": "solution",
+                "arguments": [],
+                "return_type": "void"
+            },
             "topic_ids": [99999],  # Non-existent topic
+            "test_cases": []
         }
 
         response = client.post("/api/questions", json=invalid_data)
@@ -57,9 +62,14 @@ class TestErrorHandling:
             "title": "Invalid Company",
             "description": "Test",
             "difficulty": "easy",
-            "code_templates": {},
-            "function_signature": {},
+            "code_templates": {"python": "def solution(): pass"},
+            "function_signature": {
+                "function_name": "solution",
+                "arguments": [],
+                "return_type": "void"
+            },
             "company_ids": [99999],  # Non-existent company
+            "test_cases": []
         }
 
         response = client.post("/api/questions", json=invalid_data)
@@ -218,7 +228,11 @@ class TestComplexWorkflows:
             "description": "Testing full lifecycle",
             "difficulty": "medium",
             "code_templates": {"python": "def solution(): pass"},
-            "function_signature": {"function_name": "solution"},
+            "function_signature": {
+                "function_name": "solution",
+                "arguments": [],
+                "return_type": "void"
+            },
             "topic_ids": [sample_topics[0].id],
             "company_ids": [sample_companies[0].id],
             "test_cases": [

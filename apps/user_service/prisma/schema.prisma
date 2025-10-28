@@ -3,7 +3,7 @@
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("USERDB_DATABASE_URL")
 }
 
 generator client {
@@ -16,6 +16,13 @@ enum proficiency_level {
   advanced
 }
 
+enum programming_language {
+  cpp
+  java
+  python
+  javascript
+}
+
 model User {
   id                      String                @id @default(uuid())
   username                String?               @unique
@@ -25,11 +32,33 @@ model User {
   google_id               String?               @unique
   description             String?
   programming_proficiency proficiency_level?
+  preferred_language      programming_language?
   created_at              DateTime              @default(now())
   updated_at              DateTime              @updatedAt
   roles                   UserRole[]
+  refresh_token_families  RefreshTokenFamily[]
 
   @@map("users")
+}
+
+model RefreshTokenFamily {
+  id             String         @id @default(uuid())
+  user_id        String
+  user           User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  is_revoked     Boolean        @default(false)
+  refresh_tokens RefreshToken[]
+
+  @@map("refresh_token_families")
+}
+
+model RefreshToken {
+  id         String             @id
+  family_id  String
+  family     RefreshTokenFamily @relation(fields: [family_id], references: [id], onDelete: Cascade)
+  is_used    Boolean            @default(false)
+  created_at DateTime           @default(now())
+
+  @@map("refresh_tokens")
 }
 
 model Role {

@@ -18,7 +18,11 @@ class TestQuestionCRUD:
             description="Test description",
             difficulty=schemas.DifficultyEnum.EASY,
             code_templates={"python": "def solution():\n    pass"},
-            function_signature={"function_name": "solution"},
+            function_signature={
+                "function_name": "solution",
+                "arguments": [],
+                "return_type": "void"
+            },
             topic_ids=[sample_topics[0].id],
             company_ids=[sample_companies[0].id],
             test_cases=[

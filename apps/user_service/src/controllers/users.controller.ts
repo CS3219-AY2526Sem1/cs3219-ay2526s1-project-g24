@@ -36,6 +36,7 @@ export class UsersController extends Controller {
     @BodyProp() display_name?: string,
     @BodyProp() description?: string,
     @BodyProp() programming_proficiency?: 'beginner' | 'intermediate' | 'advanced',
+    @BodyProp() preferred_language?: 'cpp' | 'java' | 'python' | 'javascript',
     @BodyProp() avatar_url?: string
   ) {
     const user = await updateUser(req.user.id, {
@@ -43,6 +44,7 @@ export class UsersController extends Controller {
       display_name,
       description,
       programming_proficiency,
+      preferred_language,
       avatar_url,
     });
     if (!user) {
@@ -84,12 +86,14 @@ export class UsersController extends Controller {
     @BodyProp() display_name?: string,
     @BodyProp() description?: string,
     @BodyProp() programming_proficiency?: 'beginner' | 'intermediate' | 'advanced',
+    @BodyProp() preferred_language?: 'cpp' | 'java' | 'python' | 'javascript',
   ) {
     const user = await updateUser(userId, {
       username,
       display_name,
       description,
       programming_proficiency,
+      preferred_language,
     });
     if (!user) {
       this.setStatus(404);

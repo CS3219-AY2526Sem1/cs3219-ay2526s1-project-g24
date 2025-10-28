@@ -15,6 +15,24 @@ class TestCaseVisibility(str, Enum):
     PRIVATE = "private"
     SAMPLE = "sample"
 
+# Function Signature Schemas (for structured code generation)
+class FunctionArgument(BaseModel):
+    """Represents a function argument with name and type"""
+    name: str
+    type: str  # Generic type like "int", "int[]", "string", "ListNode", etc.
+    
+    class Config:
+        from_attributes = True
+
+class FunctionSignature(BaseModel):
+    """Structured function metadata for code generation"""
+    function_name: str
+    arguments: List[FunctionArgument]
+    return_type: str
+    
+    class Config:
+        from_attributes = True
+
 # Topic Schemas
 class TopicBase(BaseModel):
     name: str
@@ -76,9 +94,36 @@ class QuestionBase(BaseModel):
     description: str
     difficulty: DifficultyEnum
     code_templates: Dict[str, str]  # {"python": "...", "javascript": "..."}
-    function_signature: Dict[str, Any]
+    function_signature: Dict[str, Any]  # Stored as JSON, validated as FunctionSignature structure
     constraints: Optional[str] = None
     hints: Optional[List[str]] = None
+    time_limit: Dict[str, int] = Field(
+        default={"python": 5, "javascript": 5, "java": 10, "cpp": 3},
+        description="Time limit in seconds per language"
+    )
+    memory_limit: Dict[str, int] = Field(
+        default={"python": 64000, "javascript": 64000, "java": 128000, "cpp": 32000},
+        description="Memory limit in KB per language"
+    )
+    
+    @validator('function_signature')
+    def validate_function_signature(cls, v):
+        """Validate function_signature has correct structure"""
+        if not isinstance(v, dict):
+            raise ValueError("function_signature must be a dictionary")
+        
+        required_keys = {'function_name', 'arguments', 'return_type'}
+        if not all(key in v for key in required_keys):
+            raise ValueError(f"function_signature must contain keys: {required_keys}")
+        
+        if not isinstance(v['arguments'], list):
+            raise ValueError("arguments must be a list")
+        
+        for arg in v['arguments']:
+            if not isinstance(arg, dict) or 'name' not in arg or 'type' not in arg:
+                raise ValueError("Each argument must have 'name' and 'type' keys")
+        
+        return v
 
 class QuestionCreate(QuestionBase):
     topic_ids: List[int] = []
@@ -92,6 +137,8 @@ class QuestionUpdate(BaseModel):
     code_templates: Optional[Dict[str, str]] = None
     constraints: Optional[str] = None
     hints: Optional[List[str]] = None
+    time_limit: Optional[Dict[str, int]] = Field(None, description="Time limit in seconds per language")
+    memory_limit: Optional[Dict[str, int]] = Field(None, description="Memory limit in KB per language")
     topic_ids: Optional[List[int]] = None
     company_ids: Optional[List[int]] = None
 
@@ -157,14 +204,13 @@ class QuestionListResponse(BaseModel):
 
 # Code Execution Schemas
 class CodeExecutionRequest(BaseModel):
-    question_id: int
     language: str
     code: str
     test_case_ids: Optional[List[int]] = None  # If None, run against sample cases
     
     @validator('language')
     def validate_language(cls, v):
-        allowed = ['python', 'javascript', 'java', 'cpp', 'go']
+        allowed = ['python', 'javascript', 'java', 'cpp']
         if v not in allowed:
             raise ValueError(f'Language must be one of {allowed}')
         return v
@@ -191,7 +237,6 @@ class CodeExecutionResponse(BaseModel):
 
 # Submission Schemas
 class SubmissionRequest(BaseModel):
-    question_id: int
     language: str
     code: str
 

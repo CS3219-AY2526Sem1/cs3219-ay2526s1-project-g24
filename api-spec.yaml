@@ -1,0 +1,2141 @@
+openapi: 3.0.0
+info:
+  title: PeerPrep API
+  description: API specification for PeerPrep G24 AY25/26
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8001
+    description: User Service
+  - url: http://localhost:3002
+    description: Matching Service
+  - url: http://localhost:8000
+    description: Question Service
+  - url: http://localhost:3010
+    description: Code Execution Service
+  - url: http://localhost:8005
+    description: Collaboration Service (future)
+  - url: http://localhost:8006
+    description: Queue Service (Internal, future)
+
+tags:
+  - name: Authentication
+    description: Google OAuth and session management + JWKS
+  - name: Users
+    description: User profile management
+  - name: Users - Admin
+    description: Admin-only user management
+  - name: Matching
+    description: Peer matching service with SSE
+  - name: Questions
+    description: Question retrieval (public)
+  - name: Questions - Admin
+    description: Admin-only question management
+  - name: Collaboration
+    description: Real-time collaboration sessions
+  - name: Queue
+    description: Internal queue service
+  - name: Health
+    description: Health check and metrics endpoints
+
+paths:
+  # ========== USER SERVICE ==========
+  # User Service: JWKS Endpoint (Public Token)
+  /.well-known/jwks.json:
+    get:
+      tags:
+        - Authentication
+      summary: Get JWKS public keys (All services need this to verify JWTs)
+      description: Returns the JSON Web Key Set (JWKS) for JWT verification.
+      responses:
+        "200":
+          description: JWKS response
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  keys:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kty:
+                          type: string
+                        alg:
+                          type: string
+                        use:
+                          type: string
+                        kid:
+                          type: string
+                        n:
+                          type: string
+                        e:
+                          type: string
+
+  # User Service: Authentication Endpoints
+  /v1/auth/google/url:
+    get:
+      tags:
+        - Authentication
+      summary: Get Google OAuth URL
+      description: Returns the Google OAuth authorization URL for login
+      responses:
+        "200":
+          description: OAuth URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  url:
+                    type: string
+                    format: uri
+
+  /v1/auth/google/callback:
+    get:
+      tags:
+        - Authentication
+      summary: Google OAuth callback
+      description: Handles the OAuth callback from Google. Sets auth_token cookie and returns accessToken.
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Authentication successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+          headers:
+            Set-Cookie:
+              description: HttpOnly cookie with JWT access token
+              schema:
+                type: string
+        "500":
+          description: Internal server error
+  /v1/auth/refresh:
+    post:
+      tags:
+        - Authentication
+      summary: Refresh access token
+      security:
+        - bearerAuth: []
+      description: Issues a new JWT and sets auth_token cookie.
+      responses:
+        "200":
+          description: Token refreshed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken:
+                    type: string
+          headers:
+            Set-Cookie:
+              description: HttpOnly cookie with new JWT access token
+              schema:
+                type: string
+
+  /v1/auth/logout:
+    post:
+      tags:
+        - Authentication
+      summary: Logout user
+      description: Clears the auth_token cookie.
+      responses:
+        "200":
+          description: Logout successful
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+          headers:
+            Set-Cookie:
+              description: Clears auth_token cookie
+              schema:
+                type: string
+  /v1/auth/session:
+    get:
+      tags:
+        - Authentication
+      summary: Get current session
+      security:
+        - bearerAuth: []
+      description: Returns the current authenticated user object from JWT.
+      responses:
+        "200":
+          description: Session retrieved
+          content:
+            application/json:
+              schema:
+                type: object
+                description: The authenticated user object (same as JWT payload)
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  # User Service: User Profile Management
+  /v1/users/me:
+    get:
+      tags:
+        - Users
+      summary: Get current user profile
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+    patch:
+      tags:
+        - Users
+      summary: Update current user profile
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                display_name:
+                  type: string
+                description:
+                  type: string
+                programming_proficiency:
+                  type: string
+                  enum: [beginner, intermediate, advanced]
+                avatar_url:
+                  type: string
+                  format: uri
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+    delete:
+      tags:
+        - Users
+      summary: Delete current user account
+      security:
+        - bearerAuth: []
+      responses:
+        "204":
+          description: User deleted
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /v1/users/{userId}:
+    get:
+      tags:
+        - Users
+      summary: Get user profile by ID (Admin)
+      security:
+        - bearerAuth: []
+      description: Requires scope `users:read`.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          description: User not found
+
+    patch:
+      tags:
+        - Users
+      summary: Update user profile by ID (Admin)
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:users:edit`.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                username:
+                  type: string
+                display_name:
+                  type: string
+                description:
+                  type: string
+                programming_proficiency:
+                  type: string
+                  enum: [beginner, intermediate, advanced]
+      responses:
+        "200":
+          description: Profile updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserProfile"
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          description: User not found
+
+    delete:
+      tags:
+        - Users
+      summary: Delete user by ID (Admin)
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:users:delete`.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: User deleted
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+        "404":
+          description: User not found
+
+  # User Service: Admin User Management
+
+  /v1/admin/roles:
+    post:
+      tags:
+        - Admin
+      summary: Create a new role
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:roles:create`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: Role created
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+    get:
+      tags:
+        - Admin
+      summary: Get all roles
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:roles:read`.
+      responses:
+        "200":
+          description: List of roles
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /v1/admin/permissions:
+    post:
+      tags:
+        - Admin
+      summary: Create a new permission
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:permissions:create`.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        "200":
+          description: Permission created
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+    get:
+      tags:
+        - Admin
+      summary: Get all permissions
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:permissions:read`.
+      responses:
+        "200":
+          description: List of permissions
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /v1/admin/users/{userId}/roles:
+    post:
+      tags:
+        - Admin
+      summary: Assign role to user
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:users:edit-roles`.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                roleId:
+                  type: integer
+      responses:
+        "200":
+          description: Role assigned
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /v1/admin/users/{userId}/roles/{roleId}:
+    delete:
+      tags:
+        - Admin
+      summary: Remove role from user
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:users:edit-roles`.
+      parameters:
+        - name: userId
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Role removed
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /v1/admin/roles/{roleId}/permissions:
+    post:
+      tags:
+        - Admin
+      summary: Grant permission to role
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:roles:edit-permissions`.
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                permissionId:
+                  type: integer
+      responses:
+        "200":
+          description: Permission granted
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+  /v1/admin/roles/{roleId}/permissions/{permissionId}:
+    delete:
+      tags:
+        - Admin
+      summary: Revoke permission from role
+      security:
+        - bearerAuth: []
+      description: Requires scope `admin:roles:edit-permissions`.
+      parameters:
+        - name: roleId
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: permissionId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Permission revoked
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  # ========== MATCHING SERVICE ==========
+  /v1/match/requests:
+    post:
+      tags:
+        - Matching
+      summary: Create match request
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - difficulty
+                - language
+                - topics
+              properties:
+                difficulty:
+                  type: string
+                  enum: [EASY, MEDIUM, HARD]
+                language:
+                  type: string
+                  enum: [python, javascript, java, cpp]
+                topics:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "201":
+          description: Match request created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  requestId:
+                    type: string
+
+  /v1/match/requests/{reqId}:
+    get:
+      tags:
+        - Matching
+      summary: Get match request status
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reqId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Match request details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchRequest"
+
+    delete:
+      tags:
+        - Matching
+      summary: Cancel match request
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reqId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Match request cancelled
+
+  /v1/match/requests/{reqId}/extend:
+    post:
+      tags:
+        - Matching
+      summary: Extend match timeout
+      description: Resets the match timeout countdown, allowing the user to continue waiting for a match
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reqId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Timeout reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  extendsUntil:
+                    type: string
+                    format: date-time
+
+  /v1/match/requests/{reqId}/events:
+    get:
+      tags:
+        - Matching
+      summary: SSE stream for match events
+      description: Server-Sent Events endpoint for real-time match updates. Timeout duration is configurable via MATCH_TIMEOUT_MS environment variable (default 5 minutes). User can reset the timeout by continuing to wait.
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reqId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: SSE stream
+          content:
+            text/event-stream:
+              schema:
+                type: object
+                properties:
+                  event:
+                    type: string
+                    enum: [searching, matched, timeout, cancelled]
+                  data:
+                    type: object
+
+  # ========== QUESTION SERVICE ==========
+  /api/questions:
+    get:
+      tags:
+        - Questions
+      summary: Get all questions (public)
+      description: Retrieve all questions with optional filters for search, difficulty, topics, and pagination
+      parameters:
+        - name: search
+          in: query
+          description: Search by question title or topic keywords
+          schema:
+            type: string
+        - name: difficulty
+          in: query
+          description: Filter by difficulty level
+          schema:
+            type: string
+            enum: [EASY, MEDIUM, HARD]
+        - name: topics
+          in: query
+          description: Filter by one or more topics
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Number of questions per page
+          schema:
+            type: integer
+            default: 20
+      responses:
+        "200":
+          description: Questions list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/QuestionSummary"
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+
+  /api/questions/{qid}:
+    get:
+      tags:
+        - Questions
+      summary: Get question by ID
+      description: Retrieve detailed information about a specific question including description, examples, constraints, and test cases
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Question details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Question"
+        "404":
+          description: Question not found
+
+  /api/questions/{qid}/run:
+    post:
+      tags:
+        - Questions
+      summary: Run code against test cases
+      description: Run code against test cases for a specific question in solo practice mode
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - language
+              properties:
+                code:
+                  type: string
+                  description: The code to execute
+                language:
+                  type: string
+                  enum: [python, javascript, java, cpp]
+                  description: Programming language
+                testCases:
+                  type: array
+                  description: Optional custom test cases (uses default question test cases if not provided)
+                  items:
+                    type: object
+                    properties:
+                      input:
+                        type: string
+                      expectedOutput:
+                        type: string
+      responses:
+        "200":
+          description: Code execution completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionResult"
+        "400":
+          description: Invalid code or language
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /api/questions/{qid}/submit:
+    post:
+      tags:
+        - Questions
+      summary: Submit solution for solo practice
+      description: Submit a solution and save it to user's submission history
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - code
+                - language
+              properties:
+                code:
+                  type: string
+                language:
+                  type: string
+                  enum: [python, javascript, java, cpp]
+      responses:
+        "200":
+          description: Submission recorded
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  submissionId:
+                    type: string
+                  passed:
+                    type: boolean
+                  totalTests:
+                    type: integer
+                  passedTests:
+                    type: integer
+                  executionTime:
+                    type: number
+                  timestamp:
+                    type: string
+                    format: date-time
+        "401":
+          $ref: "#/components/responses/UnauthorizedError"
+
+  /api/topics:
+    get:
+      tags:
+        - Questions
+      summary: Get all available topics
+      description: Retrieve list of all question topics for filter dropdown
+      responses:
+        "200":
+          description: Topics list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+                example:
+                  [
+                    "Arrays",
+                    "Hash Table",
+                    "Strings",
+                    "Dynamic Programming",
+                    "Binary Search",
+                    "DFS",
+                    "BFS",
+                    "Tree",
+                    "Graph",
+                    "Sorting",
+                  ]
+
+  # ========== QUESTION SERVICE - ADMIN ENDPOINTS ==========
+  # Note: Admin endpoints use the same base path (/api/questions) but require authentication
+  # The spec duplicates them here for clarity, but the backend uses the same router with auth checks
+  /v1/admin/questions:
+    get:
+      tags:
+        - Questions - Admin
+      summary: Get all questions with admin details (Admin)
+      description: Retrieve all questions including soft-deleted ones and additional metadata
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          description: Search by question title or topic keywords
+          schema:
+            type: string
+        - name: difficulty
+          in: query
+          description: Filter by difficulty level
+          schema:
+            type: string
+            enum: [EASY, MEDIUM, HARD]
+        - name: topics
+          in: query
+          description: Filter by one or more topics
+          schema:
+            type: array
+            items:
+              type: string
+          style: form
+          explode: true
+        - name: includeDeleted
+          in: query
+          description: Include soft-deleted questions
+          schema:
+            type: boolean
+            default: false
+        - name: page
+          in: query
+          description: Page number for pagination
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          description: Number of questions per page
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Questions list with admin metadata
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminQuestionSummary'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Questions - Admin
+      summary: Create new question (Admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuestionInput"
+      responses:
+        "201":
+          description: Question created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '400':
+          description: Invalid input
+
+  /v1/admin/questions/{qid}:
+    get:
+      tags:
+        - Questions - Admin
+      summary: Get question by ID with admin details (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Question details with admin metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminQuestion'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Question not found
+
+    put:
+      tags:
+        - Questions - Admin
+      summary: Update question (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/QuestionInput"
+      responses:
+        "200":
+          description: Question updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Question not found
+
+    delete:
+      tags:
+        - Questions - Admin
+      summary: Delete question (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: mode
+          in: query
+          schema:
+            type: string
+            enum: [soft, hard]
+            default: soft
+          description: Soft delete (marks as deleted) or hard delete (permanently removes)
+      responses:
+        "204":
+          description: Question deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Question not found
+
+  /v1/admin/questions/{qid}/restore:
+    post:
+      tags:
+        - Questions - Admin
+      summary: Restore soft-deleted question (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Question restored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Question'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+        '404':
+          description: Question not found
+
+  /v1/admin/questions/{qid}/validate:
+    post:
+      tags:
+        - Questions - Admin
+      summary: Validate question test cases (Admin)
+      description: Run test cases through the executor service to verify they work correctly
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: qid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                language:
+                  type: string
+                  enum: [python, javascript, java, cpp]
+                  description: Language to validate test cases in
+      responses:
+        '200':
+          description: Validation results
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  valid:
+                    type: boolean
+                  results:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        testCaseIndex:
+                          type: integer
+                        passed:
+                          type: boolean
+                        error:
+                          type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/test-cases:
+    get:
+      tags:
+        - Questions - Admin
+      summary: Get all test cases for a question (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: questionId
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Test cases list
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/TestCase'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Questions - Admin
+      summary: Add test case to question (Admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - questionId
+                - input
+                - expectedOutput
+              properties:
+                questionId:
+                  type: string
+                input:
+                  type: string
+                expectedOutput:
+                  type: string
+                isPublic:
+                  type: boolean
+                  default: false
+                  description: Whether users can see this test case (public) or it's hidden
+      responses:
+        '201':
+          description: Test case created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestCase'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/test-cases/{tcid}:
+    put:
+      tags:
+        - Questions - Admin
+      summary: Update test case (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tcid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                input:
+                  type: string
+                expectedOutput:
+                  type: string
+                isPublic:
+                  type: boolean
+      responses:
+        '200':
+          description: Test case updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TestCase'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    delete:
+      tags:
+        - Questions - Admin
+      summary: Delete test case (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: tcid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Test case deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/topics:
+    get:
+      tags:
+        - Questions - Admin
+      summary: Get all topics with usage stats (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Topics list with usage stats
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    name:
+                      type: string
+                    questionCount:
+                      type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    post:
+      tags:
+        - Questions - Admin
+      summary: Create new topic (Admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Topic created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  name:
+                    type: string
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/topics/{topicName}:
+    delete:
+      tags:
+        - Questions - Admin
+      summary: Delete topic (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: topicName
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Topic deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ========== USER SERVICE - ADMIN ENDPOINTS ==========
+  /v1/admin/users:
+    get:
+      tags:
+        - Users - Admin
+      summary: Get all users (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: search
+          in: query
+          description: Search by name or email
+          schema:
+            type: string
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Users list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AdminUserProfile'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  limit:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/users/{uid}:
+    get:
+      tags:
+        - Users - Admin
+      summary: Get user by ID (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: User profile with admin metadata
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserProfile'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    patch:
+      tags:
+        - Users - Admin
+      summary: Update user role (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                role:
+                  type: string
+                  enum: [USER, ADMIN]
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdminUserProfile'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+    delete:
+      tags:
+        - Users - Admin
+      summary: Delete user account (Admin)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: uid
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: User deleted
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/images:presign:
+    post:
+      tags:
+        - Questions - Admin
+      summary: Get presigned URL for image upload (Admin)
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - contentType
+              properties:
+                contentType:
+                  type: string
+                  example: "image/png"
+      responses:
+        "200":
+          description: Presigned URL generated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploadUrl:
+                    type: string
+                    format: uri
+                  imageUrl:
+                    type: string
+                    format: uri
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  /v1/admin/stats:
+    get:
+      tags:
+        - Questions - Admin
+      summary: Get system statistics (Admin)
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: System statistics
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  totalUsers:
+                    type: integer
+                  totalQuestions:
+                    type: integer
+                  questionsByDifficulty:
+                    type: object
+                    properties:
+                      EASY:
+                        type: integer
+                      MEDIUM:
+                        type: integer
+                      HARD:
+                        type: integer
+                  totalSessions:
+                    type: integer
+                  activeSessions:
+                    type: integer
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          $ref: '#/components/responses/ForbiddenError'
+
+  # ========== COLLABORATION SERVICE ==========
+  /v1/sessions:
+    post:
+      tags:
+        - Collaboration
+      summary: Create collaboration session
+      description: Creates a new collaboration session. Sessions automatically terminate after inactivity timeout (configurable via SESSION_AFK_TIMEOUT_MS, default 15 minutes). User activity or acknowledgment resets the timeout countdown.
+      security:
+        - bearerAuth: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                questionId:
+                  type: string
+                language:
+                  type: string
+                participants:
+                  type: array
+                  items:
+                    type: string
+      responses:
+        "201":
+          description: Session created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollabSession"
+
+  /v1/sessions/{sessionId}:
+    get:
+      tags:
+        - Collaboration
+      summary: Get session details
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CollabSession"
+
+  /v1/sessions/{sessionId}:terminate:
+    post:
+      tags:
+        - Collaboration
+      summary: Terminate session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session terminated
+
+  /v1/sessions/{sessionId}:rejoin:
+    post:
+      tags:
+        - Collaboration
+      summary: Rejoin session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Rejoined session
+
+  /v1/sessions/{sessionId}/keepalive:
+    post:
+      tags:
+        - Collaboration
+      summary: Reset AFK timeout
+      description: Resets the session inactivity timeout countdown when user confirms they are still active
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Session timeout reset successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+                  expiresAt:
+                    type: string
+                    format: date-time
+
+  /v1/sessions/{sessionId}/snapshot:
+    get:
+      tags:
+        - Collaboration
+      summary: Get session code snapshot
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Code snapshot
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  code:
+                    type: string
+                  language:
+                    type: string
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /v1/sessions/{sessionId}/execute:
+    post:
+      tags:
+        - Collaboration
+      summary: Execute code in session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                code:
+                  type: string
+                language:
+                  type: string
+                testCases:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      input:
+                        type: string
+                      expectedOutput:
+                        type: string
+      responses:
+        "200":
+          description: Execution result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ExecutionResult"
+
+  /v1/ws/sessions/{sessionId}:
+    get:
+      tags:
+        - Collaboration
+      summary: WebSocket endpoint for real-time collaboration
+      description: WebSocket connection for Yjs CRDT synchronization
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        "101":
+          description: WebSocket connection established
+
+  # ========== QUEUE SERVICE (INTERNAL) ==========
+  /internal/queue/enqueue:
+    post:
+      tags:
+        - Queue
+      summary: Add item to queue (Internal)
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        "201":
+          description: Item enqueued
+
+  /internal/queue/dequeue:
+    post:
+      tags:
+        - Queue
+      summary: Remove item from queue (Internal)
+      responses:
+        "200":
+          description: Item dequeued
+
+  /internal/queue/peek:
+    get:
+      tags:
+        - Queue
+      summary: Peek at queue (Internal)
+      responses:
+        "200":
+          description: Queue head
+
+  /internal/queue/stats:
+    get:
+      tags:
+        - Queue
+      summary: Get queue statistics (Internal)
+      responses:
+        "200":
+          description: Queue stats
+
+  # ========== HEALTH CHECKS (ALL SERVICES) ==========
+  /health:
+    get:
+      tags:
+        - Health
+      summary: Health check (User Service)
+      responses:
+        "200":
+          description: Service healthy
+
+  /ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness check (User Service)
+      responses:
+        "200":
+          description: Service ready
+
+  /metrics:
+    get:
+      tags:
+        - Health
+      summary: Prometheus metrics (User Service)
+      responses:
+        "200":
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+
+  /-/health:
+    get:
+      tags:
+        - Health
+      summary: Health check (Matching/Question/Admin/Collab Services)
+      responses:
+        "200":
+          description: Service healthy
+
+  /-/ready:
+    get:
+      tags:
+        - Health
+      summary: Readiness check (Matching/Question/Admin/Collab Services)
+      responses:
+        "200":
+          description: Service ready
+
+  /-/metrics:
+    get:
+      tags:
+        - Health
+      summary: Prometheus metrics (Matching/Question/Admin/Collab Services)
+      responses:
+        "200":
+          description: Metrics data
+          content:
+            text/plain:
+              schema:
+                type: string
+
+# ========== COMPONENTS ==========
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    QuestionSummary:
+      type: object
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+        difficulty:
+          type: string
+          enum: [EASY, MEDIUM, HARD]
+
+    Question:
+      allOf:
+        - $ref: "#/components/schemas/QuestionSummary"
+        - type: object
+          properties:
+            description:
+              type: string
+            examples:
+              type: array
+              items:
+                type: object
+                properties:
+                  input:
+                    type: string
+                  output:
+                    type: string
+                  explanation:
+                    type: string
+            constraints:
+              type: array
+              items:
+                type: string
+            testCases:
+              type: array
+              items:
+                type: object
+                properties:
+                  input:
+                    type: string
+                  expectedOutput:
+                    type: string
+
+    QuestionInput:
+      type: object
+      required:
+        - title
+        - difficulty
+        - topics
+        - description
+      properties:
+        title:
+          type: string
+        difficulty:
+          type: string
+          enum: [EASY, MEDIUM, HARD]
+        topics:
+          type: array
+          items:
+            type: string
+        description:
+          type: string
+        examples:
+          type: array
+          items:
+            type: object
+            properties:
+              input:
+                type: string
+              output:
+                type: string
+              explanation:
+                type: string
+        constraints:
+          type: array
+          items:
+            type: string
+        testCases:
+          type: array
+          items:
+            type: object
+            properties:
+              input:
+                type: string
+              expectedOutput:
+                type: string
+
+    AuthResponse:
+      type: object
+      properties:
+        accessToken:
+          type: string
+
+    Session:
+      type: object
+      properties:
+        userId:
+          type: string
+        email:
+          type: string
+        isAuthenticated:
+          type: boolean
+
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+        username:
+          type: string
+        display_name:
+          type: string
+        email:
+          type: string
+          format: email
+        avatar_url:
+          type: string
+          format: uri
+        google_id:
+          type: string
+        description:
+          type: string
+        programming_proficiency:
+          type: string
+          enum: [beginner, intermediate, advanced]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    MatchRequest:
+      type: object
+      properties:
+        requestId:
+          type: string
+        userId:
+          type: string
+        difficulty:
+          type: string
+        language:
+          type: string
+        topics:
+          type: array
+          items:
+            type: string
+        status:
+          type: string
+          enum: [searching, matched, timeout, cancelled]
+        createdAt:
+          type: string
+          format: date-time
+
+    CollabSession:
+      type: object
+      properties:
+        sessionId:
+          type: string
+        questionId:
+          type: string
+        participants:
+          type: array
+          items:
+            type: string
+        language:
+          type: string
+        status:
+          type: string
+          enum: [active, terminated]
+        startTime:
+          type: string
+          format: date-time
+
+    ExecutionResult:
+      type: object
+      properties:
+        results:
+          type: array
+          items:
+            type: object
+            properties:
+              testCase:
+                type: integer
+              passed:
+                type: boolean
+              output:
+                type: string
+              expected:
+                type: string
+        passed:
+          type: integer
+        failed:
+          type: integer
+        executionTime:
+          type: number
+
+    TestCase:
+      type: object
+      properties:
+        id:
+          type: string
+        questionId:
+          type: string
+        input:
+          type: string
+        expectedOutput:
+          type: string
+        isPublic:
+          type: boolean
+          description: Whether this test case is visible to users
+        createdAt:
+          type: string
+          format: date-time
+        updatedAt:
+          type: string
+          format: date-time
+
+    AdminQuestionSummary:
+      allOf:
+        - $ref: '#/components/schemas/QuestionSummary'
+        - type: object
+          properties:
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            isDeleted:
+              type: boolean
+            totalTestCases:
+              type: integer
+
+    AdminQuestion:
+      allOf:
+        - $ref: '#/components/schemas/Question'
+        - type: object
+          properties:
+            createdAt:
+              type: string
+              format: date-time
+            updatedAt:
+              type: string
+              format: date-time
+            createdBy:
+              type: string
+              description: User ID of the admin who created this question
+            isDeleted:
+              type: boolean
+
+    AdminUserProfile:
+      allOf:
+        - $ref: '#/components/schemas/UserProfile'
+        - type: object
+          properties:
+            role:
+              type: string
+              enum: [USER, ADMIN]
+            createdAt:
+              type: string
+              format: date-time
+            lastLogin:
+              type: string
+              format: date-time
+            totalSessions:
+              type: integer
+            totalSubmissions:
+              type: integer
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        message:
+          type: string
+        statusCode:
+          type: integer
+
+  responses:
+    UnauthorizedError:
+      description: Authentication required
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'
+
+    ForbiddenError:
+      description: Insufficient permissions (Admin access required)
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/Error'

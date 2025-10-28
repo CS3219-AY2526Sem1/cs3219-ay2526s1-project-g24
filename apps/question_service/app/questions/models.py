@@ -58,6 +58,12 @@ class Question(Base):
     constraints = Column(Text)
     hints = Column(JSON)  # Array of hint strings
     
+    # Execution limits - per language
+    # Structure: {"python": 5, "javascript": 5, "java": 10, "cpp": 3}
+    time_limit = Column(JSON, nullable=False, default={"python": 5, "javascript": 5, "java": 10, "cpp": 3})
+    # Structure: {"python": 64000, "javascript": 64000, "java": 128000, "cpp": 32000} (in KB)
+    memory_limit = Column(JSON, nullable=False, default={"python": 64000, "javascript": 64000, "java": 128000, "cpp": 32000})
+    
     # Metadata
     acceptance_rate = Column(Integer, default=0)
     total_submissions = Column(Integer, default=0)

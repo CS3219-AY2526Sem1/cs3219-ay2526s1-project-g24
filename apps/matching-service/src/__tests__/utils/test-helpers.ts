@@ -1,7 +1,3 @@
-/**
- * Test utilities and helpers
- */
-
 import { jest } from "@jest/globals";
 import type { StoredMatchRequest, Difficulty } from "../../types.js";
 

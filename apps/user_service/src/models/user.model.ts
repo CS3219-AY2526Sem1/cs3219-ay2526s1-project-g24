@@ -5,7 +5,7 @@ import {
   IsEnum,
   IsDate,
 } from 'class-validator';
-import { proficiency_level } from '@prisma/client';
+import { proficiency_level, programming_language } from '@prisma/client';
 
 export class User {
   @IsString()
@@ -37,6 +37,10 @@ export class User {
   @IsEnum(proficiency_level)
   @IsOptional()
   programming_proficiency?: proficiency_level;
+
+  @IsEnum(programming_language)
+  @IsOptional()
+  preferred_language?: programming_language;
 
   @IsDate()
   created_at!: Date;

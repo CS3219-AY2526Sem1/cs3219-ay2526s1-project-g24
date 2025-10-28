@@ -19,6 +19,7 @@ services:
       - MATCH_TIMEOUT_SECONDS=30
       - REQUEST_TTL_SECONDS=60
       - LOG_LEVEL=info
+      - AUTH_JWKS_URI=http://user-service:8000/.well-known/jwks.json
     depends_on:
       redis:
         condition: service_healthy
