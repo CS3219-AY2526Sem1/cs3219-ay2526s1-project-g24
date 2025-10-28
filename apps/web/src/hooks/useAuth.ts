@@ -4,8 +4,8 @@ import {
   getSession,
   getGoogleSignInUrl,
   logoutUser,
-  User,
-} from "../lib/api/user.service";
+} from "@/lib/api/userService";
+import { User } from "@/types";
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
