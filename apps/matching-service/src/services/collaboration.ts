@@ -7,7 +7,7 @@ import { metrics } from "../observability/metrics.js";
 import type { CreateSessionRequest, CreateSessionResponse } from "../types.js";
 
 const COLLABORATION_SERVICE_URL =
-  process.env.COLLABORATION_SERVICE_URL || "http://localhost:4000";
+  process.env.COLLABORATION_SERVICE_URL || "http://localhost:3003";
 
 /**
  * Create a session in the collaboration service
@@ -20,12 +20,32 @@ export async function createSession(
   try {
     logger.info({ request }, "Calling collaboration service to create session");
 
-    const response = await fetch(`${COLLABORATION_SERVICE_URL}/api/sessions`, {
+    // Map matching-service request to collab-service expected schema
+    // Collab expects { user1Id, user2Id, questionId, difficulty, topic?, language? }
+    const [user1Id, user2Id] = request.userIds;
+    const topic = request.topics?.[0];
+    const language = request.languages?.[0];
+
+    // TEMP: questionId not selected here; use topic as placeholder until question service integration
+    const questionId = topic || "unknown";
+
+    const collabPayload = {
+      user1Id,
+      user2Id,
+      questionId,
+      difficulty: request.difficulty,
+      ...(topic ? { topic } : {}),
+      ...(language ? { language } : {}),
+    };
+
+    const response = await fetch(`${COLLABORATION_SERVICE_URL}/v1/sessions`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        // For collab mock auth: Authorization: Bearer <userId> (must be one of participants)
+        Authorization: `Bearer ${user1Id}`,
       },
-      body: JSON.stringify(request),
+      body: JSON.stringify(collabPayload),
       signal: AbortSignal.timeout(5000), // 5 second timeout
     });
 
@@ -39,7 +59,15 @@ export async function createSession(
       );
     }
 
-    const data = (await response.json()) as CreateSessionResponse;
+    const raw: any = await response.json();
+
+    // Collab returns { message, data: { sessionId, ... } }
+    const sessionId = raw?.data?.sessionId ?? raw?.sessionId;
+    if (!sessionId) {
+      throw new Error("Collaboration service response missing sessionId");
+    }
+
+    const data: CreateSessionResponse = { sessionId };
 
     logger.info(
       { sessionId: data.sessionId, duration },
