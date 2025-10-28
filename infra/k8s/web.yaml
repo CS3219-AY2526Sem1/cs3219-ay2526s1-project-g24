@@ -26,12 +26,7 @@ spec:
           value: "production"
         - name: PORT
           value: "3000"
-        # Backend service URLs for Next.js
-        - name: NEXT_PUBLIC_API_URL
-          valueFrom:
-            configMapKeyRef:
-              name: app-config
-              key: USER_SERVICE_URL
+        # Backend service URLs for Next.js (browser-visible)
         - name: NEXT_PUBLIC_QUESTION_SERVICE_URL
           valueFrom:
             configMapKeyRef:
@@ -42,6 +37,16 @@ spec:
             configMapKeyRef:
               name: app-config
               key: MATCHING_SERVICE_URL
+        - name: NEXT_PUBLIC_USER_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: USER_SERVICE_URL
+        - name: NEXT_PUBLIC_CODE_EXECUTION_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CODE_EXECUTION_SERVICE_URL
         resources:
           requests:
             memory: "256Mi"

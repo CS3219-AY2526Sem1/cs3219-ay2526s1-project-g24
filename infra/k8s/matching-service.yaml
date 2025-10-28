@@ -55,6 +55,8 @@ spec:
             configMapKeyRef:
               name: app-config
               key: LOG_LEVEL
+        - name: AUTH_JWKS_URI
+          value: "http://user-service:8000/.well-known/jwks.json"
         resources:
           requests:
             memory: "256Mi"
@@ -64,14 +66,14 @@ spec:
             cpu: "500m"
         livenessProbe:
           httpGet:
-            path: /-/health
+            path: /health
             port: 3000
           initialDelaySeconds: 30
           periodSeconds: 10
           timeoutSeconds: 5
         readinessProbe:
           httpGet:
-            path: /-/health
+            path: /-/ready
             port: 3000
           initialDelaySeconds: 10
           periodSeconds: 5

@@ -15,8 +15,12 @@ data:
   # User Service Config
   USER_SERVICE_ENV: "production"
   
-  # Service URLs (internal cluster DNS)
-  COLLABORATION_SERVICE_URL: "http://collaboration-service:4000"
-  QUESTION_SERVICE_URL: "http://question-service:8000"
-  USER_SERVICE_URL: "http://user-service:8000"
-  MATCHING_SERVICE_URL: "http://matching-service:3000"
+  # Service URLs for web (via Ingress paths; relative to ALB host)
+  # These are exposed to the browser, so use ingress path prefixes
+  MATCHING_SERVICE_URL: "/match"
+  QUESTION_SERVICE_URL: "/questions"
+  USER_SERVICE_URL: "/users"
+  CODE_EXECUTION_SERVICE_URL: "/code" # placeholder if added to ingress later
+
+  # Internal service-to-service URL
+  COLLABORATION_SERVICE_URL: "http://collab-service:3003"

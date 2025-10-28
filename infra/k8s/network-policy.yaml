@@ -174,6 +174,28 @@ spec:
     ports:
     - protocol: TCP
       port: 6379
+
+---
+# Allow matching-service to call collab-service (for session creation)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: matching-service-to-collab
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: matching-service
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: collab-service
+    ports:
+    - protocol: TCP
+      port: 3003
 ---
 # Allow ingress from ALB to web and services
 apiVersion: networking.k8s.io/v1
@@ -238,3 +260,113 @@ spec:
       port: 8000
     - protocol: TCP
       port: 3000
+
+---
+# Allow collab-service to access Redis (pub/sub)
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: collab-service-to-redis
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: collab-service
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: matching-redis
+    ports:
+    - protocol: TCP
+      port: 6379
+
+---
+# Allow collab-service to access its PostgreSQL DB
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: collab-service-to-db
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: collab-service
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: collab-db
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# Allow matching-service to get JWKS from user-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: matching-service-to-user-service
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: matching-service
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: user-service
+    ports:
+    - protocol: TCP
+      port: 8000
+
+---
+# Allow question-service to get JWKS from user-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: question-service-to-user-service
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: question-service
+  policyTypes:
+  - Egress
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: user-service
+    ports:
+    - protocol: TCP
+      port: 8000
+
+---
+# Allow ingress to collab-service only from matching-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-collab-from-matching
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: collab-service
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: matching-service
+    ports:
+    - protocol: TCP
+      port: 3003

@@ -14,9 +14,11 @@ resources:
   - postgres-question.yaml
   - postgres-user.yaml
   - redis.yaml
+  - postgres-collab.yaml
   - question-service.yaml
   - user-service.yaml
   - matching-service.yaml
+  - collab-service.yaml
   - api.yaml
   - web.yaml
   - hpa.yaml
