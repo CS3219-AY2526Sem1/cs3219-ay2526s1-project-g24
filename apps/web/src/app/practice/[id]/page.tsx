@@ -6,8 +6,8 @@ import Editor from '@monaco-editor/react';
 import { getDifficultyStyles } from '@/lib/difficulty';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
 import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult } from '@/lib/api/questionService';
+import { ProgrammingLanguage } from '@/types';
 
-type Language = 'python' | 'javascript' | 'java' | 'cpp';
 
 export default function PracticePage() {
     const router = useRouter();
@@ -20,7 +20,7 @@ export default function PracticePage() {
     const [isDraggingHorizontal, setIsDraggingHorizontal] = useState(false);
     const [activeTab, setActiveTab] = useState<'testResults' | 'customInput'>('testResults');
     const [selectedTestCase, setSelectedTestCase] = useState(0);
-    const [selectedLanguage, setSelectedLanguage] = useState<Language>('python');
+    const [selectedLanguage, setSelectedLanguage] = useState<ProgrammingLanguage>(ProgrammingLanguage.PYTHON);
     const [code, setCode] = useState('');
 
     // Question data state
@@ -37,7 +37,7 @@ export default function PracticePage() {
     const rightPanelRef = useRef<HTMLDivElement>(null);
 
     // Helper function to get localStorage key for code
-    const getCodeStorageKey = (qId: number, lang: Language) => {
+    const getCodeStorageKey = (qId: number, lang: ProgrammingLanguage) => {
         return `peerprep_code_q${qId}_${lang}`;
     };
 
@@ -302,7 +302,7 @@ export default function PracticePage() {
                                         <select
                                             value={selectedLanguage}
                                             onChange={(e) => {
-                                                setSelectedLanguage(e.target.value as Language);
+                                                setSelectedLanguage(e.target.value as ProgrammingLanguage);
                                             }}
                                             className="bg-transparent border-2 border-white/20 rounded-full pl-4 pr-10 py-1.5 font-montserrat font-medium text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors"
                                         >
