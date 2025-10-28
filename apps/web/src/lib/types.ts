@@ -1,10 +1,55 @@
-// Type definitions for Admin API responses
+// Type definitions for the web application
 
-export type Difficulty = "EASY" | "MEDIUM" | "HARD";
+
+// ========== USER TYPES ==========
+
+export enum ProficiencyLevel {
+    BEGINNER = "beginner",
+    INTERMEDIATE = "intermediate",
+    ADVANCED = "advanced",
+}
+
+export enum ProgrammingLanguage {
+    CPP = "cpp",
+    JAVA = "java",
+    PYTHON = "python",
+    JAVASCRIPT = "javascript",
+}
+
 export type UserRole = "user" | "admin";
-export type ProgrammingLanguage = "python" | "javascript" | "java" | "cpp";
+
+export interface User {
+    id: string;
+    username?: string;
+    display_name?: string;
+    email: string;
+    avatar_url?: string;
+    google_id?: string;
+    description?: string;
+    programming_proficiency?: ProficiencyLevel;
+    preferred_language?: ProgrammingLanguage;
+    role?: UserRole;
+    created_at: string;
+    updated_at: string;
+}
+
+// ========== AUTH ==========
+
+export interface AuthResponse {
+    accessToken: string;
+    refreshToken: string;
+    user: UserProfile;
+}
+
+
+export interface Session {
+    user: User;
+    isAdmin: boolean;
+}
 
 // ========== QUESTION TYPES ==========
+
+export type Difficulty = "EASY" | "MEDIUM" | "HARD";
 
 export interface QuestionSummary {
     id: string;
@@ -180,16 +225,3 @@ export interface ApiError {
     statusCode: number;
 }
 
-// ========== AUTH ==========
-
-export interface AuthResponse {
-    accessToken: string;
-    refreshToken: string;
-    user: UserProfile;
-}
-
-export interface Session {
-    userId: string;
-    email: string;
-    isAuthenticated: boolean;
-}

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { withAdminAuth } from "@/components/withAuth";
 
 type Question = {
     id: string;
@@ -89,7 +90,7 @@ const MOCK_QUESTIONS: Question[] = [
     }
 ];
 
-export default function AdminQuestions() {
+function AdminQuestions() {
     const [questions, setQuestions] = useState<Question[]>(MOCK_QUESTIONS);
     const [search, setSearch] = useState("");
     const [difficultyFilter, setDifficultyFilter] = useState<string>("ALL");
@@ -341,3 +342,5 @@ export default function AdminQuestions() {
         </div>
     );
 }
+
+export default withAdminAuth(AdminQuestions);

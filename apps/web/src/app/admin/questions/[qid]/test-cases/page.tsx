@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useParams } from "next/navigation";
+import { withAdminAuth } from "@/components/withAuth";
 
 type TestCase = {
     id: string;
@@ -11,7 +12,7 @@ type TestCase = {
     isPublic: boolean;
 };
 
-export default function ManageTestCases() {
+function ManageTestCases() {
     const params = useParams();
     const questionId = params.qid as string;
 
@@ -281,3 +282,5 @@ export default function ManageTestCases() {
         </div>
     );
 }
+
+export default withAdminAuth(ManageTestCases);

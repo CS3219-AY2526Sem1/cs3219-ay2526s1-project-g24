@@ -16,6 +16,13 @@ enum proficiency_level {
   advanced
 }
 
+enum programming_language {
+  cpp
+  java
+  python
+  javascript
+}
+
 model User {
   id                      String                @id @default(uuid())
   username                String?               @unique
@@ -25,6 +32,7 @@ model User {
   google_id               String?               @unique
   description             String?
   programming_proficiency proficiency_level?
+  preferred_language      programming_language?
   created_at              DateTime              @default(now())
   updated_at              DateTime              @updatedAt
   roles                   UserRole[]
