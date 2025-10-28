@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { withAdminAuth } from "@/components/withAuth";
 
 type Example = {
     input: string;
@@ -14,7 +15,7 @@ type TestCase = {
     expectedOutput: string;
 };
 
-export default function CreateQuestion() {
+function CreateQuestion() {
     const [title, setTitle] = useState("");
     const [difficulty, setDifficulty] = useState<"EASY" | "MEDIUM" | "HARD">("EASY");
     const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
@@ -409,3 +410,5 @@ export default function CreateQuestion() {
         </div>
     );
 }
+
+export default withAdminAuth(CreateQuestion);

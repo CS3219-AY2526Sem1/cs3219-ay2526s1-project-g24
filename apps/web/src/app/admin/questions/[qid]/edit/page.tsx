@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { updateQuestion, getTopics, type TopicResponse } from "@/lib/api/questionService";
+import { withAdminAuth } from "@/components/withAuth";
 
 type Example = {
     input: string;
@@ -16,7 +17,7 @@ type TestCase = {
     expectedOutput: string;
 };
 
-export default function EditQuestion() {
+function EditQuestion() {
     const params = useParams();
     const router = useRouter();
     const questionId = Number(params.qid);
@@ -443,3 +444,5 @@ export default function EditQuestion() {
         </div>
     );
 }
+
+export default withAdminAuth(EditQuestion);
