@@ -5,14 +5,11 @@ import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import {
   getUser,
-  ProficiencyLevel,
-  ProgrammingLanguage,
   updateUser,
-  User,
-} from "../../lib/api/user.service";
-
-import withAuth from "../../components/withAuth";
-import { useAuth } from "../../hooks/useAuth";
+} from "@/lib/api/userService";
+import withAuth from "@/components/withAuth";
+import { useAuth } from "@/hooks/useAuth";
+import { User, ProficiencyLevel, ProgrammingLanguage } from "@/types";
 
 function Profile() {
   const { logout } = useAuth();
@@ -294,7 +291,7 @@ function Profile() {
                     value={ProgrammingLanguage.CPP}
                     className="bg-[#333232] text-white"
                   >
-                    C++
+                    Cpp
                   </option>
                   <option
                     value={ProgrammingLanguage.JAVA}
