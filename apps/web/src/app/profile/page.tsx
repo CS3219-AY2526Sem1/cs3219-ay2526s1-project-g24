@@ -9,7 +9,7 @@ import {
 } from "@/lib/api/userService";
 import withAuth from "@/components/withAuth";
 import { useAuth } from "@/hooks/useAuth";
-import { User, ProficiencyLevel, ProgrammingLanguage } from "@/types";
+import { User, ProficiencyLevel, ProgrammingLanguage } from "@/lib/types";
 
 function Profile() {
   const { logout } = useAuth();

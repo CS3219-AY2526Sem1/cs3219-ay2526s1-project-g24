@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { getUsers, deleteUser } from "@/lib/api/userService";
 
 import { withAdminAuth } from "@/components/withAuth";
-import { User } from "@/types";
+import { User } from "@/lib/types";
 
 function AdminUsers() {
     const [users, setUsers] = useState<User[]>([]);

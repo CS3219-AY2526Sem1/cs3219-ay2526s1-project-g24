@@ -6,7 +6,7 @@ import Editor from '@monaco-editor/react';
 import { getDifficultyStyles } from '@/lib/difficulty';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
 import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult } from '@/lib/api/questionService';
-import { ProgrammingLanguage } from '@/types';
+import { ProgrammingLanguage } from '@/lib/types';
 
 
 export default function PracticePage() {

@@ -5,7 +5,7 @@ import {
   getGoogleSignInUrl,
   logoutUser,
 } from "@/lib/api/userService";
-import { User } from "@/types";
+import { User } from "@/lib/types";
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);

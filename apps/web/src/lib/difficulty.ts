@@ -1,4 +1,4 @@
-import { Difficulty } from "@/types";
+import { Difficulty } from "@/lib/types";
 
 export function getDifficultyStyles(difficulty: Difficulty | string): string {
     switch (difficulty) {

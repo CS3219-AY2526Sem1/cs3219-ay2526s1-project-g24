@@ -1,4 +1,4 @@
-import { ProficiencyLevel, ProgrammingLanguage } from "@/types";
+import { ProficiencyLevel, ProgrammingLanguage } from "@/lib/types";
 
 export const TIMER_INTERVAL_MS = 1000;
 

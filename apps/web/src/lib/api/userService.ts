@@ -1,4 +1,4 @@
-import { Session, User } from "@/types";
+import { Session, User } from "@/lib/types";
 
 const API_URL = "http://localhost:8001/v1";
 

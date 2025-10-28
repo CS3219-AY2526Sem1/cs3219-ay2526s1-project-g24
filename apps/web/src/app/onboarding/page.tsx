@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import withAuth from "@/components/withAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { updateUser } from "@/lib/api/userService";
-import { ProgrammingLanguage, ProficiencyLevel } from "@/types";
+import { ProgrammingLanguage, ProficiencyLevel } from "@/lib/types";
 import {
   ALL_PROGRAMMING_LANGUAGES,
   ALL_PROFICIENCY_LEVELS,
