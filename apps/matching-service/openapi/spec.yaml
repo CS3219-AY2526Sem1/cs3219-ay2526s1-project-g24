@@ -323,7 +323,7 @@ paths:
                     event: error
                     data: {"error":"Another SSE connection already exists for this request"}
 
-  /-/health:
+  /health:
     get:
       tags:
         - Monitoring

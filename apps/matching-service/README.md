@@ -141,7 +141,7 @@ Two users are compatible if they have:
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/docs` | Swagger UI documentation |
-| GET | `/-/health` | Health check |
+| GET | `/health` | Health check |
 | GET | `/-/metrics` | Prometheus metrics |
 
 ### Examples
@@ -382,7 +382,7 @@ AUTH_FAKE_USER_ID=test-user        # Optional fallback userId when auth disabled
 **Access:**
 - Swagger UI: `http://localhost:3000/docs`
 - Metrics: `http://localhost:3000/-/metrics`
-- Health: `http://localhost:3000/-/health`
+- Health: `http://localhost:3000/health`
 
 ## Design Notes
 
