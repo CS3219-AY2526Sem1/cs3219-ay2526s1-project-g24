@@ -1,3 +1,5 @@
+import { ProficiencyLevel, ProgrammingLanguage } from "@/types";
+
 export const TIMER_INTERVAL_MS = 1000;
 
 export const EDITOR_CONFIG = {
@@ -21,3 +23,16 @@ export const TIME_FORMAT = {
     PAD_LENGTH: 2,
     PAD_CHAR: '0',
 } as const;
+
+export const ALL_PROGRAMMING_LANGUAGES: ProgrammingLanguage[] = [
+    ProgrammingLanguage.CPP,
+    ProgrammingLanguage.JAVA,
+    ProgrammingLanguage.PYTHON,
+    ProgrammingLanguage.JAVASCRIPT,
+]
+
+export const ALL_PROFICIENCY_LEVELS: ProficiencyLevel[] = [
+    ProficiencyLevel.BEGINNER,
+    ProficiencyLevel.INTERMEDIATE,
+    ProficiencyLevel.ADVANCED,
+]

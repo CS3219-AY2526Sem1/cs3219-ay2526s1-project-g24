@@ -1,37 +1,6 @@
+import { Session, User } from "@/types";
+
 const API_URL = "http://localhost:8001/v1";
-
-export enum ProficiencyLevel {
-  BEGINNER = "beginner",
-  INTERMEDIATE = "intermediate",
-  ADVANCED = "advanced",
-}
-
-export enum ProgrammingLanguage {
-  CPP = "cpp",
-  JAVA = "java",
-  PYTHON = "python",
-  JAVASCRIPT = "javascript",
-}
-
-export interface User {
-  id: string;
-  username?: string;
-  display_name?: string;
-  email: string;
-  avatar_url: string;
-  google_id: string;
-  description: string;
-  programming_proficiency: ProficiencyLevel;
-  preferred_language: ProgrammingLanguage;
-  role: "user" | "admin";
-  created_at: string;
-  updated_at: string;
-}
-
-export interface Session {
-  user: User;
-  isAdmin: boolean;
-}
 
 // Auth Service
 
@@ -121,10 +90,13 @@ export const removeRoleFromUser = async (
   userId: string,
   roleId: number
 ): Promise<void> => {
-  const response = await fetch(`${API_URL}/admin/users/${userId}/roles/${roleId}`, {
-    method: "DELETE",
-    credentials: "include",
-  });
+  const response = await fetch(
+    `${API_URL}/admin/users/${userId}/roles/${roleId}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    }
+  );
   if (!response.ok) {
     throw new Error("Failed to remove role from user");
   }
