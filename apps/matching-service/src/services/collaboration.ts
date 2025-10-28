@@ -75,3 +75,47 @@ export async function healthCheck(): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Delete a session from the collaboration service
+ * Used for cleanup when match rollback occurs
+ */
+export async function deleteSession(sessionId: string): Promise<boolean> {
+  const start = Date.now();
+
+  try {
+    logger.info({ sessionId }, "Deleting session from collaboration service");
+
+    const response = await fetch(
+      `${COLLABORATION_SERVICE_URL}/api/sessions/${sessionId}`,
+      {
+        method: "DELETE",
+        signal: AbortSignal.timeout(5000),
+      },
+    );
+
+    const duration = (Date.now() - start) / 1000;
+    metrics.recordCollaborationServiceCall(duration);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      logger.warn(
+        { sessionId, status: response.status, error: errorText },
+        "Failed to delete session (may not exist or already deleted)",
+      );
+      return false;
+    }
+
+    logger.info({ sessionId, duration }, "Session deleted successfully");
+    return true;
+  } catch (error) {
+    const duration = (Date.now() - start) / 1000;
+    metrics.recordCollaborationServiceCall(duration);
+
+    logger.error(
+      { error, sessionId, duration },
+      "Error deleting session from collaboration service",
+    );
+    return false;
+  }
+}
