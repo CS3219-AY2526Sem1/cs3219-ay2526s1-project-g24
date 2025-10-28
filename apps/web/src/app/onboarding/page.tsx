@@ -6,11 +6,13 @@ import { useState, useEffect, FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import withAuth from "@/components/withAuth";
 import { useAuth } from "@/hooks/useAuth";
+import { updateUser } from "@/lib/api/userService";
+import { ProgrammingLanguage, ProficiencyLevel } from "@/types";
 import {
-  ProficiencyLevel,
-  ProgrammingLanguage,
-  updateUser,
-} from "@/lib/api/user.service";
+  ALL_PROGRAMMING_LANGUAGES,
+  ALL_PROFICIENCY_LEVELS,
+} from "@/lib/constants";
+import { capitalizeFirstLetter } from "@/lib/utils";
 
 function Onboarding() {
   const router = useRouter();
@@ -28,16 +30,10 @@ function Onboarding() {
     if (user) {
       setUsername(user.username || "");
       setProficiency(
-        user.programming_proficiency
-          ? ((user.programming_proficiency.charAt(0).toUpperCase() +
-              user.programming_proficiency.slice(1)) as ProficiencyLevel)
-          : ""
+        user.programming_proficiency ? user.programming_proficiency : ""
       );
     }
   }, [user]);
-
-  const languages = ["CPP", "Java", "Python", "JavaScript"];
-  const proficiencyLevels = ["Beginner", "Intermediate", "Advanced"];
 
   const tabs = [
     { name: "Home", href: "/home" },
@@ -49,7 +45,7 @@ function Onboarding() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!username || !proficiency) {
+    if (!username || !proficiency || !codingLanguage) {
       setError("Please fill out all required fields.");
       return;
     }
@@ -343,13 +339,13 @@ function Onboarding() {
                     <option value="" disabled>
                       Choose your favorite language
                     </option>
-                    {languages.map((lang) => (
+                    {ALL_PROGRAMMING_LANGUAGES.map((lang) => (
                       <option
                         key={lang}
                         value={lang}
                         className="bg-[#3d3d3d] text-white"
                       >
-                        {lang}
+                        {capitalizeFirstLetter(lang)}
                       </option>
                     ))}
                   </select>
@@ -386,13 +382,13 @@ function Onboarding() {
                     <option value="" disabled>
                       Choose your level of experience
                     </option>
-                    {proficiencyLevels.map((level) => (
+                    {ALL_PROFICIENCY_LEVELS.map((level) => (
                       <option
                         key={level}
                         value={level}
                         className="bg-[#3d3d3d] text-white"
                       >
-                        {level}
+                        {capitalizeFirstLetter(level)}
                       </option>
                     ))}
                   </select>
