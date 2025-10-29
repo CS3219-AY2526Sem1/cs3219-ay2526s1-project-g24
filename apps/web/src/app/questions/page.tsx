@@ -16,51 +16,43 @@ function Questions() {
     const [companyFilter, setCompanyFilter] = useState<number | null>(null);
     const [difficultyFilter, setDifficultyFilter] = useState('All difficulty');
     const [statusFilter, setStatusFilter] = useState<'all' | 'attempted' | 'not-attempted' | 'solved' | 'unsolved'>('all');
-    
+
     // API state
     const [questions, setQuestions] = useState<QuestionListItem[]>([]);
     const [topics, setTopics] = useState<TopicResponse[]>([]);
     const [companies, setCompanies] = useState<CompanyResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isLoadingFilters, setIsLoadingFilters] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [page, setPage] = useState(1);
     const [totalQuestions, setTotalQuestions] = useState(0);
 
-    // Debounce search query
     useEffect(() => {
         const timer = setTimeout(() => {
             setDebouncedSearchQuery(searchQuery);
-        }, 500); // 500ms debounce
+        }, 500);
 
         return () => clearTimeout(timer);
     }, [searchQuery]);
 
-    // Fetch topics on mount
     useEffect(() => {
-        const fetchTopics = async () => {
+        const fetchFilters = async () => {
+            setIsLoadingFilters(true);
             try {
-                const topicsData = await getTopics();
+                const [topicsData, companiesData] = await Promise.all([
+                    getTopics(),
+                    getCompanies()
+                ]);
                 setTopics(topicsData);
-            } catch (err) {
-                console.error('Failed to load topics:', err);
-            }
-        };
-
-        fetchTopics();
-    }, []);
-
-    // Fetch companies on mount
-    useEffect(() => {
-        const fetchCompanies = async () => {
-            try {
-                const companiesData = await getCompanies();
                 setCompanies(companiesData);
             } catch (err) {
-                console.error('Failed to load companies:', err);
+                console.error('Failed to load filters:', err);
+            } finally {
+                setIsLoadingFilters(false);
             }
         };
 
-        fetchCompanies();
+        fetchFilters();
     }, []);
 
     // Fetch questions from API
@@ -80,13 +72,13 @@ function Questions() {
                     solved_only: statusFilter === 'solved',
                     unsolved_only: statusFilter === 'unsolved',
                 });
-                
+
                 // Client-side filter for "not-attempted" since backend doesn't support it directly
                 let filteredQuestions = data.questions;
                 if (statusFilter === 'not-attempted') {
                     filteredQuestions = data.questions.filter(q => !q.is_attempted);
                 }
-                
+
                 setQuestions(filteredQuestions);
                 setTotalQuestions(statusFilter === 'not-attempted' ? filteredQuestions.length : data.total);
             } catch (err) {
@@ -117,7 +109,7 @@ function Questions() {
                 topic_ids: topicFilter !== null ? topicFilter.toString() : undefined,
                 company_ids: companyFilter !== null ? companyFilter.toString() : undefined
             });
-            
+
             if (randomQuestion) {
                 router.push(`/practice/${randomQuestion.id}`);
             }
@@ -175,138 +167,137 @@ function Questions() {
                         </button>
                     </div>
 
-                    {/* Filters */}
-                    <div className="flex gap-4 mb-6">
-                        {/* Search Bar */}
-                        <div className="flex-1 relative">
-                            <input
-                                type="text"
-                                placeholder="Search"
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3 font-montserrat text-sm text-white placeholder:text-[#585858] focus:outline-none focus:border-white/40 transition-colors"
-                            />
-                            <svg
-                                className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#585858]"
-                                fill="none"
-                                stroke="currentColor"
-                                viewBox="0 0 24 24"
-                            >
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                            </svg>
+                    {isLoadingFilters ? (
+                        <div className="flex gap-4 mb-6">
+                            <div className="flex-1 h-12 bg-white/10 rounded-full animate-pulse"></div>
+                            <div className="w-[180px] h-12 bg-white/10 rounded-full animate-pulse"></div>
+                            <div className="w-[180px] h-12 bg-white/10 rounded-full animate-pulse"></div>
+                            <div className="w-[180px] h-12 bg-white/10 rounded-full animate-pulse"></div>
                         </div>
-
-                        {/* Topic Filter */}
-                        <div className="relative">
-                            <select
-                                value={topicFilter !== null ? topicFilter : ''}
-                                onChange={(e) => setTopicFilter(e.target.value ? parseInt(e.target.value) : null)}
-                                className="bg-transparent border-2 border-white/20 rounded-full pl-6 pr-12 py-3 font-montserrat text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors min-w-[180px]"
-                            >
-                                <option value="" className="bg-[#333232] text-white">All topics</option>
-                                {topics.map((topic) => (
-                                    <option key={topic.id} value={topic.id} className="bg-[#333232] text-white">
-                                        {topic.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <div className="absolute right-6 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                                <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
-                                    <path d="M1 1L6 6L11 1" stroke="#585858" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    ) : (
+                        <div className="flex gap-4 mb-6">
+                            <div className="flex-1 relative">
+                                <input
+                                    type="text"
+                                    placeholder="Search"
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3 font-montserrat text-sm text-white placeholder:text-[#585858] focus:outline-none focus:border-white/40 transition-colors"
+                                />
+                                <svg
+                                    className="absolute right-6 top-1/2 -translate-y-1/2 w-5 h-5 text-[#585858]"
+                                    fill="none"
+                                    stroke="currentColor"
+                                    viewBox="0 0 24 24"
+                                >
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                                 </svg>
                             </div>
-                        </div>
 
-                        {/* Company Filter */}
-                        <div className="relative">
-                            <select
-                                value={companyFilter !== null ? companyFilter : ''}
-                                onChange={(e) => setCompanyFilter(e.target.value ? parseInt(e.target.value) : null)}
-                                className="bg-transparent border-2 border-white/20 rounded-full pl-6 pr-12 py-3 font-montserrat text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors min-w-[180px]"
-                            >
-                                <option value="" className="bg-[#333232] text-white">All companies</option>
-                                {companies.map((company) => (
-                                    <option key={company.id} value={company.id} className="bg-[#333232] text-white">
-                                        {company.name}
-                                    </option>
-                                ))}
-                            </select>
-                            <div className="absolute right-6 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                                <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
-                                    <path d="M1 1L6 6L11 1" stroke="#585858" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
+                            <div className="relative">
+                                <select
+                                    value={topicFilter !== null ? topicFilter : ''}
+                                    onChange={(e) => setTopicFilter(e.target.value ? parseInt(e.target.value) : null)}
+                                    className="bg-transparent border-2 border-white/20 rounded-full pl-6 pr-12 py-3 font-montserrat text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors min-w-[180px]"
+                                >
+                                    <option value="" className="bg-[#333232] text-white">All topics</option>
+                                    {topics.map((topic) => (
+                                        <option key={topic.id} value={topic.id} className="bg-[#333232] text-white">
+                                            {topic.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-6 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+                                        <path d="M1 1L6 6L11 1" stroke="#585858" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <div className="relative">
+                                <select
+                                    value={companyFilter !== null ? companyFilter : ''}
+                                    onChange={(e) => setCompanyFilter(e.target.value ? parseInt(e.target.value) : null)}
+                                    className="bg-transparent border-2 border-white/20 rounded-full pl-6 pr-12 py-3 font-montserrat text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors min-w-[180px]"
+                                >
+                                    <option value="" className="bg-[#333232] text-white">All companies</option>
+                                    {companies.map((company) => (
+                                        <option key={company.id} value={company.id} className="bg-[#333232] text-white">
+                                            {company.name}
+                                        </option>
+                                    ))}
+                                </select>
+                                <div className="absolute right-6 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+                                        <path d="M1 1L6 6L11 1" stroke="#585858" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                </div>
+                            </div>
+
+                            <div className="relative">
+                                <select
+                                    value={difficultyFilter}
+                                    onChange={(e) => setDifficultyFilter(e.target.value)}
+                                    className="bg-transparent border-2 border-white/20 rounded-full pl-6 pr-12 py-3 font-montserrat text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors min-w-[180px]"
+                                >
+                                    <option value="All difficulty" className="bg-[#333232] text-white">All difficulty</option>
+                                    <option value="EASY" className="bg-[#333232] text-white">Easy</option>
+                                    <option value="MEDIUM" className="bg-[#333232] text-white">Medium</option>
+                                    <option value="HARD" className="bg-[#333232] text-white">Hard</option>
+                                </select>
+                                <div className="absolute right-6 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                    <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+                                        <path d="M1 1L6 6L11 1" stroke="#585858" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                    </svg>
+                                </div>
                             </div>
                         </div>
-
-                        {/* Difficulty Filter */}
-                        <div className="relative">
-                            <select
-                                value={difficultyFilter}
-                                onChange={(e) => setDifficultyFilter(e.target.value)}
-                                className="bg-transparent border-2 border-white/20 rounded-full pl-6 pr-12 py-3 font-montserrat text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors min-w-[180px]"
-                            >
-                                <option value="All difficulty" className="bg-[#333232] text-white">All difficulty</option>
-                                <option value="EASY" className="bg-[#333232] text-white">Easy</option>
-                                <option value="MEDIUM" className="bg-[#333232] text-white">Medium</option>
-                                <option value="HARD" className="bg-[#333232] text-white">Hard</option>
-                            </select>
-                            <div className="absolute right-6 top-1/2 transform -translate-y-1/2 pointer-events-none">
-                                <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
-                                    <path d="M1 1L6 6L11 1" stroke="#585858" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-                                </svg>
-                            </div>
-                        </div>
-                    </div>
+                    )}
 
                     {/* Status Filter Chips */}
                     <div className="flex gap-3 mb-8">
                         <button
                             onClick={() => setStatusFilter('all')}
-                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
-                                statusFilter === 'all'
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${statusFilter === 'all'
                                     ? 'bg-white/20 text-white border-2 border-white/40'
                                     : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
-                            }`}
+                                }`}
                         >
                             All
                         </button>
                         <button
                             onClick={() => setStatusFilter('attempted')}
-                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
-                                statusFilter === 'attempted'
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${statusFilter === 'attempted'
                                     ? 'bg-white/20 text-white border-2 border-white/40'
                                     : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
-                            }`}
+                                }`}
                         >
                             Attempted
                         </button>
                         <button
                             onClick={() => setStatusFilter('not-attempted')}
-                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
-                                statusFilter === 'not-attempted'
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${statusFilter === 'not-attempted'
                                     ? 'bg-white/20 text-white border-2 border-white/40'
                                     : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
-                            }`}
+                                }`}
                         >
                             Not Attempted
                         </button>
                         <button
                             onClick={() => setStatusFilter('solved')}
-                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
-                                statusFilter === 'solved'
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${statusFilter === 'solved'
                                     ? 'bg-white/20 text-white border-2 border-white/40'
                                     : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
-                            }`}
+                                }`}
                         >
                             Solved
                         </button>
                         <button
                             onClick={() => setStatusFilter('unsolved')}
-                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
-                                statusFilter === 'unsolved'
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${statusFilter === 'unsolved'
                                     ? 'bg-white/20 text-white border-2 border-white/40'
                                     : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
-                            }`}
+                                }`}
                         >
                             Unsolved
                         </button>
@@ -341,28 +332,28 @@ function Questions() {
                                             </svg>
                                         ) : null}
                                     </div>
-                                    
+
                                     {/* Question Title */}
                                     <div className="flex-1 min-w-0">
                                         <h3 className="text-white text-lg font-medium truncate">{question.title}</h3>
                                     </div>
-                                    
+
                                     {/* Topics */}
                                     <div className="flex-1 text-center">
                                         <p className="text-[#9e9e9e] text-sm truncate">
                                             {question.topics.map(t => t.name).join(', ')}
                                         </p>
                                     </div>
-                                    
+
                                     {/* Companies */}
                                     <div className="flex-1 text-center">
                                         <p className="text-[#9e9e9e] text-sm truncate">
-                                            {question.companies.length > 0 
+                                            {question.companies.length > 0
                                                 ? question.companies.map(c => c.name).join(', ')
                                                 : '—'}
                                         </p>
                                     </div>
-                                    
+
                                     {/* Difficulty Badge */}
                                     <div className="flex-shrink-0">
                                         <span className={`text-xs px-4 py-1.5 rounded-md font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>

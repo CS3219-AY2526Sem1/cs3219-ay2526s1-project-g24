@@ -2,14 +2,15 @@ FROM node:20-alpine AS deps
 WORKDIR /app
 RUN corepack enable
 
-# 1) Copy root manifests + lockfile FIRST
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 
-# 2) Copy only package.json files for all workspaces (better cache)
-COPY packages/**/package.json packages/
-COPY apps/**/package.json apps/
+COPY packages/typescript-config/package.json packages/typescript-config/
+COPY packages/logger/package.json packages/logger/
+COPY packages/eslint-config/package.json packages/eslint-config/
+COPY packages/jest-presets/package.json packages/jest-presets/
+COPY packages/ui/package.json packages/ui/
+COPY apps/matching-service/package.json apps/matching-service/
 
-# 3) Install using the lockfile
 RUN pnpm install --frozen-lockfile
 
 # ---------- (optional) build stage ----------
@@ -17,22 +18,20 @@ FROM node:20-alpine AS build
 WORKDIR /app
 RUN corepack enable
 
-# Copy workspace configuration
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 
-# Copy all package.json files to resolve workspace dependencies
 COPY packages/typescript-config/package.json packages/typescript-config/
 COPY packages/logger/package.json packages/logger/
+COPY packages/eslint-config/package.json packages/eslint-config/
+COPY packages/jest-presets/package.json packages/jest-presets/
+COPY packages/ui/package.json packages/ui/
 COPY apps/matching-service/package.json apps/matching-service/
 
-# Install all dependencies
 RUN pnpm install --frozen-lockfile
 
-# Copy source code
 COPY packages/ packages/
 COPY apps/matching-service/ apps/matching-service/
 
-# Build the service
 RUN pnpm --filter matching-service build
 
 # ---------- production ----------

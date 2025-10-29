@@ -15,30 +15,37 @@ import { mapDifficultyToApi } from "@/lib/utils";
 
 function Match() {
   const router = useRouter();
-  const { user } = useAuth();
+  const { user, loading: userLoading } = useAuth();
   const [activeTab, setActiveTab] = useState("Match");
   const [topics, setTopics] = useState<TopicResponse[]>([]);
   const [selectedTopics, setSelectedTopics] = useState<string[]>([]);
   const [selectedDifficulty, setSelectedDifficulty] =
-    useState<ProficiencyLevel>(ProficiencyLevel.INTERMEDIATE);
-  const [selectedLanguage, setSelectedLanguage] = useState<ProgrammingLanguage>(
-    ProgrammingLanguage.PYTHON
+    useState<ProficiencyLevel | null>(null);
+  const [selectedLanguage, setSelectedLanguage] = useState<ProgrammingLanguage | null>(
+    null
   );
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isLoadingTopics, setIsLoadingTopics] = useState(true);
 
-  // Auto-select filters based on user profile
   useEffect(() => {
-    if (user) {
-      if (user.programming_proficiency) {
+    if (user && !userLoading) {
+      if (selectedDifficulty === null && user.programming_proficiency) {
         setSelectedDifficulty(user.programming_proficiency);
+      } else if (selectedDifficulty === null) {
+        setSelectedDifficulty(ProficiencyLevel.INTERMEDIATE);
       }
-      if (user.preferred_language) {
+
+      if (selectedLanguage === null && user.preferred_language) {
         setSelectedLanguage(user.preferred_language);
+      } else if (selectedLanguage === null) {
+        setSelectedLanguage(ProgrammingLanguage.PYTHON);
       }
+    } else if (!userLoading && !user) {
+      setSelectedDifficulty(ProficiencyLevel.INTERMEDIATE);
+      setSelectedLanguage(ProgrammingLanguage.PYTHON);
     }
-  }, [user]);
+  }, [user, userLoading, selectedDifficulty, selectedLanguage]);
 
   // Fetch topics from API
   useEffect(() => {
@@ -128,11 +135,10 @@ function Match() {
               <Link
                 key={tab.name}
                 href={tab.href}
-                className={`font-montserrat font-medium text-sm transition-colors ${
-                  activeTab === tab.name
-                    ? "text-white"
-                    : "text-[#9e9e9e] hover:text-white"
-                }`}
+                className={`font-montserrat font-medium text-sm transition-colors ${activeTab === tab.name
+                  ? "text-white"
+                  : "text-[#9e9e9e] hover:text-white"
+                  }`}
                 onClick={() => setActiveTab(tab.name)}
               >
                 {tab.name}
@@ -172,18 +178,16 @@ function Match() {
                   <button
                     key={topic.id}
                     onClick={() => toggleTopic(topic.name)}
-                    className={`p-6 rounded-2xl border-2 transition-all text-center ${
-                      selectedTopics.includes(topic.name)
-                        ? "bg-[#2d2d2d] border-white/20 opacity-100 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
-                        : "bg-[#2d2d2d] border-white/10 opacity-40 hover:opacity-60"
-                    }`}
+                    className={`p-6 rounded-2xl border-2 transition-all text-center ${selectedTopics.includes(topic.name)
+                      ? "bg-[#2d2d2d] border-white/20 opacity-100 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
+                      : "bg-[#2d2d2d] border-white/10 opacity-40 hover:opacity-60"
+                      }`}
                   >
                     <h4
-                      className={`font-montserrat text-lg font-semibold mb-2 leading-tight ${
-                        selectedTopics.includes(topic.name)
-                          ? "text-white"
-                          : "text-gray-400"
-                      }`}
+                      className={`font-montserrat text-lg font-semibold mb-2 leading-tight ${selectedTopics.includes(topic.name)
+                        ? "text-white"
+                        : "text-gray-400"
+                        }`}
                     >
                       {topic.name}
                     </h4>
@@ -202,81 +206,94 @@ function Match() {
             <h3 className="font-montserrat text-3xl font-semibold text-white mb-8">
               Choose Difficulty
             </h3>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {DIFFICULTY_OPTIONS.map((diff) => (
-                <button
-                  key={diff.level}
-                  onClick={() => setSelectedDifficulty(diff.level)}
-                  className={`p-8 rounded-2xl border-2 transition-all text-center flex flex-col items-center ${
-                    selectedDifficulty === diff.level
+            {userLoading || selectedDifficulty === null ? (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="p-8 rounded-2xl border-2 border-white/10 bg-[#2d2d2d] opacity-40 animate-pulse">
+                    <div className="h-20"></div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {DIFFICULTY_OPTIONS.map((diff) => (
+                  <button
+                    key={diff.level}
+                    onClick={() => setSelectedDifficulty(diff.level)}
+                    className={`p-8 rounded-2xl border-2 transition-all text-center flex flex-col items-center ${selectedDifficulty === diff.level
                       ? "bg-[#2d2d2d] border-white/20 opacity-100 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
                       : "bg-[#2d2d2d] border-white/10 opacity-40 hover:opacity-60"
-                  }`}
-                >
-                  <div className="mb-3">
-                    <span
-                      className={`font-montserrat text-xs px-3 py-1 rounded-full ${getDifficultyStyles(diff.tag)}`}
-                    >
-                      {diff.tag}
-                    </span>
-                  </div>
-                  <h4
-                    className={`font-montserrat text-2xl font-semibold mb-3 leading-tight whitespace-pre-line ${
-                      selectedDifficulty === diff.level
+                      }`}
+                  >
+                    <div className="mb-3">
+                      <span
+                        className={`font-montserrat text-xs px-3 py-1 rounded-full ${getDifficultyStyles(diff.tag)}`}
+                      >
+                        {diff.tag}
+                      </span>
+                    </div>
+                    <h4
+                      className={`font-montserrat text-2xl font-semibold mb-3 leading-tight whitespace-pre-line ${selectedDifficulty === diff.level
                         ? "text-white"
                         : "text-gray-400"
-                    }`}
-                  >
-                    {diff.display}
-                  </h4>
-                  <p className="font-montserrat text-sm text-gray-500">
-                    {diff.description}
-                  </p>
-                </button>
-              ))}
-            </div>
+                        }`}
+                    >
+                      {diff.display}
+                    </h4>
+                    <p className="font-montserrat text-sm text-gray-500">
+                      {diff.description}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
           </section>
 
           <section className="mb-12">
             <h3 className="font-montserrat text-3xl font-semibold text-white mb-8">
               Choose Coding Language
             </h3>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {LANGUAGE_OPTIONS.map((lang) => (
-                <button
-                  key={lang.name}
-                  onClick={() => setSelectedLanguage(lang.name)}
-                  className={`p-8 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-4 ${
-                    selectedLanguage === lang.name
+            {userLoading || selectedLanguage === null ? (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="p-8 rounded-2xl border-2 border-white/10 bg-[#2d2d2d] opacity-40 animate-pulse">
+                    <div className="h-20"></div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {LANGUAGE_OPTIONS.map((lang) => (
+                  <button
+                    key={lang.name}
+                    onClick={() => setSelectedLanguage(lang.name)}
+                    className={`p-8 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-4 ${selectedLanguage === lang.name
                       ? "bg-[#2d2d2d] border-white/20 opacity-100 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
                       : "bg-[#2d2d2d] border-white/10 opacity-40 hover:opacity-60"
-                  }`}
-                >
-                  <Image
-                    src={lang.icon}
-                    alt={lang.name}
-                    width={64}
-                    height={64}
-                    className={`w-16 h-16 ${
-                      selectedLanguage === lang.name ? "" : "grayscale"
-                    }`}
-                    unoptimized
-                  />
-                  <h4
-                    className={`font-montserrat text-xl font-medium ${
-                      selectedLanguage === lang.name
+                      }`}
+                  >
+                    <Image
+                      src={lang.icon}
+                      alt={lang.name}
+                      width={64}
+                      height={64}
+                      className={`w-16 h-16 ${selectedLanguage === lang.name ? "" : "grayscale"
+                        }`}
+                      unoptimized
+                    />
+                    <h4
+                      className={`font-montserrat text-xl font-medium ${selectedLanguage === lang.name
                         ? "text-white"
                         : "text-gray-400"
-                    }`}
-                  >
-                    {lang.display}
-                  </h4>
-                </button>
-              ))}
-            </div>
-          </section>
-
-          <div className="flex flex-col items-center gap-4">
+                        }`}
+                    >
+                      {lang.display}
+                    </h4>
+                  </button>
+                ))}
+              </div>
+            )}
+          </section>          <div className="flex flex-col items-center gap-4">
             {error && (
               <div className="bg-red-500/20 border border-red-500 text-red-200 px-6 py-3 rounded-lg font-montserrat text-sm">
                 {error}
@@ -285,9 +302,8 @@ function Match() {
             <button
               onClick={handleMatch}
               disabled={isLoading}
-              className={`glow-button primary-glow bg-white text-[#1e1e1e] px-12 py-3 rounded-full font-montserrat font-medium text-lg transition-all ${
-                isLoading ? "opacity-50 cursor-not-allowed" : "hover:scale-105"
-              }`}
+              className={`glow-button primary-glow bg-white text-[#1e1e1e] px-12 py-3 rounded-full font-montserrat font-medium text-lg transition-all ${isLoading ? "opacity-50 cursor-not-allowed" : "hover:scale-105"
+                }`}
             >
               {isLoading ? "Finding Match..." : "Match"}
             </button>

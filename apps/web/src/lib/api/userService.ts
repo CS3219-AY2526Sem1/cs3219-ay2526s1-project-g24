@@ -15,14 +15,14 @@ const normalizeRole = (role: any): Role => ({
   name: role.name,
   permissions: Array.isArray(role.permissions)
     ? role.permissions
-        .map((entry: any) => {
-          const rawPermission = entry?.permission ?? entry;
-          if (!rawPermission) {
-            return null;
-          }
-          return normalizePermission(rawPermission);
-        })
-        .filter((permission: any): permission is Permission => Boolean(permission))
+      .map((entry: any) => {
+        const rawPermission = entry?.permission ?? entry;
+        if (!rawPermission) {
+          return null;
+        }
+        return normalizePermission(rawPermission);
+      })
+      .filter((permission: any): permission is Permission => Boolean(permission))
     : [],
   created_at: role.created_at,
   updated_at: role.updated_at,
@@ -31,14 +31,14 @@ const normalizeRole = (role: any): Role => ({
 const normalizeUser = (user: any): User => {
   const roles = Array.isArray(user.roles)
     ? user.roles
-        .map((assignment: any) => {
-          const rawRole = assignment?.role ?? assignment;
-          if (!rawRole) {
-            return null;
-          }
-          return normalizeRole(rawRole);
-        })
-        .filter((role: any): role is Role => Boolean(role))
+      .map((assignment: any) => {
+        const rawRole = assignment?.role ?? assignment;
+        if (!rawRole) {
+          return null;
+        }
+        return normalizeRole(rawRole);
+      })
+      .filter((role: any): role is Role => Boolean(role))
     : [];
 
   return {
@@ -192,7 +192,7 @@ export const revokePermissionFromRole = async (
 };
 
 export const updateUser = async (user: Partial<User>): Promise<User> => {
-  
+
   // Remove undefined values and only send defined fields
   const cleanedData: Record<string, any> = {};
   if (user.username !== undefined) cleanedData.username = user.username;
@@ -201,7 +201,7 @@ export const updateUser = async (user: Partial<User>): Promise<User> => {
   if (user.programming_proficiency !== undefined) cleanedData.programming_proficiency = user.programming_proficiency;
   if (user.preferred_language !== undefined) cleanedData.preferred_language = user.preferred_language;
   if (user.avatar_url !== undefined) cleanedData.avatar_url = user.avatar_url;
-  
+
   const response = await fetch(`${API_URL}/users/me`, {
     method: "PATCH",
     credentials: "include",
@@ -210,10 +210,8 @@ export const updateUser = async (user: Partial<User>): Promise<User> => {
     },
     body: JSON.stringify(cleanedData),
   });
-  console.log('Update response status:', response.status);
   if (!response.ok) {
     const errorText = await response.text();
-    console.error('Update failed:', errorText);
     throw new Error("Failed to update user: " + errorText);
   }
   return response.json();

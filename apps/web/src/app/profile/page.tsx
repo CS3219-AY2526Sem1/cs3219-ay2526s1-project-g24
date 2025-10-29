@@ -13,7 +13,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { User, ProficiencyLevel, ProgrammingLanguage } from "@/lib/types";
 
 function Profile() {
-  const { logout } = useAuth();
+  const { logout, user: authUser, loading: userLoading } = useAuth();
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState("Profile");
@@ -21,19 +21,17 @@ function Profile() {
   const [profileImage, setProfileImage] = useState("/bro_profile.png");
   const [user, setUser] = useState<User | null>(null);
   const [formData, setFormData] = useState<Partial<User>>({
-    username: user ? user.username : "",
-    display_name: user ? user.display_name : "",
-    description: user ? user.description : "",
-    programming_proficiency: user
-      ? user.programming_proficiency
-      : ProficiencyLevel.BEGINNER,
-    preferred_language: user
-      ? user.preferred_language
-      : ProgrammingLanguage.CPP,
+    username: "",
+    display_name: "",
+    description: "",
+    programming_proficiency: ProficiencyLevel.BEGINNER,
+    preferred_language: ProgrammingLanguage.CPP,
   });
 
   useEffect(() => {
     const fetchUser = async () => {
+      if (userLoading) return;
+
       try {
         const userData = await getUser();
         setUser(userData);
@@ -47,12 +45,11 @@ function Profile() {
         setProfileImage(userData.avatar_url || "/bro_profile.png");
       } catch (error) {
         console.error("Failed to fetch user", error);
-        // Handle error, e.g., redirect to login
       }
     };
 
     fetchUser();
-  }, []);
+  }, [userLoading]);
 
   const tabs = [
     { name: "Home", href: "/home" },
@@ -64,9 +61,6 @@ function Profile() {
   const handleEditToggle = async () => {
     if (isEditing) {
       try {
-        console.log('Attempting to update user with data:', formData);
-        
-        // Build update payload with only valid fields
         const updatePayload: Partial<User> = {};
         if (formData.username) updatePayload.username = formData.username;
         if (formData.display_name) updatePayload.display_name = formData.display_name;
@@ -74,9 +68,7 @@ function Profile() {
         if (formData.programming_proficiency) updatePayload.programming_proficiency = formData.programming_proficiency;
         if (formData.preferred_language) updatePayload.preferred_language = formData.preferred_language;
         if (formData.avatar_url) updatePayload.avatar_url = formData.avatar_url;
-        
-        console.log('Update payload:', updatePayload);
-        
+
         const updatedUser = await updateUser(updatePayload);
         console.log('User updated successfully:', updatedUser);
         setUser(updatedUser);
@@ -114,7 +106,7 @@ function Profile() {
           // Create canvas to resize image
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
-          
+
           // Set max dimensions
           const MAX_WIDTH = 400;
           const MAX_HEIGHT = 400;
@@ -140,10 +132,10 @@ function Profile() {
 
           // Convert to base64 with compression (0.8 quality)
           const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-          
+
           console.log('Original size:', file.size, 'bytes');
           console.log('Compressed size:', Math.round(compressedBase64.length * 0.75), 'bytes');
-          
+
           setProfileImage(compressedBase64);
           // Update the avatar_url in the form data
           setFormData((prev) => ({
@@ -198,11 +190,10 @@ function Profile() {
               <Link
                 key={tab.name}
                 href={tab.href}
-                className={`font-montserrat font-medium text-sm transition-colors ${
-                  activeTab === tab.name
-                    ? "text-white"
-                    : "text-[#9e9e9e] hover:text-white"
-                }`}
+                className={`font-montserrat font-medium text-sm transition-colors ${activeTab === tab.name
+                  ? "text-white"
+                  : "text-[#9e9e9e] hover:text-white"
+                  }`}
                 onClick={() => setActiveTab(tab.name)}
               >
                 {tab.name}
@@ -214,54 +205,62 @@ function Profile() {
 
       <main className="relative z-10 pt-32 pb-20 px-6 md:px-12">
         <div className="max-w-4xl mx-auto">
-          {/* Profile Avatar and Name */}
           <div className="flex flex-col items-center mb-12">
-            <div className="relative mb-8">
-              <div className={`w-44 h-44 rounded-full bg-profile-avatar flex items-center justify-center overflow-hidden border-4 ${isEditing ? 'border-blue-500' : 'border-profile-avatar'}`}>
-                <Image
-                  src={profileImage}
-                  alt="Profile"
-                  width={176}
-                  height={176}
-                  className="w-full h-full object-cover"
-                  unoptimized
-                />
-              </div>
-              {isEditing && (
-                <button
-                  onClick={handleImageClick}
-                  className="absolute bottom-2 right-2 w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors cursor-pointer"
-                  title="Change profile picture"
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                </button>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="hidden"
-              />
-            </div>
-            {isEditing && (
-              <p className="text-sm text-blue-400 mb-4 text-center">
-                Click the edit icon to change your profile picture
-              </p>
+            {userLoading || !user ? (
+              <>
+                <div className="w-44 h-44 rounded-full bg-white/10 animate-pulse mb-8"></div>
+                <div className="w-64 h-16 bg-white/10 rounded-full animate-pulse"></div>
+              </>
+            ) : (
+              <>
+                <div className="relative mb-8">
+                  <div className={`w-44 h-44 rounded-full bg-profile-avatar flex items-center justify-center overflow-hidden border-4 ${isEditing ? 'border-blue-500' : 'border-profile-avatar'}`}>
+                    <Image
+                      src={profileImage}
+                      alt="Profile"
+                      width={176}
+                      height={176}
+                      className="w-full h-full object-cover"
+                      unoptimized
+                    />
+                  </div>
+                  {isEditing && (
+                    <button
+                      onClick={handleImageClick}
+                      className="absolute bottom-2 right-2 w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors cursor-pointer"
+                      title="Change profile picture"
+                    >
+                      <svg
+                        width="20"
+                        height="20"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                      </svg>
+                    </button>
+                  )}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleImageChange}
+                    className="hidden"
+                  />
+                </div>
+                {isEditing && (
+                  <p className="text-sm text-blue-400 mb-4 text-center">
+                    Click the edit icon to change your profile picture
+                  </p>
+                )}
+                <h2 className="font-montserrat text-6xl font-semibold text-white text-center">
+                  {formData.display_name}
+                </h2>
+              </>
             )}
-            <h2 className="font-montserrat text-6xl font-semibold text-white text-center">
-              {formData.display_name}
-            </h2>
           </div>
 
           {/* Form Fields */}

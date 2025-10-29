@@ -13,14 +13,16 @@ function Home() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("Home");
   const UNKNOWN_USER = "Unknown User";
-  const [displayName, setDisplayName] = useState(UNKNOWN_USER);
-  const { user } = useAuth();
+  const { user, loading: userLoading } = useAuth();
+  const [displayName, setDisplayName] = useState<string | null>(null);
   const [dailyChallenge, setDailyChallenge] = useState<QuestionDetail | null>(null);
   const [loadingDaily, setLoadingDaily] = useState(true);
 
   useEffect(() => {
-    setDisplayName(user?.display_name || UNKNOWN_USER);
-  }, [user]);
+    if (!userLoading) {
+      setDisplayName(user?.display_name || UNKNOWN_USER);
+    }
+  }, [user, userLoading]);
 
   // Fetch daily challenge
   useEffect(() => {
@@ -66,11 +68,10 @@ function Home() {
               <Link
                 key={tab.name}
                 href={tab.href}
-                className={`font-montserrat font-medium text-sm transition-colors ${
-                  activeTab === tab.name
+                className={`font-montserrat font-medium text-sm transition-colors ${activeTab === tab.name
                     ? "text-white"
                     : "text-[#9e9e9e] hover:text-white"
-                }`}
+                  }`}
                 onClick={() => setActiveTab(tab.name)}
               >
                 {tab.name}
@@ -87,22 +88,32 @@ function Home() {
               <h1 className="font-montserrat text-[54px] font-semibold text-white leading-[82%] mb-2">
                 Welcome back,
               </h1>
-              <h2 className="font-montserrat text-[48px] font-medium text-white leading-[82%]">
-                {displayName}! <span className="text-[40px]">👋🏻</span>
-              </h2>
-              <p className="font-montserrat text-xl text-white mt-6">
-                Ready to level up your skills today?
-              </p>
+              {userLoading || displayName === null ? (
+                <div className="h-16 w-64 bg-white/10 rounded-lg animate-pulse mb-6"></div>
+              ) : (
+                <>
+                  <h2 className="font-montserrat text-[48px] font-medium text-white leading-[82%]">
+                    {displayName}! <span className="text-[40px]">👋🏻</span>
+                  </h2>
+                  <p className="font-montserrat text-xl text-white mt-6">
+                    Ready to level up your skills today?
+                  </p>
+                </>
+              )}
             </div>
             <div className="ml-8">
-              <Image
-                src={user?.avatar_url || "/bro_profile.png"}
-                alt="Profile"
-                width={240}
-                height={240}
-                className="w-40 h-40 rounded-full object-cover"
-                unoptimized
-              />
+              {userLoading ? (
+                <div className="w-40 h-40 bg-white/10 rounded-full animate-pulse"></div>
+              ) : (
+                <Image
+                  src={user?.avatar_url || "/bro_profile.png"}
+                  alt="Profile"
+                  width={240}
+                  height={240}
+                  className="w-40 h-40 rounded-full object-cover"
+                  unoptimized
+                />
+              )}
             </div>
           </div>
 
