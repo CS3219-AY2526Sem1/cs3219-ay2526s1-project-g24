@@ -5,7 +5,8 @@ import { useState, useEffect } from "react";
 import { withAdminAuth } from "@/components/withAuth";
 import { 
     getQuestions, 
-    deleteQuestion, 
+    deleteQuestion,
+    restoreQuestion,
     QuestionListItem,
     getTopics,
     getCompanies,
@@ -28,6 +29,7 @@ function AdminQuestions() {
     const [difficultyFilter, setDifficultyFilter] = useState<string>("all");
     const [topicFilter, setTopicFilter] = useState<number | null>(null);
     const [companyFilter, setCompanyFilter] = useState<number | null>(null);
+    const [showDeleted, setShowDeleted] = useState(false);  // Toggle for deleted questions
     
     // Pagination
     const [page, setPage] = useState(1);
@@ -94,6 +96,7 @@ function AdminQuestions() {
                     topic_ids: topicFilter !== null ? topicFilter.toString() : undefined,
                     company_ids: companyFilter !== null ? companyFilter.toString() : undefined,
                     search: debouncedSearch || undefined,
+                    include_deleted: showDeleted,  // Include deleted questions if toggle is on
                 });
 
                 setQuestions(data.questions);
@@ -108,7 +111,7 @@ function AdminQuestions() {
         };
 
         fetchQuestions();
-    }, [page, difficultyFilter, topicFilter, companyFilter, debouncedSearch]);
+    }, [page, difficultyFilter, topicFilter, companyFilter, debouncedSearch, showDeleted]);
 
     const difficultyColors = {
         easy: "bg-green-100 text-green-700 border-green-300",
@@ -118,6 +121,27 @@ function AdminQuestions() {
 
     const handleDeleteQuestion = async (id: number, title: string) => {
         setDeleteConfirm({ show: true, questionId: id, questionTitle: title });
+    };
+
+    const handleRestoreQuestion = async (id: number) => {
+        try {
+            await restoreQuestion(id);
+            // Refetch questions to update the list
+            const data = await getQuestions({
+                page,
+                page_size: 50,
+                difficulties: difficultyFilter !== 'all' ? difficultyFilter : undefined,
+                topic_ids: topicFilter !== null ? topicFilter.toString() : undefined,
+                company_ids: companyFilter !== null ? companyFilter.toString() : undefined,
+                search: debouncedSearch || undefined,
+                include_deleted: showDeleted,
+            });
+            setQuestions(data.questions);
+            setTotalQuestions(data.total);
+        } catch (err) {
+            console.error("Failed to restore question:", err);
+            alert("Failed to restore question");
+        }
     };
 
     const confirmDelete = async () => {
@@ -248,9 +272,25 @@ function AdminQuestions() {
                             </select>
                         </div>
                         <div className="mt-4 flex justify-between items-center">
-                            <p className="text-gray-500 text-sm font-montserrat">
-                                Showing {questions.length} of {totalQuestions} questions
-                            </p>
+                            <div className="flex items-center gap-4">
+                                <p className="text-gray-500 text-sm font-montserrat">
+                                    Showing {questions.length} of {totalQuestions} questions
+                                </p>
+                                <label className="flex items-center gap-2 cursor-pointer">
+                                    <input
+                                        type="checkbox"
+                                        checked={showDeleted}
+                                        onChange={(e) => {
+                                            setShowDeleted(e.target.checked);
+                                            setPage(1);  // Reset to first page
+                                        }}
+                                        className="w-4 h-4 rounded border-gray-300 text-[#DCC8FE] focus:ring-[#DCC8FE] cursor-pointer"
+                                    />
+                                    <span className="text-gray-600 text-sm font-montserrat">
+                                        Show deleted questions
+                                    </span>
+                                </label>
+                            </div>
                             {totalPages > 1 && (
                                 <div className="flex gap-2">
                                     <button
@@ -325,15 +365,24 @@ function AdminQuestions() {
                                     </tr>
                                 </thead>
                                 <tbody className="divide-y divide-gray-200">
-                                    {questions.map((question) => (
-                                        <tr key={question.id} className="hover:bg-gray-50 transition-colors">
+                                    {questions.map((question) => {
+                                        const isDeleted = question.deleted_at != null;
+                                        return (
+                                        <tr key={question.id} className={`hover:bg-gray-50 transition-colors ${isDeleted ? 'opacity-60 bg-red-50' : ''}`}>
                                             <td className="px-6 py-4">
-                                                <Link 
-                                                    href={`/admin/questions/${question.id}`}
-                                                    className="font-montserrat text-black text-sm font-medium hover:text-[#DCC8FE] transition-colors"
-                                                >
-                                                    {question.title}
-                                                </Link>
+                                                <div className="flex items-center gap-2">
+                                                    <Link 
+                                                        href={`/admin/questions/${question.id}`}
+                                                        className={`font-montserrat text-sm font-medium hover:text-[#DCC8FE] transition-colors ${isDeleted ? 'text-gray-500 line-through' : 'text-black'}`}
+                                                    >
+                                                        {question.title}
+                                                    </Link>
+                                                    {isDeleted && (
+                                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-montserrat rounded-full border border-red-300">
+                                                            Deleted
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </td>
                                             <td className="px-6 py-4">
                                                 <span className={`px-3 py-1 rounded-full text-xs font-montserrat font-semibold border ${difficultyColors[question.difficulty]}`}>
@@ -411,16 +460,26 @@ function AdminQuestions() {
                                                             View
                                                         </button>
                                                     </Link>
-                                                    <button
-                                                        onClick={() => handleDeleteQuestion(question.id, question.title)}
-                                                        className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-montserrat text-xs rounded transition-colors"
-                                                    >
-                                                        Delete
-                                                    </button>
+                                                    {isDeleted ? (
+                                                        <button
+                                                            onClick={() => handleRestoreQuestion(question.id)}
+                                                            className="px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-600 font-montserrat text-xs rounded transition-colors"
+                                                        >
+                                                            Restore
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            onClick={() => handleDeleteQuestion(question.id, question.title)}
+                                                            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-montserrat text-xs rounded transition-colors"
+                                                        >
+                                                            Delete
+                                                        </button>
+                                                    )}
                                                 </div>
                                             </td>
                                         </tr>
-                                    ))}
+                                    );
+                                })}
                                 </tbody>
                             </table>
                         </div>
@@ -440,7 +499,7 @@ function AdminQuestions() {
                             Delete Question?
                         </h3>
                         <p className="font-montserrat text-gray-500 mb-6">
-                            Are you sure you want to delete "{deleteConfirm.questionTitle}"? This action cannot be undone.
+                            Are you sure you want to delete "{deleteConfirm.questionTitle}"? The question will be hidden but can be restored later.
                         </p>
                         <div className="flex gap-3 justify-end">
                             <button

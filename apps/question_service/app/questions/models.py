@@ -73,6 +73,7 @@ class Question(Base):
     
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    deleted_at = Column(DateTime, nullable=True)  # Soft delete timestamp
     
     # Relationships
     topics = relationship("Topic", secondary=question_topics, back_populates="questions")

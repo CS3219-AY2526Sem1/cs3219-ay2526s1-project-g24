@@ -40,6 +40,7 @@ export interface QuestionListItem {
     companies: CompanyResponse[];
     is_attempted: boolean;
     is_solved: boolean;
+    deleted_at?: string | null;  // ISO timestamp or null
 }
 
 // Full question detail
@@ -71,6 +72,7 @@ export interface QuestionDetail {
     sample_test_cases: TestCasePublic[];
     created_at: string;
     updated_at: string;
+    deleted_at?: string | null;  // ISO timestamp or null
     is_attempted: boolean;
     is_solved: boolean;
     user_attempts_count: number;
@@ -102,6 +104,7 @@ export async function getQuestions(params?: {
     sort_by?: string; // id, difficulty, acceptance_rate, title
     sort_order?: 'asc' | 'desc';
     user_id?: string;
+    include_deleted?: boolean;  // Admin-only: include soft-deleted questions
 }): Promise<QuestionListResponse> {
     const queryParams = new URLSearchParams();
 
@@ -118,6 +121,7 @@ export async function getQuestions(params?: {
     if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
     if (params?.sort_order) queryParams.append('sort_order', params.sort_order);
     if (params?.user_id) queryParams.append('user_id', params.user_id);
+    if (params?.include_deleted !== undefined) queryParams.append('include_deleted', params.include_deleted.toString());
 
     const url = `${QUESTION_SERVICE_URL}/api/questions/?${queryParams.toString()}`;
 
@@ -140,9 +144,10 @@ export async function getQuestions(params?: {
  * Fetch a single question by ID with full details
  * Endpoint: GET /api/questions/{question_id}
  */
-export async function getQuestionById(id: number, userId?: string): Promise<QuestionDetail> {
+export async function getQuestionById(id: number, userId?: string, includeDeleted?: boolean): Promise<QuestionDetail> {
     const queryParams = new URLSearchParams();
     if (userId) queryParams.append('user_id', userId);
+    if (includeDeleted !== undefined) queryParams.append('include_deleted', includeDeleted.toString());
 
     const url = `${QUESTION_SERVICE_URL}/api/questions/${id}${queryParams.toString() ? `?${queryParams}` : ''}`;
 
@@ -673,8 +678,13 @@ export async function getUserAttempts(skip: number = 0, limit: number = 50): Pro
     return response.json();
 }
 
-export async function deleteQuestion(questionId: number): Promise<void> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}`, {
+export async function deleteQuestion(questionId: number, permanent: boolean = false): Promise<void> {
+    const queryParams = new URLSearchParams();
+    if (permanent) queryParams.append('permanent', 'true');
+    
+    const url = `${QUESTION_SERVICE_URL}/api/questions/${questionId}${queryParams.toString() ? `?${queryParams}` : ''}`;
+    
+    const response = await fetch(url, {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/json',
@@ -687,6 +697,24 @@ export async function deleteQuestion(questionId: number): Promise<void> {
         throw new Error(errorData.detail || `Failed to delete question: ${response.statusText}`);
     }
 }
+
+export async function restoreQuestion(questionId: number): Promise<QuestionDetail> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}/restore`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `Failed to restore question: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
 
 // ============================================================================
 // ADMIN DASHBOARD STATISTICS

@@ -380,6 +380,11 @@ export default function PracticePage() {
                                         <span className={`text-xs px-3 py-1 rounded-md font-medium uppercase ${getDifficultyStyles(question.difficulty)}`}>
                                             {question.difficulty}
                                         </span>
+                                        {question.deleted_at && (
+                                            <span className="px-3 py-1 bg-red-900/30 text-red-400 text-xs rounded-md font-medium border border-red-700/30">
+                                                Question Removed
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="flex gap-2">
                                         {question.topics.map((topic) => (

@@ -27,6 +27,7 @@ def list_questions(
     solved_only: bool = False,
     unsolved_only: bool = False,
     search: Optional[str] = None,
+    include_deleted: bool = Query(False, description="Include soft-deleted questions (admin only)"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     sort_by: str = "id",
@@ -61,6 +62,7 @@ def list_questions(
         solved_only=solved_only,
         unsolved_only=unsolved_only,
         search=search,
+        include_deleted=include_deleted,
         page=page,
         page_size=page_size,
         sort_by=sort_by,
@@ -92,7 +94,8 @@ def list_questions(
             topics=[schemas.TopicResponse(id=t.id, name=t.name, description=t.description) for t in q.topics],
             companies=[schemas.CompanyResponse(id=c.id, name=c.name) for c in q.companies],
             is_attempted=is_attempted,
-            is_solved=is_solved
+            is_solved=is_solved,
+            deleted_at=q.deleted_at
         ))
     
     total_pages = math.ceil(total / page_size)
@@ -165,12 +168,26 @@ def get_daily_question(
 @router.get("/{question_id}", response_model=schemas.QuestionDetail)
 def get_question(
     question_id: int,
+    include_deleted: bool = Query(False, description="Include soft-deleted questions (admin only)"),
     user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get question details"""
     user_id = user["user_id"]
-    question = crud.get_question(db, question_id)
+    is_admin = "admin" in user.get("scopes", [])
+    
+    # Check if user has attempted this question
+    user_has_attempted = db.query(models.UserQuestionAttempt).filter(
+        models.UserQuestionAttempt.user_id == user_id,
+        models.UserQuestionAttempt.question_id == question_id
+    ).first() is not None
+    
+    # Allow viewing deleted questions if:
+    # 1. User is admin and explicitly requested it, OR
+    # 2. User has attempted the question (so they can see their history)
+    allow_deleted = (include_deleted and is_admin) or user_has_attempted
+    
+    question = crud.get_question(db, question_id, include_deleted=allow_deleted)
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
     
@@ -209,13 +226,28 @@ def update_question(
 @router.delete("/{question_id}", status_code=204)
 def delete_question(
     question_id: int,
+    permanent: bool = Query(False, description="Permanent delete instead of soft delete"),
     admin: dict = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a question (admin only)"""
-    success = crud.delete_question(db, question_id)
+    """Delete a question (admin only) - soft delete by default, permanent if specified"""
+    success = crud.delete_question(db, question_id, permanent=permanent)
     if not success:
+        raise HTTPException(status_code=404, detail="Question not found or already deleted")
+
+
+@router.post("/{question_id}/restore", response_model=schemas.QuestionDetail)
+def restore_question(
+    question_id: int,
+    admin: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Restore a soft-deleted question (admin only)"""
+    db_question = crud.restore_question(db, question_id)
+    if not db_question:
         raise HTTPException(status_code=404, detail="Question not found")
+    
+    return _build_question_detail(db, db_question, None)
 
 
 @router.get("/{question_id}/similar", response_model=list[schemas.QuestionListItem])
