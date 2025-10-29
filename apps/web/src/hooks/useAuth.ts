@@ -17,11 +17,22 @@ export const useAuth = () => {
     setLoading(true);
     try {
       const session = await getSession();
-      setUser(session?.user || null);
-      setIsAdmin(session?.isAdmin || false);
+      if (session?.user) {
+        const derivedRole = session.isAdmin ? "admin" : "user";
+        const userWithRole: User = {
+          ...session.user,
+          role: session.user.role ?? derivedRole,
+        };
+        setUser(userWithRole);
+        setIsAdmin(session.isAdmin || userWithRole.role === "admin");
+      } else {
+        setUser(null);
+        setIsAdmin(false);
+      }
     } catch (error) {
       console.error("Failed to fetch session", error);
       setUser(null);
+      setIsAdmin(false);
     } finally {
       setLoading(false);
     }
