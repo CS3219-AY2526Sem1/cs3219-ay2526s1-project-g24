@@ -7,6 +7,9 @@ RUN npm install -g pnpm
 FROM base AS dependencies
 WORKDIR /app
 
+# Install OpenSSL for Prisma
+RUN apk add --no-cache openssl
+
 # Copy workspace configuration and lockfile
 COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
 
@@ -43,9 +46,13 @@ RUN pnpm build
 FROM base AS runner
 WORKDIR /app
 
+# Install OpenSSL for Prisma runtime
+RUN apk add --no-cache openssl
+
 ENV NODE_ENV=production
 
-# Copy collab-service node_modules (includes generated Prisma client)
+# Copy entire node_modules from dependencies stage (includes all packages and Prisma client)
+COPY --from=dependencies /app/node_modules ./node_modules
 COPY --from=dependencies /app/apps/collab-service/node_modules ./apps/collab-service/node_modules
 
 # Copy built application from builder
