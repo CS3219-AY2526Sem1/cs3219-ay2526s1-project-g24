@@ -75,6 +75,22 @@ describe("User Service", () => {
     vi.mocked(prisma.user.findMany).mockResolvedValue(users as any);
     const result = await getAllUsers();
     expect(result).toEqual(users);
-    expect(prisma.user.findMany).toHaveBeenCalledWith();
+    expect(prisma.user.findMany).toHaveBeenCalledWith({
+      include: {
+        roles: {
+          include: {
+            role: {
+              include: {
+                permissions: {
+                  include: {
+                    permission: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
   });
 });
