@@ -128,6 +128,7 @@ class UserQuestionAttempt(Base):
     id = Column(Integer, primary_key=True)
     user_id = Column(String(255), nullable=False, index=True)  # From User Service
     question_id = Column(Integer, ForeignKey('questions.id'), nullable=False, index=True)
+    language = Column(String(50), nullable=False)  # Programming language used
     
     # Attempt details
     is_solved = Column(Boolean, default=False)

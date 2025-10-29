@@ -478,10 +478,11 @@ def get_user_stats(db: Session, user_id: str) -> schemas.UserStats:
 
 def create_user_attempt(db: Session, user_id: str, attempt: schemas.UserAttemptCreate):
     """Record a user attempt"""
-    # Check if attempt record exists
+    # Check if attempt record exists for this user, question, AND language
     db_attempt = db.query(models.UserQuestionAttempt).filter(
         models.UserQuestionAttempt.user_id == user_id,
-        models.UserQuestionAttempt.question_id == attempt.question_id
+        models.UserQuestionAttempt.question_id == attempt.question_id,
+        models.UserQuestionAttempt.language == attempt.language
     ).first()
     
     if db_attempt:
@@ -513,6 +514,7 @@ def create_user_attempt(db: Session, user_id: str, attempt: schemas.UserAttemptC
         db_attempt = models.UserQuestionAttempt(
             user_id=user_id,
             question_id=attempt.question_id,
+            language=attempt.language,
             is_solved=attempt.is_solved,
             attempts_count=1,
             status=status,
@@ -526,6 +528,47 @@ def create_user_attempt(db: Session, user_id: str, attempt: schemas.UserAttemptC
     db.commit()
     db.refresh(db_attempt)
     return db_attempt
+
+
+def calculate_percentiles(
+    db: Session,
+    question_id: int,
+    language: str,
+    runtime_ms: int,
+    memory_mb: float
+) -> tuple[Optional[float], Optional[float]]:
+    """
+    Calculate runtime and memory percentiles for a submission.
+    Returns (runtime_percentile, memory_percentile) where percentile
+    indicates what % of submissions this beats (0-100).
+    Only calculates if there are at least 10 successful submissions in the same language.
+    """
+    # Query all successful attempts for this question in the same language
+    successful_attempts = db.query(
+        models.UserQuestionAttempt.best_runtime_ms,
+        models.UserQuestionAttempt.best_memory_mb
+    ).filter(
+        models.UserQuestionAttempt.question_id == question_id,
+        models.UserQuestionAttempt.language == language,
+        models.UserQuestionAttempt.is_solved == True,
+        models.UserQuestionAttempt.best_runtime_ms.isnot(None),
+        models.UserQuestionAttempt.best_memory_mb.isnot(None)
+    ).all()
+    
+    # Need minimum threshold for meaningful percentiles
+    if len(successful_attempts) < 10:
+        return None, None
+    
+    # Extract values
+    runtimes = [a.best_runtime_ms for a in successful_attempts]
+    memories = [a.best_memory_mb for a in successful_attempts]
+    
+    # Calculate percentiles (what % of submissions this beats)
+    # Lower runtime/memory is better, so we count how many are >= (worse than) current
+    runtime_percentile = (sum(1 for r in runtimes if r >= runtime_ms) / len(runtimes)) * 100
+    memory_percentile = (sum(1 for m in memories if m >= memory_mb) / len(memories)) * 100
+    
+    return round(runtime_percentile, 1), round(memory_percentile, 1)
 
 
 # ============================================================================

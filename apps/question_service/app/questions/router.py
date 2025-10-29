@@ -315,7 +315,7 @@ async def run_code(
     request: schemas.CodeExecutionRequest,
     db: Session = Depends(get_db)
 ):
-    """Run code against sample/selected test cases"""
+    """Run code against sample/selected test cases or custom input"""
     question = crud.get_question(db, question_id)
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
@@ -327,24 +327,37 @@ async def run_code(
             detail=f"Language {request.language} not supported for this question"
         )
     
-    # Get test cases
-    if request.test_case_ids:
+    # Handle custom input case
+    if request.custom_input is not None:
+        execution_test_cases = [{
+            "input_data": request.custom_input,
+            "expected_output": None,  # No expected output for custom runs
+            "order_index": 0,
+        }]
+    # Get test cases from database
+    elif request.test_case_ids:
         test_cases = [crud.get_test_case(db, tc_id) for tc_id in request.test_case_ids]
         test_cases = [tc for tc in test_cases if tc is not None]
+        if not test_cases:
+            raise HTTPException(status_code=400, detail="No test cases found")
+        execution_test_cases = []
+        for tc in test_cases:
+            execution_test_cases.append({
+                "input_data": tc.input_data,
+                "expected_output": tc.expected_output,
+                "order_index": tc.order_index,
+            })
     else:
         test_cases = crud.get_test_cases(db, question_id, public_only=True)
-    
-    if not test_cases:
-        raise HTTPException(status_code=400, detail="No test cases found")
-    
-    # Prepare test cases for execution service
-    execution_test_cases = []
-    for tc in test_cases:
-        execution_test_cases.append({
-            "input_data": tc.input_data,
-            "expected_output": tc.expected_output,
-            "order_index": tc.order_index,
-        })
+        if not test_cases:
+            raise HTTPException(status_code=400, detail="No test cases found")
+        execution_test_cases = []
+        for tc in test_cases:
+            execution_test_cases.append({
+                "input_data": tc.input_data,
+                "expected_output": tc.expected_output,
+                "order_index": tc.order_index,
+            })
     
     # Call code execution service with question-specific limits
     try:
@@ -371,18 +384,31 @@ async def run_code(
         # Map results back to our schema
         results = []
         for result in execution_result["results"]:
-            # Find the original test case ID
-            tc = test_cases[result["order_index"]]
-            results.append(schemas.TestCaseResult(
-                test_case_id=tc.id,
-                input_data=result["input_data"],
-                expected_output=result["expected_output"],
-                actual_output=result.get("actual_output"),
-                passed=result["passed"],
-                runtime_ms=result.get("runtime_ms"),
-                memory_mb=result.get("memory_kb", 0) / 1024 if result.get("memory_kb") else None,
-                error=result.get("error_message"),
-            ))
+            # For custom input, there's no test case ID
+            if request.custom_input is not None:
+                results.append(schemas.TestCaseResult(
+                    test_case_id=None,
+                    input_data=result["input_data"],
+                    expected_output=result["expected_output"],
+                    actual_output=result.get("actual_output"),
+                    passed=result.get("passed", True),  # Always "passed" for custom input (no expected output)
+                    runtime_ms=result.get("runtime_ms"),
+                    memory_mb=result.get("memory_kb", 0) / 1024 if result.get("memory_kb") else None,
+                    error=result.get("error_message"),
+                ))
+            else:
+                # Find the original test case ID
+                tc = test_cases[result["order_index"]]
+                results.append(schemas.TestCaseResult(
+                    test_case_id=tc.id,
+                    input_data=result["input_data"],
+                    expected_output=result["expected_output"],
+                    actual_output=result.get("actual_output"),
+                    passed=result["passed"],
+                    runtime_ms=result.get("runtime_ms"),
+                    memory_mb=result.get("memory_kb", 0) / 1024 if result.get("memory_kb") else None,
+                    error=result.get("error_message"),
+                ))
         
         return schemas.CodeExecutionResponse(
             question_id=question_id,
@@ -505,15 +531,24 @@ async def submit_solution(
         # Record user attempt
         attempt = schemas.UserAttemptCreate(
             question_id=question_id,
+            language=request.language,
             is_solved=is_solved,
             runtime_ms=int(avg_runtime) if avg_runtime else None,
             memory_mb=avg_memory_mb,
         )
         crud.create_user_attempt(db, user_id, attempt)
         
-        # Calculate percentiles (simplified - in production, would query historical data)
-        runtime_percentile = 75.5 if is_solved else None
-        memory_percentile = 80.2 if is_solved else None
+        # Calculate percentiles based on language-specific historical data
+        runtime_percentile = None
+        memory_percentile = None
+        if is_solved and avg_runtime and avg_memory_mb:
+            runtime_percentile, memory_percentile = crud.calculate_percentiles(
+                db=db,
+                question_id=question_id,
+                language=request.language,
+                runtime_ms=int(avg_runtime),
+                memory_mb=avg_memory_mb
+            )
         
         submission_id = str(uuid.uuid4())
         

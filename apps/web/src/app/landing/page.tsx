@@ -12,7 +12,11 @@ export default function Landing() {
             <header className="fixed top-0 left-0 right-0 z-50 bg-[#333232] border-b-2 border-dashed border-white/20">
                 <div className="flex justify-between items-center px-6 md:px-12 py-9 max-w-[68rem] mx-auto">
                     <div className="fade-in-up">
-                        <h1 className="font-mclaren text-white text-2xl md:text-3xl">PeerPrep</h1>
+                        <Link href="/home">
+                            <h1 className="font-mclaren text-white text-2xl md:text-3xl cursor-pointer hover:opacity-80 transition-opacity">
+                                PeerPrep
+                            </h1>
+                        </Link>
                     </div>
                     <div className="flex gap-4">
                         <Link href="/signin">

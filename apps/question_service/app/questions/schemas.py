@@ -207,6 +207,7 @@ class CodeExecutionRequest(BaseModel):
     language: str
     code: str
     test_case_ids: Optional[List[int]] = None  # If None, run against sample cases
+    custom_input: Optional[Dict[str, Any]] = None  # If provided, run with custom input instead
     
     @validator('language')
     def validate_language(cls, v):
@@ -216,7 +217,7 @@ class CodeExecutionRequest(BaseModel):
         return v
 
 class TestCaseResult(BaseModel):
-    test_case_id: int
+    test_case_id: Optional[int] = None  # None for custom input
     input_data: Dict[str, Any]
     expected_output: Any
     actual_output: Any
@@ -262,6 +263,7 @@ class UserAttemptBase(BaseModel):
 
 class UserAttemptCreate(BaseModel):
     question_id: int
+    language: str
     is_solved: bool
     runtime_ms: Optional[int] = None
     memory_mb: Optional[float] = None
