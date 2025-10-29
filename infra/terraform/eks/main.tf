@@ -53,9 +53,9 @@ module "eks" {
       name = "baseline"
       subnet_ids = module.vpc.public_subnets
       instance_types = ["t3.medium"]
-      desired_size = 1
-      min_size = 0
-      max_size = 2
+      desired_size = 2
+      min_size = 1
+      max_size = 3
     }
   }
 
