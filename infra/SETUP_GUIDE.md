@@ -218,6 +218,13 @@ aws ssm put-parameter \
   --tags Key=Project,Value=cs3219 \
   --region ap-southeast-1
 
+aws ssm put-parameter \
+  --name /cs3219/db/collab-password \
+  --value "$(openssl rand -base64 32)" \
+  --type SecureString \
+  --tags Key=Project,Value=cs3219 \
+  --region ap-southeast-1
+
 # JWT secret (64 chars for security)
 aws ssm put-parameter \
   --name /cs3219/jwt-secret \
@@ -261,7 +268,7 @@ ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 REGION=ap-southeast-1
 
 # Create repositories for each service
-for service in web api question-service user-service matching-service; do
+for service in web api question-service user-service matching-service collab-service; do
   aws ecr create-repository \
     --repository-name $service \
     --region $REGION || echo "Repository $service already exists"
@@ -306,13 +313,18 @@ docker push ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/user-service:latest
 docker build -t ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/matching-service:latest \
   -f apps/matching-service/Dockerfile .
 docker push ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/matching-service:latest
+
+# Collaboration Service (Node.js/WebSocket/Yjs)
+docker build -t ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/collab-service:latest \
+  -f apps/collab-service/Dockerfile .
+docker push ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/collab-service:latest
 ```
 
 **5.4 Verify Images**
 
 ```bash
 # Check images were pushed
-for service in web api question-service user-service matching-service; do
+for service in web api question-service user-service matching-service collab-service; do
   echo "=== $service ==="
   aws ecr list-images --repository-name $service --region $REGION
 done
@@ -333,6 +345,7 @@ REGION=ap-southeast-1
 sed -i '' "s|REPLACE_WITH_ECR_QUESTION_SERVICE_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/question-service:latest|g" question-service.yaml
 sed -i '' "s|REPLACE_WITH_ECR_USER_SERVICE_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/user-service:latest|g" user-service.yaml
 sed -i '' "s|REPLACE_WITH_ECR_MATCHING_SERVICE_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/matching-service:latest|g" matching-service.yaml
+sed -i '' "s|REPLACE_WITH_ECR_COLLAB_SERVICE_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/collab-service:latest|g" collab-service.yaml
 sed -i '' "s|REPLACE_WITH_ECR_WEB_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/web:latest|g" web.yaml
 sed -i '' "s|REPLACE_WITH_ECR_API_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/api:latest|g" api.yaml
 
@@ -360,6 +373,9 @@ kubectl create secret generic db-secrets -n cs3219 \
   --from-literal=user-db-user=user \
   --from-literal=user-db-password=$(aws ssm get-parameter --name /cs3219/db/user-password --with-decryption --query 'Parameter.Value' --output text --region ap-southeast-1) \
   --from-literal=user-db-name=userdb \
+  --from-literal=collab-db-user=collabuser \
+  --from-literal=collab-db-password=$(aws ssm get-parameter --name /cs3219/db/collab-password --with-decryption --query 'Parameter.Value' --output text --region ap-southeast-1) \
+  --from-literal=collab-db-name=collabdb \
   --from-literal=redis-password=""
 
 kubectl create secret generic app-secrets -n cs3219 \
@@ -376,18 +392,21 @@ kubectl apply -f network-policy.yaml
 # 4. Deploy databases
 kubectl apply -f postgres-question.yaml
 kubectl apply -f postgres-user.yaml
+kubectl apply -f postgres-collab.yaml
 kubectl apply -f redis.yaml
 
 # Wait for databases to be ready
 echo "⏳ Waiting for databases..."
 kubectl wait --for=condition=ready pod -l app=question-db -n cs3219 --timeout=300s
 kubectl wait --for=condition=ready pod -l app=user-db -n cs3219 --timeout=300s
+kubectl wait --for=condition=ready pod -l app=collab-db -n cs3219 --timeout=300s
 kubectl wait --for=condition=ready pod -l app=matching-redis -n cs3219 --timeout=300s
 
 # 5. Deploy services
 kubectl apply -f question-service.yaml
 kubectl apply -f user-service.yaml
 kubectl apply -f matching-service.yaml
+kubectl apply -f collab-service.yaml
 kubectl apply -f api.yaml
 kubectl apply -f web.yaml
 
@@ -453,6 +472,8 @@ kubectl get pods -n cs3219
 # Expected output:
 # NAME                                READY   STATUS    RESTARTS   AGE
 # api-xxx                            1/1     Running   0          5m
+# collab-db-xxx                      1/1     Running   0          5m
+# collab-service-xxx                 1/1     Running   0          5m
 # matching-redis-xxx                 1/1     Running   0          5m
 # matching-service-xxx               1/1     Running   0          5m
 # question-db-xxx                    1/1     Running   0          5m
@@ -471,6 +492,8 @@ kubectl describe ingress cs3219-ingress -n cs3219
 kubectl logs -n cs3219 deployment/web
 kubectl logs -n cs3219 deployment/question-service
 kubectl logs -n cs3219 deployment/user-service
+kubectl logs -n cs3219 deployment/matching-service
+kubectl logs -n cs3219 deployment/collab-service
 ```
 
 ---
