@@ -466,9 +466,9 @@ describe("API Routes Integration Tests", () => {
     });
   });
 
-  describe("GET /-/health", () => {
+  describe("GET /health", () => {
     it("should return health status", async () => {
-      const response = await request(app).get("/-/health").expect(200);
+      const response = await request(app).get("/health").expect(200);
 
       expect(response.body).toEqual({ status: "ok" });
     });

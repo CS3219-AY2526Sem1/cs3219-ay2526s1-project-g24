@@ -1801,7 +1801,7 @@ paths:
               schema:
                 type: string
 
-  /-/health:
+  /health:
     get:
       tags:
         - Health

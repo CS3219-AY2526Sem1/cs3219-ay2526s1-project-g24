@@ -18,3 +18,8 @@ app.add_middleware(
 )
 
 app.include_router(api_router)
+
+# Basic health endpoint for k8s probes
+@app.get("/health")
+def health():
+    return {"status": "ok"}

@@ -63,13 +63,11 @@ const createRequestSchema = z.object({
  */
 function trackMetrics(req: Request, res: Response, next: NextFunction) {
   const start = Date.now();
-
   res.on("finish", () => {
     const duration = (Date.now() - start) / 1000;
-    const route = req.route?.path || req.path;
+    const route = (req as any).route?.path || req.path;
     metrics.recordHttpRequest(req.method, route, res.statusCode, duration);
   });
-
   next();
 }
 
@@ -434,9 +432,14 @@ router.delete(
 router.get("/v1/match/requests/:reqId/events", handleSSE);
 
 /**
- * GET /-/health
+ * GET /health
  * Health check endpoint (liveness probe)
  */
+router.get("/health", (_req: Request, res: Response) => {
+  res.status(200).json({ status: "ok" });
+});
+
+// Backward compatibility for older probes/clients
 router.get("/-/health", (_req: Request, res: Response) => {
   res.status(200).json({ status: "ok" });
 });
