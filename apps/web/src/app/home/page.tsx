@@ -117,16 +117,13 @@ function Home() {
                 </div>
                 <h3 className="text-xl font-semibold text-white mb-2">{dailyChallenge.title}</h3>
                 <div className="flex items-center gap-4 mb-4">
-                  <span className={`text-xs px-3 py-1 rounded-full font-semibold uppercase ${getDifficultyStyles(dailyChallenge.difficulty)}`}>
+                  <span className={`text-xs px-3 py-1 rounded-md font-semibold uppercase ${getDifficultyStyles(dailyChallenge.difficulty)}`}>
                     {dailyChallenge.difficulty}
                   </span>
                   <span className="text-[#9e9e9e] text-sm">
                     {dailyChallenge.topics.map(t => t.name).join(' • ')}
                   </span>
                 </div>
-                <p className="text-[#9e9e9e] text-sm mb-6">
-                  Acceptance Rate: {dailyChallenge.acceptance_rate}% • {dailyChallenge.total_submissions.toLocaleString()} submissions
-                </p>
                 <button
                   onClick={() => router.push(`/practice/${dailyChallenge.id}`)}
                   className="bg-[#fb923c] hover:bg-[#f97316] text-white font-montserrat font-semibold px-8 py-3 rounded-full transition-all hover:scale-105"

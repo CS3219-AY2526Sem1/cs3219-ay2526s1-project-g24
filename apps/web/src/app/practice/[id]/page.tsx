@@ -4,7 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { getDifficultyStyles } from '@/lib/difficulty';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
-import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult } from '@/lib/api/questionService';
+import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult, getSimilarQuestions, QuestionListItem } from '@/lib/api/questionService';
 import { ProgrammingLanguage } from '@/lib/types';
 
 
@@ -26,6 +26,10 @@ export default function PracticePage() {
     const [question, setQuestion] = useState<QuestionDetail | null>(null);
     const [isLoadingQuestion, setIsLoadingQuestion] = useState(true);
     const [questionError, setQuestionError] = useState<string | null>(null);
+
+    // Similar questions state
+    const [similarQuestions, setSimilarQuestions] = useState<QuestionListItem[]>([]);
+    const [isLoadingSimilar, setIsLoadingSimilar] = useState(true);
 
     // Test execution state
     const [testResults, setTestResults] = useState<TestCaseResult[]>([]);
@@ -75,6 +79,23 @@ export default function PracticePage() {
         };
 
         fetchQuestion();
+    }, [questionId]);
+
+    // Fetch similar questions on mount
+    useEffect(() => {
+        const fetchSimilar = async () => {
+            setIsLoadingSimilar(true);
+            try {
+                const similar = await getSimilarQuestions(questionId, 5);
+                setSimilarQuestions(similar);
+            } catch (err) {
+                console.error('Failed to load similar questions:', err);
+            } finally {
+                setIsLoadingSimilar(false);
+            }
+        };
+
+        fetchSimilar();
     }, [questionId]);
 
     // Update code when language changes
@@ -338,7 +359,7 @@ export default function PracticePage() {
                                 <div className="mb-6">
                                     <div className="flex items-center gap-3 mb-3">
                                         <h2 className="text-2xl font-semibold text-white">{question.title}</h2>
-                                        <span className={`text-xs px-3 py-1 rounded font-medium uppercase ${getDifficultyStyles(question.difficulty)}`}>
+                                        <span className={`text-xs px-3 py-1 rounded-md font-medium uppercase ${getDifficultyStyles(question.difficulty)}`}>
                                             {question.difficulty}
                                         </span>
                                     </div>
@@ -367,6 +388,34 @@ export default function PracticePage() {
                                         </div>
                                     ))}
                                 </div>
+
+                                {/* Similar Questions Section */}
+                                {!isLoadingSimilar && similarQuestions.length > 0 && (
+                                    <div className="mt-6 pt-6 border-t border-[#3e3e3e]">
+                                        <h3 className="text-white font-semibold mb-4 text-sm">🔗 Similar Questions</h3>
+                                        <div className="space-y-2">
+                                            {similarQuestions.map((similar) => (
+                                                <div
+                                                    key={similar.id}
+                                                    onClick={() => router.push(`/practice/${similar.id}`)}
+                                                    className="bg-[#1e1e1e] border border-[#3e3e3e] hover:border-[#5e5e5e] rounded-lg p-3 cursor-pointer transition-all hover:bg-[#252525] group"
+                                                >
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-white text-sm group-hover:text-blue-400 transition-colors">{similar.title}</span>
+                                                        <span className={`text-xs px-2 py-0.5 rounded-md font-medium uppercase ${getDifficultyStyles(similar.difficulty)}`}>
+                                                            {similar.difficulty}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        {similar.topics.slice(0, 3).map((topic) => (
+                                                            <span key={topic.id} className="text-xs text-gray-500">{topic.name}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         ) : null}
                     </div>

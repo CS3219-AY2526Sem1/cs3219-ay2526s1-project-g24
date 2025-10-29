@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import withAuth from "@/components/withAuth";
-import { getUserStats, getUserSolvedQuestions, UserStats, UserSolvedQuestion } from "@/lib/api/questionService";
+import { getUserStats, getUserSolvedQuestions, getQuestionCounts, UserStats, UserSolvedQuestion } from "@/lib/api/questionService";
 import { getDifficultyStyles } from "@/lib/difficulty";
 
 function ProfileStats() {
@@ -12,6 +12,7 @@ function ProfileStats() {
     const [activeTab, setActiveTab] = useState("Profile");
     const [stats, setStats] = useState<UserStats | null>(null);
     const [solvedQuestions, setSolvedQuestions] = useState<UserSolvedQuestion[]>([]);
+    const [questionCounts, setQuestionCounts] = useState({ total: 55, easy: 20, medium: 25, hard: 10 });
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
 
@@ -27,12 +28,14 @@ function ProfileStats() {
             setIsLoading(true);
             setError(null);
             try {
-                const [statsData, solvedData] = await Promise.all([
+                const [statsData, solvedData, countsData] = await Promise.all([
                     getUserStats(),
                     getUserSolvedQuestions(),
+                    getQuestionCounts()
                 ]);
                 setStats(statsData);
                 setSolvedQuestions(solvedData);
+                setQuestionCounts(countsData);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load statistics');
             } finally {
@@ -43,7 +46,8 @@ function ProfileStats() {
         fetchData();
     }, []);
 
-    const getProgressPercentage = (solved: number, total: number = 200) => {
+    const getProgressPercentage = (solved: number, total: number) => {
+        if (total === 0) return 0;
         return Math.min((solved / total) * 100, 100);
     };
 
@@ -87,6 +91,17 @@ function ProfileStats() {
             {/* Main Content */}
             <main className="relative z-10 pt-44 pb-20 px-6 md:px-12">
                 <div className="max-w-6xl mx-auto">
+                    <div className="flex items-center gap-4 mb-12">
+                        <button
+                            onClick={() => router.push('/profile')}
+                            className="text-[#9e9e9e] hover:text-white transition-colors flex items-center gap-2"
+                        >
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                <path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round"/>
+                            </svg>
+                            <span className="text-sm">Back to Profile</span>
+                        </button>
+                    </div>
                     <h1 className="font-montserrat text-5xl font-semibold text-white mb-12">
                         Your Statistics
                     </h1>
@@ -109,12 +124,12 @@ function ProfileStats() {
                                 <div className="mb-8">
                                     <div className="flex justify-between items-center mb-2">
                                         <span className="text-white text-lg font-medium">Total Solved</span>
-                                        <span className="text-white text-lg font-bold">{stats.total_solved}/200</span>
+                                        <span className="text-white text-lg font-bold">{stats.total_solved}/{questionCounts.total}</span>
                                     </div>
                                     <div className="w-full bg-[#2d2d2d] rounded-full h-3 overflow-hidden">
                                         <div 
                                             className="bg-gradient-to-r from-[#4ade80] to-[#22c55e] h-full rounded-full transition-all duration-500"
-                                            style={{ width: `${getProgressPercentage(stats.total_solved)}%` }}
+                                            style={{ width: `${getProgressPercentage(stats.total_solved, questionCounts.total)}%` }}
                                         />
                                     </div>
                                 </div>
@@ -124,13 +139,13 @@ function ProfileStats() {
                                     {/* Easy */}
                                     <div>
                                         <div className="flex justify-between items-center mb-2">
-                                            <span className="text-[#4ade80] text-sm font-medium">Easy</span>
-                                            <span className="text-white text-sm font-semibold">{stats.easy_solved}/75</span>
+                                            <span className="text-[#00b8a3] text-sm font-medium">Easy</span>
+                                            <span className="text-white text-sm font-semibold">{stats.easy_solved}/{questionCounts.easy}</span>
                                         </div>
                                         <div className="w-full bg-[#2d2d2d] rounded-full h-2 overflow-hidden">
                                             <div 
-                                                className="bg-[#4ade80] h-full rounded-full transition-all duration-500"
-                                                style={{ width: `${getProgressPercentage(stats.easy_solved, 75)}%` }}
+                                                className="bg-[#00b8a3] h-full rounded-full transition-all duration-500"
+                                                style={{ width: `${getProgressPercentage(stats.easy_solved, questionCounts.easy)}%` }}
                                             />
                                         </div>
                                     </div>
@@ -138,13 +153,13 @@ function ProfileStats() {
                                     {/* Medium */}
                                     <div>
                                         <div className="flex justify-between items-center mb-2">
-                                            <span className="text-[#fb923c] text-sm font-medium">Medium</span>
-                                            <span className="text-white text-sm font-semibold">{stats.medium_solved}/100</span>
+                                            <span className="text-[#ffc01e] text-sm font-medium">Medium</span>
+                                            <span className="text-white text-sm font-semibold">{stats.medium_solved}/{questionCounts.medium}</span>
                                         </div>
                                         <div className="w-full bg-[#2d2d2d] rounded-full h-2 overflow-hidden">
                                             <div 
-                                                className="bg-[#fb923c] h-full rounded-full transition-all duration-500"
-                                                style={{ width: `${getProgressPercentage(stats.medium_solved, 100)}%` }}
+                                                className="bg-[#ffc01e] h-full rounded-full transition-all duration-500"
+                                                style={{ width: `${getProgressPercentage(stats.medium_solved, questionCounts.medium)}%` }}
                                             />
                                         </div>
                                     </div>
@@ -152,13 +167,13 @@ function ProfileStats() {
                                     {/* Hard */}
                                     <div>
                                         <div className="flex justify-between items-center mb-2">
-                                            <span className="text-[#f87171] text-sm font-medium">Hard</span>
-                                            <span className="text-white text-sm font-semibold">{stats.hard_solved}/25</span>
+                                            <span className="text-[#ff375f] text-sm font-medium">Hard</span>
+                                            <span className="text-white text-sm font-semibold">{stats.hard_solved}/{questionCounts.hard}</span>
                                         </div>
                                         <div className="w-full bg-[#2d2d2d] rounded-full h-2 overflow-hidden">
                                             <div 
-                                                className="bg-[#f87171] h-full rounded-full transition-all duration-500"
-                                                style={{ width: `${getProgressPercentage(stats.hard_solved, 25)}%` }}
+                                                className="bg-[#ff375f] h-full rounded-full transition-all duration-500"
+                                                style={{ width: `${getProgressPercentage(stats.hard_solved, questionCounts.hard)}%` }}
                                             />
                                         </div>
                                     </div>
@@ -222,7 +237,7 @@ function ProfileStats() {
                                                             {question.best_runtime_ms}ms
                                                         </span>
                                                     )}
-                                                    <span className={`text-xs px-3 py-1 rounded-full font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
+                                                    <span className={`text-xs px-3 py-1 rounded-md font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
                                                         {question.difficulty}
                                                     </span>
                                                 </div>

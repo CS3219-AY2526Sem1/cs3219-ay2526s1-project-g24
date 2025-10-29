@@ -560,6 +560,53 @@ export async function getUserStats(): Promise<UserStats> {
 }
 
 /**
+ * Get total question counts by difficulty
+ * Makes three API calls to count questions for each difficulty
+ */
+export async function getQuestionCounts(): Promise<{
+    total: number;
+    easy: number;
+    medium: number;
+    hard: number;
+}> {
+    try {
+        // Fetch counts for each difficulty in parallel
+        const [easyRes, mediumRes, hardRes] = await Promise.all([
+            fetch(`${QUESTION_SERVICE_URL}/api/questions?difficulties=easy&page_size=1`, {
+                credentials: 'include',
+            }),
+            fetch(`${QUESTION_SERVICE_URL}/api/questions?difficulties=medium&page_size=1`, {
+                credentials: 'include',
+            }),
+            fetch(`${QUESTION_SERVICE_URL}/api/questions?difficulties=hard&page_size=1`, {
+                credentials: 'include',
+            })
+        ]);
+
+        const [easyData, mediumData, hardData] = await Promise.all([
+            easyRes.json(),
+            mediumRes.json(),
+            hardRes.json()
+        ]);
+
+        const easy = easyData.total || 0;
+        const medium = mediumData.total || 0;
+        const hard = hardData.total || 0;
+
+        return {
+            total: easy + medium + hard,
+            easy,
+            medium,
+            hard
+        };
+    } catch (error) {
+        console.error('Failed to fetch question counts:', error);
+        // Return defaults if fetch fails
+        return { total: 55, easy: 20, medium: 25, hard: 10 };
+    }
+}
+
+/**
  * Get current user's solved questions
  * Endpoint: GET /api/users/me/solved
  */

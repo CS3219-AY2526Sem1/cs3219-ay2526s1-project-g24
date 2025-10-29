@@ -365,7 +365,7 @@ function Questions() {
                                     
                                     {/* Difficulty Badge */}
                                     <div className="flex-shrink-0">
-                                        <span className={`text-xs px-4 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
+                                        <span className={`text-xs px-4 py-1.5 rounded-md font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
                                             {question.difficulty}
                                         </span>
                                     </div>

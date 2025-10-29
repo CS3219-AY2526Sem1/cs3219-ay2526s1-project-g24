@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   getUser,
@@ -13,6 +14,7 @@ import { User, ProficiencyLevel, ProgrammingLanguage } from "@/lib/types";
 
 function Profile() {
   const { logout } = useAuth();
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState("Profile");
   const [isEditing, setIsEditing] = useState(false);
@@ -329,6 +331,13 @@ function Profile() {
 
           {/* Action Buttons */}
           <div className="flex flex-col items-center gap-4">
+            <button
+              onClick={() => router.push('/profile/stats')}
+              className="bg-gradient-to-r from-[#4ade80] to-[#22c55e] text-white hover:from-[#22c55e] hover:to-[#16a34a] px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-all hover:scale-105"
+            >
+              📊 View My Stats
+            </button>
+
             <button
               onClick={handleEditToggle}
               className="bg-white text-[#1e1e1e] hover:bg-gray-100 px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-colors"

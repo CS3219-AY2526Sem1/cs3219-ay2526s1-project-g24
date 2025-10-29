@@ -189,7 +189,7 @@ export default function SubmissionResultPage() {
                                 {/* Question info */}
                                 <div className="flex items-center gap-3 flex-wrap">
                                     <span className="text-white font-medium">{submission.question_title}</span>
-                                    <span className={`text-xs px-3 py-1 rounded-full font-semibold uppercase ${getDifficultyStyles(submission.difficulty)}`}>
+                                    <span className={`text-xs px-3 py-1 rounded-md font-semibold uppercase ${getDifficultyStyles(submission.difficulty)}`}>
                                         {submission.difficulty}
                                     </span>
                                     <span className="text-[#9e9e9e] text-sm">
