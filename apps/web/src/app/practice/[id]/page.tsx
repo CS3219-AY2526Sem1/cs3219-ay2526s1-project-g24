@@ -32,6 +32,12 @@ export default function PracticePage() {
     const [isRunning, setIsRunning] = useState(false);
     const [executionError, setExecutionError] = useState<string | null>(null);
 
+    // Custom input state
+    const [customInput, setCustomInput] = useState('');
+    const [customOutput, setCustomOutput] = useState<string | null>(null);
+    const [customError, setCustomError] = useState<string | null>(null);
+    const [isRunningCustom, setIsRunningCustom] = useState(false);
+
     const containerRef = useRef<HTMLDivElement>(null);
     const rightPanelRef = useRef<HTMLDivElement>(null);
 
@@ -95,6 +101,13 @@ export default function PracticePage() {
             localStorage.setItem(getCodeStorageKey(questionId, selectedLanguage), code);
         }
     }, [code, questionId, selectedLanguage, question]);
+
+    // Initialize custom input with example when switching to that tab
+    useEffect(() => {
+        if (activeTab === 'customInput' && !customInput && question && question.sample_test_cases.length > 0) {
+            setCustomInput(getExampleInput());
+        }
+    }, [activeTab, question]);
 
     // Handle Run Code button
     const handleRunCode = async () => {
@@ -200,6 +213,82 @@ export default function PracticePage() {
 
     const handleExit = () => {
         router.push('/questions');
+    };
+
+    // Handle Run Custom Input
+    const handleRunCustomInput = async () => {
+        if (!question || !code || !customInput.trim()) {
+            setCustomError('Please enter custom input');
+            return;
+        }
+
+        setIsRunningCustom(true);
+        setCustomError(null);
+        setCustomOutput(null);
+
+        try {
+            // Parse the custom input JSON
+            let inputData: Record<string, any>;
+            try {
+                inputData = JSON.parse(customInput);
+            } catch (parseError) {
+                throw new Error('Invalid JSON format. Please check your input.');
+            }
+
+            // Call the question service's run endpoint with custom_input
+            const response = await runCode(questionId, {
+                language: selectedLanguage,
+                code: code,
+                custom_input: inputData,
+            });
+
+            // Format the output from the first (and only) result
+            if (response.results.length > 0) {
+                const result = response.results[0];
+                let outputText = '';
+                
+                if (result.error) {
+                    outputText = `❌ Error:\n${result.error}`;
+                    setCustomError(result.error);
+                } else {
+                    outputText = `✅ Execution successful!\n\n`;
+                    outputText += `Output: ${JSON.stringify(result.actual_output, null, 2)}\n\n`;
+                    
+                    if (result.runtime_ms !== null && result.runtime_ms !== undefined) {
+                        outputText += `Runtime: ${result.runtime_ms.toFixed(2)} ms\n`;
+                    }
+                    if (result.memory_mb !== null && result.memory_mb !== undefined) {
+                        outputText += `Memory: ${result.memory_mb.toFixed(2)} MB\n`;
+                    }
+                }
+                
+                setCustomOutput(outputText);
+            } else {
+                throw new Error('No results returned from execution');
+            }
+            
+        } catch (err) {
+            setCustomError(err instanceof Error ? err.message : 'Failed to run custom input');
+            setCustomOutput(null);
+        } finally {
+            setIsRunningCustom(false);
+        }
+    };
+
+    // Generate example input based on first sample test case
+    const getExampleInput = () => {
+        if (!question || !question.sample_test_cases || question.sample_test_cases.length === 0) {
+            return '{}';
+        }
+        return JSON.stringify(question.sample_test_cases[0].input_data, null, 2);
+    };
+
+    // Get parameter names from function signature
+    const getParameterNames = () => {
+        if (!question || !question.function_signature) {
+            return [];
+        }
+        return question.function_signature.arguments.map((arg: any) => arg.name);
     };
 
     return (
@@ -530,23 +619,79 @@ export default function PracticePage() {
                                 </div>
                             ) : (
                                 <div className="space-y-4">
+                                    {/* Help text */}
+                                    <div className="bg-[#2e2e2e] border border-[#3e3e3e] p-3 rounded">
+                                        <p className="text-gray-400 text-xs mb-2">
+                                            💡 <span className="font-semibold">How to use:</span> Enter input as JSON with parameter names as keys
+                                        </p>
+                                        {question && question.function_signature && (
+                                            <div className="text-xs text-gray-500 font-mono">
+                                                Parameters: {question.function_signature.arguments.map((arg: any) => arg.name).join(', ')}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Custom Input */}
                                     <div>
-                                        <label className="text-white block mb-2 text-sm font-medium">Custom Input</label>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-white text-sm font-medium">Custom Input</label>
+                                            {question && question.sample_test_cases && question.sample_test_cases.length > 0 && (
+                                                <button
+                                                    onClick={() => setCustomInput(getExampleInput())}
+                                                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                                                >
+                                                    Load Example
+                                                </button>
+                                            )}
+                                        </div>
                                         <textarea
+                                            value={customInput}
+                                            onChange={(e) => setCustomInput(e.target.value)}
                                             className="w-full bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300 resize-none focus:outline-none focus:border-[#5e5e5e] transition-colors"
-                                            rows={6}
-                                            placeholder="Enter your custom test input here..."
+                                            rows={8}
+                                            placeholder={`Example format:\n${getExampleInput()}`}
                                         />
                                     </div>
+
+                                    {/* Run Button */}
                                     <div className="flex gap-2">
-                                        <button className="px-4 py-2 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors">
-                                            Run with Custom Input
+                                        <button 
+                                            onClick={handleRunCustomInput}
+                                            disabled={isRunningCustom || !question || !customInput.trim()}
+                                            className="px-4 py-2 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isRunningCustom ? 'Running...' : 'Run with Custom Input'}
                                         </button>
+                                        {customInput && (
+                                            <button
+                                                onClick={() => {
+                                                    setCustomInput('');
+                                                    setCustomOutput(null);
+                                                    setCustomError(null);
+                                                }}
+                                                className="px-4 py-2 bg-transparent border border-[#3e3e3e] hover:border-[#5e5e5e] text-gray-400 hover:text-white text-sm font-medium transition-colors"
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
                                     </div>
+
+                                    {/* Error Display */}
+                                    {customError && (
+                                        <div className="p-3 bg-red-900/20 border border-red-500 rounded text-red-300 text-sm">
+                                            {customError}
+                                        </div>
+                                    )}
+
+                                    {/* Output */}
                                     <div>
                                         <label className="text-white block mb-2 text-sm font-medium">Output</label>
-                                        <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-500 min-h-[100px]">
-                                            Output will appear here after running...
+                                        <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm min-h-[150px]">
+                                            {customOutput ? (
+                                                <pre className="text-gray-300 whitespace-pre-wrap">{customOutput}</pre>
+                                            ) : (
+                                                <span className="text-gray-500">Output will appear here after running...</span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

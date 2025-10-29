@@ -254,6 +254,7 @@ export interface CodeExecutionRequest {
     language: string;
     code: string;
     test_case_ids?: number[];
+    custom_input?: Record<string, any>;
 }
 
 /**
