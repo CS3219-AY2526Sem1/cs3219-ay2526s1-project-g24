@@ -4,6 +4,7 @@ terraform {
     aws = { source = "hashicorp/aws", version = ">= 5.0" }
     kubernetes = { source = "hashicorp/kubernetes", version = ">= 2.29" }
     helm = { source = "hashicorp/helm", version = ">= 2.12" }
+    time = { source = "hashicorp/time", version = ">= 0.9.1" }
   }
 }
 
@@ -40,6 +41,12 @@ module "eks" {
   subnet_ids = module.vpc.public_subnets
 
   enable_irsa = true
+  enable_cluster_creator_admin_permissions = true
+
+  # Ensure control plane is reachable from your machine during provisioning
+  cluster_endpoint_public_access  = true
+  cluster_endpoint_private_access = false
+  cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]
 
   eks_managed_node_groups = {
     ng = {
@@ -61,14 +68,28 @@ module "eks" {
   tags = { "karpenter.sh/discovery" = var.cluster_name }
 }
 
-data "aws_eks_cluster" "this" { name = module.eks.cluster_name }
+data "aws_eks_cluster" "this" {
+  name = module.eks.cluster_name
+  # Ensure the cluster is created before we try to read it
+  depends_on = [module.eks]
+}
 
-data "aws_eks_cluster_auth" "this" { name = module.eks.cluster_name }
+data "aws_eks_cluster_auth" "this" {
+  name = module.eks.cluster_name
+  # Ensure the cluster is created before we try to read the auth token
+  depends_on = [module.eks]
+}
 
 provider "kubernetes" {
   host = data.aws_eks_cluster.this.endpoint
   cluster_ca_certificate = base64decode(data.aws_eks_cluster.this.certificate_authority[0].data)
   token = data.aws_eks_cluster_auth.this.token
+}
+
+# Give the EKS API a little time to come online before applying k8s resources
+resource "time_sleep" "wait_for_eks_api" {
+  depends_on = [module.eks]
+  create_duration = "90s"
 }
 
 # === GitHub OIDC for CI (no static keys) ===
@@ -168,6 +189,7 @@ resource "aws_iam_role_policy_attachment" "gha_least_priv_attach" {
 # Note: Using separate ConfigMap instead of EKS module's aws-auth management
 # to maintain explicit control over IAM role mappings
 resource "kubernetes_config_map_v1_data" "aws_auth" {
+  count = 0
   metadata {
     name = "aws-auth"
     namespace = "kube-system"
@@ -196,7 +218,7 @@ resource "kubernetes_config_map_v1_data" "aws_auth" {
       }]
     ))
   }
-  depends_on = [module.eks]
+  depends_on = [time_sleep.wait_for_eks_api]
 }
 
 # ---------- Karpenter (controller + roles) ----------
@@ -264,16 +286,19 @@ role = aws_iam_role.karpenter_node.name
 
 # Namespace + SA + Helm for controller
 resource "kubernetes_namespace" "karpenter" {
+  count = 0
   metadata {
     name = "karpenter"
   }
+  depends_on = [time_sleep.wait_for_eks_api]
 }
 
 resource "helm_release" "karpenter" {
+  count = 0
   name = "karpenter"
   chart = "karpenter"
   repository = "oci://public.ecr.aws/karpenter"
-  namespace = kubernetes_namespace.karpenter.metadata[0].name
+  namespace = "karpenter"
   create_namespace = false
 
   values = [
@@ -293,15 +318,15 @@ resource "helm_release" "karpenter" {
   ]
 
   depends_on = [
-    aws_iam_role_policy_attachment.karpenter_controller_attach,
-    kubernetes_service_account.karpenter
+    aws_iam_role_policy_attachment.karpenter_controller_attach
   ]
 }
 
 resource "kubernetes_service_account" "karpenter" {
+  count = 0
   metadata {
     name = "karpenter"
-    namespace = kubernetes_namespace.karpenter.metadata[0].name
+    namespace = "karpenter"
     annotations = {
       "eks.amazonaws.com/role-arn" = aws_iam_role.karpenter_controller.arn
     }

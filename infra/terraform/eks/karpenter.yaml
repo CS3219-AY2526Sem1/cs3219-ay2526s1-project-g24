@@ -28,8 +28,8 @@ spec:
         values: ["spot", "on-demand"]
       - key: "node.kubernetes.io/instance-type"
         operator: In
-        # prioritize spots instances of any of these before fallback on on-demand instances
-        values: ["t4g.medium","t4g.large","t3a.medium"] 
+        # prioritize spot instances of these amd64 instance types
+        values: ["t3.medium","t3.large","t3a.medium","t3a.large"] 
       - key: "kubernetes.io/arch"
         operator: In
         values: ["amd64"]
