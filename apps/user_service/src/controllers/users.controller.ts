@@ -18,7 +18,7 @@ import {
 } from '../services/user.service';
 import { User } from '../models/user.model';
 
-@Route('v1/users')
+@Route('users')
 @Tags('Users')
 @Security('jwt')
 export class UsersController extends Controller {
