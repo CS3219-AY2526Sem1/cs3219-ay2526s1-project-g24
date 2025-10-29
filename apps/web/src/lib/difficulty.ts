@@ -1,14 +1,16 @@
 import { Difficulty } from "@/lib/types";
 
 export function getDifficultyStyles(difficulty: Difficulty | string): string {
-    switch (difficulty) {
+    const normalizedDifficulty = difficulty.toUpperCase();
+    
+    switch (normalizedDifficulty) {
         case 'EASY':
-            return 'bg-[#4a5a3a] text-[#a8d08d]';
+            return 'bg-[#00b8a3]/10 text-[#00b8a3] border border-[#00b8a3]/30';
         case 'MEDIUM':
-            return 'bg-[#5a4a3a] text-[#f4b942]';
+            return 'bg-[#ffc01e]/10 text-[#ffc01e] border border-[#ffc01e]/30';
         case 'HARD':
-            return 'bg-[#5a3a3a] text-[#f4a2a2]';
+            return 'bg-[#ff375f]/10 text-[#ff375f] border border-[#ff375f]/30';
         default:
-            return 'bg-gray-700 text-gray-400';
+            return 'bg-gray-700 text-gray-400 border border-gray-600';
     }
 }

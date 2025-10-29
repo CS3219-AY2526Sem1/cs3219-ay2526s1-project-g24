@@ -66,9 +66,17 @@
     @apply border-border;
   }
 
+  html {
+    @apply bg-[#333232];
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
   body {
-    @apply bg-background text-foreground;
+    @apply bg-[#333232] text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    min-height: 100vh;
+    overflow-x: hidden;
   }
 }
 

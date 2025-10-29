@@ -9,7 +9,9 @@ import swaggerDocument from '../dist/swagger.json';
 export const createServer = (): Express => {
   const app = express();
 
-  app.use(express.json());
+  // Increase payload size limit to handle base64 images (10MB)
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
   // Scalable CORS config
   const allowedOrigins = process.env.CORS_ORIGINS

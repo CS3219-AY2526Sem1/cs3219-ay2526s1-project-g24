@@ -16,6 +16,7 @@ import PresenceIndicator from '@/components/PresenceIndicator';
 import ToastNotification, { Toast } from '@/components/ToastNotification';
 
 import withAuth from '@/components/withAuth';
+import { useAuth } from '@/hooks/useAuth';
 
 const questions = [
   {
@@ -46,6 +47,7 @@ Return the quotient after dividing dividend by divisor.`,
 
 function CollaborativeCodingPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [currentQuestion] = useState(0);
   const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
   const [codeHeight, setCodeHeight] = useState<number>(LAYOUT_DEFAULTS.CODE_HEIGHT_PERCENT);
@@ -262,7 +264,12 @@ function CollaborativeCodingPage() {
     <div className='h-screen bg-[#1e1e1e] flex flex-col font-montserrat'>
       <header className='bg-[#2e2e2e] px-6 py-2.5 flex items-center justify-between border-b border-[#3e3e3e]'>
         <div className='flex items-center gap-6'>
-          <h1 className='font-mclaren text-xl text-white'>PeerPrep</h1>
+          <h1 
+            className='font-mclaren text-xl text-white cursor-pointer hover:opacity-80 transition-opacity'
+            onClick={() => router.push('/home')}
+          >
+            PeerPrep
+          </h1>
           <span className='text-gray-400 text-sm'>ID 22031001</span>
 
           {/* Session Connection UI */}
@@ -336,7 +343,7 @@ function CollaborativeCodingPage() {
             )}
           </div>
         </div>
-        <span className='text-white text-sm'>Cliff Hänger (you) x Xiao Ming</span>
+        <span className='text-white text-sm'>{user?.display_name || 'User'} (you){connectedUsers.length > 0 && ` x ${connectedUsers.map(u => u.name).join(', ')}`}</span>
         <button
           onClick={handleTerminate}
           className='px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors'
