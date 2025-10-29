@@ -52,3 +52,6 @@ public.pem
 
 # Terraform
 .terraform
+*.tfstate
+*.tfstate.*
+.terraform.tfvars
