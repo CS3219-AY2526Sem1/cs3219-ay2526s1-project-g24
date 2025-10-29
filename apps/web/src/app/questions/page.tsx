@@ -29,7 +29,7 @@ function Questions() {
             try {
                 const data = await getQuestions({
                     page,
-                    page_size: 50, // Get a larger batch for client-side filtering
+                    page_size: 100, // Get a larger batch for client-side filtering
                     difficulties: difficultyFilter !== 'All difficulty' ? difficultyFilter.toLowerCase() : undefined,
                 });
                 setQuestions(data.questions);
