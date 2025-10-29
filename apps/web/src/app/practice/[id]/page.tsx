@@ -419,7 +419,7 @@ export default function PracticePage() {
                                                     className="bg-[#1e1e1e] border border-[#3e3e3e] hover:border-[#5e5e5e] rounded-lg p-3 cursor-pointer transition-all hover:bg-[#252525] group"
                                                 >
                                                     <div className="flex items-center justify-between mb-2">
-                                                        <span className="text-white text-sm group-hover:text-blue-400 transition-colors">{similar.title}</span>
+                                                        <span className="text-white text-sm transition-colors">{similar.title}</span>
                                                         <span className={`text-xs px-2 py-0.5 rounded-md font-medium uppercase ${getDifficultyStyles(similar.difficulty)}`}>
                                                             {similar.difficulty}
                                                         </span>
