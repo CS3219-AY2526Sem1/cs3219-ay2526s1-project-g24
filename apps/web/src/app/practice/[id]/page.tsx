@@ -4,14 +4,16 @@ import { useRouter, useParams } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { getDifficultyStyles } from '@/lib/difficulty';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
-import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult } from '@/lib/api/questionService';
+import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult, getSimilarQuestions, QuestionListItem } from '@/lib/api/questionService';
 import { ProgrammingLanguage } from '@/lib/types';
+import { useAuth } from '@/hooks/useAuth';
 
 
 export default function PracticePage() {
     const router = useRouter();
     const params = useParams();
     const questionId = Number(params.id);
+    const { user } = useAuth();
 
     const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
     const [codeHeight, setCodeHeight] = useState<number>(LAYOUT_DEFAULTS.CODE_HEIGHT_PERCENT);
@@ -26,6 +28,10 @@ export default function PracticePage() {
     const [question, setQuestion] = useState<QuestionDetail | null>(null);
     const [isLoadingQuestion, setIsLoadingQuestion] = useState(true);
     const [questionError, setQuestionError] = useState<string | null>(null);
+
+    // Similar questions state
+    const [similarQuestions, setSimilarQuestions] = useState<QuestionListItem[]>([]);
+    const [isLoadingSimilar, setIsLoadingSimilar] = useState(true);
 
     // Test execution state
     const [testResults, setTestResults] = useState<TestCaseResult[]>([]);
@@ -75,6 +81,23 @@ export default function PracticePage() {
         };
 
         fetchQuestion();
+    }, [questionId]);
+
+    // Fetch similar questions on mount
+    useEffect(() => {
+        const fetchSimilar = async () => {
+            setIsLoadingSimilar(true);
+            try {
+                const similar = await getSimilarQuestions(questionId, 5);
+                setSimilarQuestions(similar);
+            } catch (err) {
+                console.error('Failed to load similar questions:', err);
+            } finally {
+                setIsLoadingSimilar(false);
+            }
+        };
+
+        fetchSimilar();
     }, [questionId]);
 
     // Update code when language changes
@@ -304,7 +327,7 @@ export default function PracticePage() {
                     </h1>
                     <span className="text-gray-400 text-sm">Solo Practice</span>
                 </div>
-                <span className="text-white text-sm">Cliff Hänger</span>
+                <span className="text-white text-sm">{user?.display_name || 'User'}</span>
                 <button
                     onClick={handleExit}
                     className="px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors"
@@ -334,11 +357,27 @@ export default function PracticePage() {
                             </div>
                         ) : question ? (
                             <>
+                                {/* Back Button */}
+                                <button 
+                                    onClick={() => router.push('/questions')}
+                                    className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-4 group"
+                                >
+                                    <svg 
+                                        className="w-4 h-4 transition-transform group-hover:-translate-x-1" 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                    <span className="text-sm font-medium">Back to Questions</span>
+                                </button>
+
                                 {/* Question Header */}
                                 <div className="mb-6">
                                     <div className="flex items-center gap-3 mb-3">
                                         <h2 className="text-2xl font-semibold text-white">{question.title}</h2>
-                                        <span className={`text-xs px-3 py-1 rounded font-medium uppercase ${getDifficultyStyles(question.difficulty)}`}>
+                                        <span className={`text-xs px-3 py-1 rounded-md font-medium uppercase ${getDifficultyStyles(question.difficulty)}`}>
                                             {question.difficulty}
                                         </span>
                                     </div>
@@ -367,6 +406,34 @@ export default function PracticePage() {
                                         </div>
                                     ))}
                                 </div>
+
+                                {/* Similar Questions Section */}
+                                {!isLoadingSimilar && similarQuestions.length > 0 && (
+                                    <div className="mt-6 pt-6 border-t border-[#3e3e3e]">
+                                        <h3 className="text-white font-semibold mb-4 text-sm">Similar Questions</h3>
+                                        <div className="space-y-2">
+                                            {similarQuestions.map((similar) => (
+                                                <div
+                                                    key={similar.id}
+                                                    onClick={() => router.push(`/practice/${similar.id}`)}
+                                                    className="bg-[#1e1e1e] border border-[#3e3e3e] hover:border-[#5e5e5e] rounded-lg p-3 cursor-pointer transition-all hover:bg-[#252525] group"
+                                                >
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-white text-sm transition-colors">{similar.title}</span>
+                                                        <span className={`text-xs px-2 py-0.5 rounded-md font-medium uppercase ${getDifficultyStyles(similar.difficulty)}`}>
+                                                            {similar.difficulty}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        {similar.topics.slice(0, 3).map((topic) => (
+                                                            <span key={topic.id} className="text-xs text-gray-500">{topic.name}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         ) : null}
                     </div>
@@ -510,9 +577,28 @@ export default function PracticePage() {
                         </div>
 
                         {/* Tab Content */}
-                        <div className="flex-1 overflow-y-auto p-4">
+                        <div className="flex-1 overflow-y-auto p-4 relative">
                             {activeTab === 'testResults' ? (
                                 <div>
+                                    {/* Loading Overlay */}
+                                    {isRunning && (
+                                        <div className="absolute inset-0 bg-[#252525]/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+                                            <div className="flex flex-col items-center gap-4">
+                                                {/* Animated spinner */}
+                                                <div className="relative">
+                                                    <div className="w-16 h-16 border-4 border-gray-700 rounded-full"></div>
+                                                    <div className="w-16 h-16 border-4 border-profile-avatar rounded-full border-t-transparent animate-spin absolute top-0"></div>
+                                                </div>
+                                                
+                                                {/* Status message */}
+                                                <div className="text-center">
+                                                    <p className="text-white font-semibold text-lg mb-1">Running Code...</p>
+                                                    <p className="text-gray-400 text-sm">Executing test cases</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
                                     {executionError && (
                                         <div className="mb-4 p-3 bg-red-900/20 border border-red-500 rounded text-red-300 text-sm">
                                             {executionError}
@@ -623,7 +709,23 @@ export default function PracticePage() {
                                     )}
                                 </div>
                             ) : (
-                                <div className="space-y-4">
+                                <div className="space-y-4 relative">
+                                    {/* Loading Overlay for Custom Input */}
+                                    {isRunningCustom && (
+                                        <div className="absolute inset-0 bg-[#252525]/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+                                            <div className="flex flex-col items-center gap-4">
+                                                <div className="relative">
+                                                    <div className="w-16 h-16 border-4 border-gray-700 rounded-full"></div>
+                                                    <div className="w-16 h-16 border-4 border-profile-avatar rounded-full border-t-transparent animate-spin absolute top-0"></div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <p className="text-white font-semibold text-lg mb-1">Running Code...</p>
+                                                    <p className="text-gray-400 text-sm">Executing with custom input</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
                                     {/* Help text */}
                                     <div className="bg-[#2e2e2e] border border-[#3e3e3e] p-3 rounded">
                                         <p className="text-gray-400 text-xs mb-2">

@@ -55,16 +55,32 @@ export const getUsers = async (): Promise<User[]> => {
 };
 
 export const updateUser = async (user: Partial<User>): Promise<User> => {
+  console.log('Updating user with data:', user);
+  
+  // Remove undefined values and only send defined fields
+  const cleanedData: Record<string, any> = {};
+  if (user.username !== undefined) cleanedData.username = user.username;
+  if (user.display_name !== undefined) cleanedData.display_name = user.display_name;
+  if (user.description !== undefined) cleanedData.description = user.description;
+  if (user.programming_proficiency !== undefined) cleanedData.programming_proficiency = user.programming_proficiency;
+  if (user.preferred_language !== undefined) cleanedData.preferred_language = user.preferred_language;
+  if (user.avatar_url !== undefined) cleanedData.avatar_url = user.avatar_url;
+  
+  console.log('Cleaned data to send:', cleanedData);
+  
   const response = await fetch(`${API_URL}/users/me`, {
     method: "PATCH",
     credentials: "include",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify(user),
+    body: JSON.stringify(cleanedData),
   });
+  console.log('Update response status:', response.status);
   if (!response.ok) {
-    throw new Error("Failed to update user");
+    const errorText = await response.text();
+    console.error('Update failed:', errorText);
+    throw new Error("Failed to update user: " + errorText);
   }
   return response.json();
 };

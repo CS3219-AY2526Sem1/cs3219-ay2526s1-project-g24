@@ -18,6 +18,8 @@ export interface TopicResponse {
 export interface CompanyResponse {
     id: number;
     name: string;
+    description?: string;
+    question_count?: number;
 }
 
 // Test Case interfaces
@@ -339,6 +341,26 @@ export async function getTopics(): Promise<TopicResponse[]> {
     return response.json();
 }
 
+/**
+ * Fetch all companies from the question service
+ * Endpoint: GET /api/companies
+ */
+export async function getCompanies(): Promise<CompanyResponse[]> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/companies`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch companies: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
 export interface QuestionUpdateRequest {
     title?: string;
     description?: string;
@@ -391,6 +413,234 @@ export async function createQuestion(question: QuestionUpdateRequest): Promise<Q
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: response.statusText }));
         throw new Error(errorData.detail || `Failed to create question: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Get similar questions based on topics and difficulty
+ * Endpoint: GET /api/questions/{question_id}/similar
+ */
+export async function getSimilarQuestions(questionId: number, limit: number = 5): Promise<QuestionListItem[]> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}/similar?limit=${limit}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch similar questions: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+// ============================================================================
+// STATISTICS & ANALYTICS
+// ============================================================================
+
+export interface QuestionStats {
+    question_id: number;
+    total_submissions: number;
+    total_accepted: number;
+    acceptance_rate: number;
+    likes: number;
+    dislikes: number;
+    average_runtime_ms?: number;
+    average_memory_mb?: number;
+    difficulty_distribution?: Record<string, number>;
+}
+
+export interface SubmissionSummary {
+    timestamp: string;
+    language: string;
+    status: string;
+    runtime_ms?: number;
+    memory_mb?: number;
+}
+
+/**
+ * Get question statistics
+ * Endpoint: GET /api/questions/{question_id}/stats
+ */
+export async function getQuestionStats(questionId: number): Promise<QuestionStats> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}/stats`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch question stats: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Get recent submissions for a question
+ * Endpoint: GET /api/questions/{question_id}/submissions
+ */
+export async function getQuestionSubmissions(questionId: number, limit: number = 20): Promise<SubmissionSummary[]> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}/submissions?limit=${limit}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch question submissions: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+// ============================================================================
+// USER STATISTICS & PROGRESS
+// ============================================================================
+
+export interface UserStats {
+    user_id: string;
+    total_solved: number;
+    easy_solved: number;
+    medium_solved: number;
+    hard_solved: number;
+    total_attempted: number;
+    acceptance_rate: number;
+    total_submissions: number;
+    streak_days: number;
+}
+
+export interface UserSolvedQuestion {
+    question_id: number;
+    title: string;
+    difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+    first_solved_at?: string;
+    attempts_count: number;
+    best_runtime_ms?: number;
+}
+
+export interface UserAttemptResponse {
+    id: number;
+    user_id: string;
+    question_id: number;
+    is_solved: boolean;
+    attempts_count: number;
+    last_attempted_at: string;
+    first_solved_at?: string;
+    best_runtime_ms?: number;
+    best_memory_mb?: number;
+}
+
+/**
+ * Get current user's statistics
+ * Endpoint: GET /api/users/me/stats
+ */
+export async function getUserStats(): Promise<UserStats> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/users/me/stats`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch user stats: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Get total question counts by difficulty
+ * Makes three API calls to count questions for each difficulty
+ */
+export async function getQuestionCounts(): Promise<{
+    total: number;
+    easy: number;
+    medium: number;
+    hard: number;
+}> {
+    try {
+        // Fetch counts for each difficulty in parallel
+        const [easyRes, mediumRes, hardRes] = await Promise.all([
+            fetch(`${QUESTION_SERVICE_URL}/api/questions?difficulties=easy&page_size=1`, {
+                credentials: 'include',
+            }),
+            fetch(`${QUESTION_SERVICE_URL}/api/questions?difficulties=medium&page_size=1`, {
+                credentials: 'include',
+            }),
+            fetch(`${QUESTION_SERVICE_URL}/api/questions?difficulties=hard&page_size=1`, {
+                credentials: 'include',
+            })
+        ]);
+
+        const [easyData, mediumData, hardData] = await Promise.all([
+            easyRes.json(),
+            mediumRes.json(),
+            hardRes.json()
+        ]);
+
+        const easy = easyData.total || 0;
+        const medium = mediumData.total || 0;
+        const hard = hardData.total || 0;
+
+        return {
+            total: easy + medium + hard,
+            easy,
+            medium,
+            hard
+        };
+    } catch (error) {
+        console.error('Failed to fetch question counts:', error);
+        // Return defaults if fetch fails
+        return { total: 55, easy: 20, medium: 25, hard: 10 };
+    }
+}
+
+/**
+ * Get current user's solved questions
+ * Endpoint: GET /api/users/me/solved
+ */
+export async function getUserSolvedQuestions(): Promise<UserSolvedQuestion[]> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/users/me/solved`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch solved questions: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Get current user's attempt history
+ * Endpoint: GET /api/users/me/attempts
+ */
+export async function getUserAttempts(skip: number = 0, limit: number = 50): Promise<UserAttemptResponse[]> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/users/me/attempts?skip=${skip}&limit=${limit}`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch user attempts: ${response.statusText}`);
     }
 
     return response.json();

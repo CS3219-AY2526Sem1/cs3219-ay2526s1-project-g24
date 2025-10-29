@@ -32,7 +32,6 @@ def get_topics():
         {"name": "Graph", "description": "Graph theory and algorithms"},
         {"name": "Linked List", "description": "Singly and doubly linked lists"},
         {"name": "Stack", "description": "Stack data structure problems"},
-        {"name": "Heap", "description": "Priority queue and heap problems"},
         {"name": "Backtracking", "description": "Backtracking algorithm problems"},
         {"name": "Sliding Window", "description": "Sliding window technique"},
         {"name": "Two Pointers", "description": "Two pointer technique"},
