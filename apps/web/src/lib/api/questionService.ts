@@ -281,11 +281,14 @@ export async function runCode(questionId: number, request: CodeExecutionRequest)
 export interface SubmissionResponse {
     submission_id: string;
     question_id: number;
-    status: string; // "accepted", "wrong_answer", "time_limit_exceeded", "runtime_error"
+    status: string; // "accepted", "wrong_answer", "time_limit_exceeded", "runtime_error", "compilation_error"
     passed_test_cases: number;
     total_test_cases: number;
     runtime_ms?: number;
     memory_mb?: number;
+    runtime_percentile?: number;
+    memory_percentile?: number;
+    timestamp?: string;
 }
 
 export interface SubmissionRequest {

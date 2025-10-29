@@ -1,5 +1,4 @@
 'use client';
-
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Editor from '@monaco-editor/react';
@@ -137,20 +136,29 @@ export default function PracticePage() {
                 code: code,
             });
             
-            // Note: Submit returns different format, need to adapt
-            if (response.status === 'accepted') {
-                alert(`✅ All ${response.total_test_cases} test cases passed!`);
-            } else {
-                alert(`❌ ${response.passed_test_cases}/${response.total_test_cases} test cases passed\nStatus: ${response.status}`);
-            }
+            // Prepare submission result data to pass to results page
+            const submissionData = {
+                submission_id: response.submission_id,
+                question_id: questionId,
+                question_title: question.title,
+                difficulty: question.difficulty,
+                status: response.status,
+                passed_test_cases: response.passed_test_cases,
+                total_test_cases: response.total_test_cases,
+                runtime_ms: response.runtime_ms,
+                memory_mb: response.memory_mb,
+                runtime_percentile: response.runtime_percentile,
+                memory_percentile: response.memory_percentile,
+                timestamp: new Date().toISOString(),
+                language: selectedLanguage,
+            };
             
-            // For submission, we don't get individual test results, so clear the results
-            setTestResults([]);
-            setExecutionError(response.status !== 'accepted' ? `Status: ${response.status}` : null);
+            // Redirect to submission results page with data
+            const dataParam = encodeURIComponent(JSON.stringify(submissionData));
+            router.push(`/practice/${questionId}/submission?data=${dataParam}`);
         } catch (err) {
             setExecutionError(err instanceof Error ? err.message : 'Failed to submit code');
             setTestResults([]);
-        } finally {
             setIsRunning(false);
         }
     };
