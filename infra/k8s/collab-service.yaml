@@ -26,8 +26,6 @@ spec:
           value: "production"
         - name: PORT
           value: "3003"
-        - name: DATABASE_URL
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@collab-db:5432/$(POSTGRES_DB)"
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
@@ -43,6 +41,8 @@ spec:
             secretKeyRef:
               name: db-secrets
               key: collab-db-name
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@collab-db:5432/$(POSTGRES_DB)"
         - name: REDIS_HOST
           value: "matching-redis"
         - name: REDIS_PORT
@@ -55,7 +55,7 @@ spec:
         resources:
           requests:
             memory: "256Mi"
-            cpu: "250m"
+            cpu: "100m"
           limits:
             memory: "512Mi"
             cpu: "500m"

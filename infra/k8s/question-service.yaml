@@ -20,8 +20,6 @@ spec:
       - name: migration
         image: REPLACE_WITH_ECR_QUESTION_SERVICE_IMAGE
         env:
-        - name: DATABASE_URL
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@question-db:5432/$(POSTGRES_DB)"
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
@@ -37,6 +35,8 @@ spec:
             secretKeyRef:
               name: db-secrets
               key: question-db-name
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@question-db:5432/$(POSTGRES_DB)"
         - name: ENV
           valueFrom:
             configMapKeyRef:
@@ -58,8 +58,6 @@ spec:
         - containerPort: 80
           name: http
         env:
-        - name: DATABASE_URL
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@question-db:5432/$(POSTGRES_DB)"
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
@@ -75,6 +73,8 @@ spec:
             secretKeyRef:
               name: db-secrets
               key: question-db-name
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@question-db:5432/$(POSTGRES_DB)"
         - name: ENV
           valueFrom:
             configMapKeyRef:
@@ -89,7 +89,7 @@ spec:
         resources:
           requests:
             memory: "256Mi"
-            cpu: "250m"
+            cpu: "100m"
           limits:
             memory: "512Mi"
             cpu: "500m"

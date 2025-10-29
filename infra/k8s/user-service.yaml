@@ -18,12 +18,8 @@ spec:
       initContainers:
       # Init container to run migrations and seed
       - name: migration
-        image: REPLACE_WITH_ECR_USER_SERVICE_IMAGE
+        image: 625737183926.dkr.ecr.ap-southeast-1.amazonaws.com/user-service:latest
         env:
-        - name: DATABASE_URL
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@user-db:5432/$(POSTGRES_DB)"
-        - name: USERDB_DATABASE_URL
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@user-db:5432/$(POSTGRES_DB)"
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
@@ -39,49 +35,29 @@ spec:
             secretKeyRef:
               name: db-secrets
               key: user-db-name
-        - name: JWT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: jwt-secret
-        - name: GOOGLE_CLIENT_ID
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: google-client-id
-        - name: GOOGLE_CLIENT_SECRET
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: google-client-secret
-        - name: GOOGLE_CALLBACK_URL
-          valueFrom:
-            secretKeyRef:
-              name: app-secrets
-              key: google-callback-url
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@user-db:5432/$(POSTGRES_DB)"
+        - name: USERDB_DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@user-db:5432/$(POSTGRES_DB)"
         command:
         - /bin/sh
         - -c
         - |
           echo '🔄 Waiting for database...'
-          sleep 5
+          sleep 10
           echo '📝 Running migrations...'
-          pnpm db:migrate
+          npx prisma migrate deploy
           echo '🌱 Seeding database...'
-          pnpm db:seed
+          npx ts-node src/seed.ts
           echo '✅ Setup complete'
         workingDir: /app/apps/user_service
       containers:
       - name: user-service
-        image: REPLACE_WITH_ECR_USER_SERVICE_IMAGE
+        image: 625737183926.dkr.ecr.ap-southeast-1.amazonaws.com/user-service:latest
         ports:
         - containerPort: 8000
           name: http
         env:
-        - name: DATABASE_URL
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@user-db:5432/$(POSTGRES_DB)"
-        - name: USERDB_DATABASE_URL
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@user-db:5432/$(POSTGRES_DB)"
         - name: POSTGRES_USER
           valueFrom:
             secretKeyRef:
@@ -97,6 +73,10 @@ spec:
             secretKeyRef:
               name: db-secrets
               key: user-db-name
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@user-db:5432/$(POSTGRES_DB)"
+        - name: USERDB_DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@user-db:5432/$(POSTGRES_DB)"
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
@@ -127,7 +107,7 @@ spec:
         resources:
           requests:
             memory: "256Mi"
-            cpu: "250m"
+            cpu: "100m"
           limits:
             memory: "512Mi"
             cpu: "500m"

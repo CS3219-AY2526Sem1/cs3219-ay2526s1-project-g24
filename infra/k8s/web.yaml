@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: REPLACE_WITH_ECR_WEB_IMAGE
+        image: 625737183926.dkr.ecr.ap-southeast-1.amazonaws.com/web:latest
         ports:
         - containerPort: 3000
           name: http
@@ -49,11 +49,11 @@ spec:
               key: CODE_EXECUTION_SERVICE_URL
         resources:
           requests:
+            memory: "128Mi"
+            cpu: "75m"
+          limits:
             memory: "256Mi"
             cpu: "250m"
-          limits:
-            memory: "512Mi"
-            cpu: "500m"
         livenessProbe:
           httpGet:
             path: /
