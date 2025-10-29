@@ -81,6 +81,10 @@ def get_questions(
         joinedload(models.Question.companies)
     )
     
+    # Filter out soft-deleted questions by default (unless include_deleted is True)
+    if not filters.include_deleted:
+        query = query.filter(models.Question.deleted_at.is_(None))
+    
     # Apply difficulty filter
     if filters.difficulties:
         difficulty_enums = [models.DifficultyEnum[d.value.upper()] for d in filters.difficulties]
@@ -151,13 +155,19 @@ def get_questions(
     return questions, total
 
 
-def get_question(db: Session, question_id: int):
+def get_question(db: Session, question_id: int, include_deleted: bool = False):
     """Get a single question by ID with all relationships"""
-    return db.query(models.Question).options(
+    query = db.query(models.Question).options(
         joinedload(models.Question.topics),
         joinedload(models.Question.companies),
         joinedload(models.Question.test_cases)
-    ).filter(models.Question.id == question_id).first()
+    ).filter(models.Question.id == question_id)
+    
+    # Filter out soft-deleted unless explicitly requested
+    if not include_deleted:
+        query = query.filter(models.Question.deleted_at.is_(None))
+    
+    return query.first()
 
 
 def update_question(db: Session, question_id: int, question_update: schemas.QuestionUpdate):
@@ -192,14 +202,38 @@ def update_question(db: Session, question_id: int, question_update: schemas.Ques
     return db_question
 
 
-def delete_question(db: Session, question_id: int):
-    """Delete a question"""
-    db_question = get_question(db, question_id)
-    if db_question:
+def delete_question(db: Session, question_id: int, permanent: bool = False):
+    """Soft delete a question (or permanent delete if specified)"""
+    db_question = get_question(db, question_id, include_deleted=True)
+    if not db_question:
+        return False
+    
+    if permanent:
+        # Permanent delete - actually remove from database
         db.delete(db_question)
-        db.commit()
-        return True
-    return False
+    else:
+        # Soft delete - set deleted_at timestamp
+        if db_question.deleted_at is not None:
+            return False  # Already deleted
+        db_question.deleted_at = datetime.utcnow()
+    
+    db.commit()
+    return True
+
+
+def restore_question(db: Session, question_id: int):
+    """Restore a soft-deleted question"""
+    db_question = get_question(db, question_id, include_deleted=True)
+    if not db_question:
+        return None
+    
+    if db_question.deleted_at is None:
+        return db_question  # Already active
+    
+    db_question.deleted_at = None
+    db.commit()
+    db.refresh(db_question)
+    return db_question
 
 
 def get_random_question(db: Session, filters: Optional[schemas.QuestionFilterParams] = None):
@@ -221,8 +255,10 @@ def get_daily_question(db: Session):
     date_string = today.isoformat()
     seed = int(hashlib.md5(date_string.encode()).hexdigest(), 16)
     
-    # Get total question count
-    total_questions = db.query(func.count(models.Question.id)).scalar()
+    # Get total question count (excluding deleted)
+    total_questions = db.query(func.count(models.Question.id)).filter(
+        models.Question.deleted_at.is_(None)
+    ).scalar()
     if total_questions == 0:
         return None
     
@@ -231,12 +267,12 @@ def get_daily_question(db: Session):
     return db.query(models.Question).options(
         joinedload(models.Question.topics),
         joinedload(models.Question.companies)
-    ).offset(question_index).first()
+    ).filter(models.Question.deleted_at.is_(None)).offset(question_index).first()
 
 
 def get_similar_questions(db: Session, question_id: int, limit: int = 5):
     """Get similar questions based on topics and difficulty"""
-    question = get_question(db, question_id)
+    question = get_question(db, question_id, include_deleted=False)
     if not question:
         return []
     
@@ -247,7 +283,8 @@ def get_similar_questions(db: Session, question_id: int, limit: int = 5):
         joinedload(models.Question.companies)
     ).filter(
         models.Question.id != question_id,
-        models.Question.difficulty == question.difficulty
+        models.Question.difficulty == question.difficulty,
+        models.Question.deleted_at.is_(None)  # Exclude deleted
     )
     
     # Prioritize questions with overlapping topics

@@ -152,6 +152,7 @@ class QuestionListItem(BaseModel):
     companies: List[CompanyResponse]
     is_attempted: bool = False
     is_solved: bool = False
+    deleted_at: Optional[datetime] = None  # For soft delete indication
     
     class Config:
         from_attributes = True
@@ -169,6 +170,7 @@ class QuestionDetail(QuestionBase):
     sample_test_cases: List[TestCasePublic]  # Only sample cases
     created_at: datetime
     updated_at: datetime
+    deleted_at: Optional[datetime] = None  # For soft delete indication
     
     # User-specific data (populated from service layer)
     is_attempted: bool = False
@@ -188,6 +190,7 @@ class QuestionFilterParams(BaseModel):
     unsolved_only: bool = False
     random: bool = False
     search: Optional[str] = None  # Search in title
+    include_deleted: bool = False  # Admin-only: include soft-deleted questions
     
     page: int = Field(1, ge=1)
     page_size: int = Field(20, ge=1, le=100)

@@ -34,12 +34,13 @@ export interface TestCasePublic {
 export interface QuestionListItem {
     id: number;
     title: string;
-    difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+    difficulty: 'easy' | 'medium' | 'hard';
     acceptance_rate: number;
     topics: TopicResponse[];
     companies: CompanyResponse[];
     is_attempted: boolean;
     is_solved: boolean;
+    deleted_at?: string | null;  // ISO timestamp or null
 }
 
 // Full question detail
@@ -47,7 +48,7 @@ export interface QuestionDetail {
     id: number;
     title: string;
     description: string;
-    difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+    difficulty: 'easy' | 'medium' | 'hard';
     code_templates: Record<string, string>; // {"python": "...", "javascript": "...", etc}
     function_signature: {
         function_name: string;
@@ -71,6 +72,7 @@ export interface QuestionDetail {
     sample_test_cases: TestCasePublic[];
     created_at: string;
     updated_at: string;
+    deleted_at?: string | null;  // ISO timestamp or null
     is_attempted: boolean;
     is_solved: boolean;
     user_attempts_count: number;
@@ -102,6 +104,7 @@ export async function getQuestions(params?: {
     sort_by?: string; // id, difficulty, acceptance_rate, title
     sort_order?: 'asc' | 'desc';
     user_id?: string;
+    include_deleted?: boolean;  // Admin-only: include soft-deleted questions
 }): Promise<QuestionListResponse> {
     const queryParams = new URLSearchParams();
 
@@ -118,6 +121,7 @@ export async function getQuestions(params?: {
     if (params?.sort_by) queryParams.append('sort_by', params.sort_by);
     if (params?.sort_order) queryParams.append('sort_order', params.sort_order);
     if (params?.user_id) queryParams.append('user_id', params.user_id);
+    if (params?.include_deleted !== undefined) queryParams.append('include_deleted', params.include_deleted.toString());
 
     const url = `${QUESTION_SERVICE_URL}/api/questions/?${queryParams.toString()}`;
 
@@ -140,9 +144,10 @@ export async function getQuestions(params?: {
  * Fetch a single question by ID with full details
  * Endpoint: GET /api/questions/{question_id}
  */
-export async function getQuestionById(id: number, userId?: string): Promise<QuestionDetail> {
+export async function getQuestionById(id: number, userId?: string, includeDeleted?: boolean): Promise<QuestionDetail> {
     const queryParams = new URLSearchParams();
     if (userId) queryParams.append('user_id', userId);
+    if (includeDeleted !== undefined) queryParams.append('include_deleted', includeDeleted.toString());
 
     const url = `${QUESTION_SERVICE_URL}/api/questions/${id}${queryParams.toString() ? `?${queryParams}` : ''}`;
 
@@ -379,6 +384,33 @@ export interface QuestionUpdateRequest {
     memory_limit?: Record<string, number>;
 }
 
+export interface TestCaseCreate {
+    input_data: Record<string, any>;
+    expected_output: any;
+    visibility: 'public' | 'private' | 'sample';
+    order_index: number;
+    explanation?: string;
+}
+
+export interface QuestionCreateRequest {
+    title: string;
+    description: string;
+    difficulty: 'easy' | 'medium' | 'hard';
+    topic_ids: number[];
+    company_ids: number[];
+    code_templates: Record<string, string>;
+    function_signature: {
+        function_name: string;
+        arguments: Array<{ name: string; type: string }>;
+        return_type: string;
+    };
+    constraints?: string;
+    hints?: string[];
+    time_limit?: Record<string, number>;
+    memory_limit?: Record<string, number>;
+    test_cases: TestCaseCreate[];
+}
+
 export async function updateQuestion(
     questionId: number,
     updates: QuestionUpdateRequest
@@ -400,7 +432,7 @@ export async function updateQuestion(
     return response.json();
 }
 
-export async function createQuestion(question: QuestionUpdateRequest): Promise<QuestionDetail> {
+export async function createQuestion(question: QuestionCreateRequest): Promise<QuestionDetail> {
     const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/`, {
         method: 'POST',
         headers: {
@@ -646,8 +678,13 @@ export async function getUserAttempts(skip: number = 0, limit: number = 50): Pro
     return response.json();
 }
 
-export async function deleteQuestion(questionId: number): Promise<void> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}`, {
+export async function deleteQuestion(questionId: number, permanent: boolean = false): Promise<void> {
+    const queryParams = new URLSearchParams();
+    if (permanent) queryParams.append('permanent', 'true');
+    
+    const url = `${QUESTION_SERVICE_URL}/api/questions/${questionId}${queryParams.toString() ? `?${queryParams}` : ''}`;
+    
+    const response = await fetch(url, {
         method: 'DELETE',
         headers: {
             'Content-Type': 'application/json',
@@ -658,5 +695,98 @@ export async function deleteQuestion(questionId: number): Promise<void> {
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: response.statusText }));
         throw new Error(errorData.detail || `Failed to delete question: ${response.statusText}`);
+    }
+}
+
+export async function restoreQuestion(questionId: number): Promise<QuestionDetail> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}/restore`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+        throw new Error(errorData.detail || `Failed to restore question: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+
+// ============================================================================
+// ADMIN DASHBOARD STATISTICS
+// ============================================================================
+
+export interface DashboardStats {
+    totalQuestions: number;
+    easyQuestions: number;
+    mediumQuestions: number;
+    hardQuestions: number;
+}
+
+/**
+ * Get dashboard statistics for admin panel
+ * Fetches all questions and calculates difficulty distribution
+ */
+export async function getDashboardStats(): Promise<DashboardStats> {
+    try {
+        // The API limits page_size to 100, so we need to fetch multiple pages
+        let allQuestions: QuestionListItem[] = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        const pageSize = 100; // Max allowed by the API
+
+        // Fetch all pages
+        while (currentPage <= totalPages) {
+            const response = await getQuestions({
+                page: currentPage,
+                page_size: pageSize,
+            });
+
+            allQuestions = allQuestions.concat(response.questions);
+            totalPages = response.total_pages;
+            currentPage++;
+            
+            // Safety check to prevent infinite loops
+            if (currentPage > 100) {
+                console.warn('Reached maximum page limit (100)');
+                break;
+            }
+        }
+
+        console.log(`[getDashboardStats] Fetched ${allQuestions.length} total questions`);
+
+        const stats: DashboardStats = {
+            totalQuestions: allQuestions.length,
+            easyQuestions: 0,
+            mediumQuestions: 0,
+            hardQuestions: 0,
+        };
+
+        // Count questions by difficulty
+        allQuestions.forEach((question) => {
+            switch (question.difficulty) {
+                case 'easy':
+                    stats.easyQuestions++;
+                    break;
+                case 'medium':
+                    stats.mediumQuestions++;
+                    break;
+                case 'hard':
+                    stats.hardQuestions++;
+                    break;
+                default:
+                    console.warn(`Unknown difficulty: ${question.difficulty}`, question);
+            }
+        });
+
+        console.log('[getDashboardStats] Stats:', stats);
+        return stats;
+    } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+        throw error;
     }
 }
