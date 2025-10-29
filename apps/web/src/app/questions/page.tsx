@@ -5,21 +5,46 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getDifficultyStyles } from "@/lib/difficulty";
 import withAuth from "@/components/withAuth";
-import { getQuestions, QuestionListItem } from "@/lib/api/questionService";
+import { getQuestions, getTopics, QuestionListItem, TopicResponse } from "@/lib/api/questionService";
 
 function Questions() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("Questions");
     const [searchQuery, setSearchQuery] = useState('');
-    const [topicFilter, setTopicFilter] = useState('All topics');
+    const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+    const [topicFilter, setTopicFilter] = useState<number | null>(null); // Store topic ID instead of name
     const [difficultyFilter, setDifficultyFilter] = useState('All difficulty');
     
     // API state
     const [questions, setQuestions] = useState<QuestionListItem[]>([]);
+    const [topics, setTopics] = useState<TopicResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [page, setPage] = useState(1);
     const [totalQuestions, setTotalQuestions] = useState(0);
+
+    // Debounce search query
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearchQuery(searchQuery);
+        }, 500); // 500ms debounce
+
+        return () => clearTimeout(timer);
+    }, [searchQuery]);
+
+    // Fetch topics on mount
+    useEffect(() => {
+        const fetchTopics = async () => {
+            try {
+                const topicsData = await getTopics();
+                setTopics(topicsData);
+            } catch (err) {
+                console.error('Failed to load topics:', err);
+            }
+        };
+
+        fetchTopics();
+    }, []);
 
     // Fetch questions from API
     useEffect(() => {
@@ -29,8 +54,10 @@ function Questions() {
             try {
                 const data = await getQuestions({
                     page,
-                    page_size: 100, // Get a larger batch for client-side filtering
+                    page_size: 100,
                     difficulties: difficultyFilter !== 'All difficulty' ? difficultyFilter.toLowerCase() : undefined,
+                    topic_ids: topicFilter !== null ? topicFilter.toString() : undefined,
+                    search: debouncedSearchQuery || undefined,
                 });
                 setQuestions(data.questions);
                 setTotalQuestions(data.total);
@@ -42,7 +69,7 @@ function Questions() {
         };
 
         fetchQuestions();
-    }, [page, difficultyFilter]);
+    }, [page, difficultyFilter, topicFilter, debouncedSearchQuery]);
 
     const tabs = [
         { name: "Home", href: "/home" },
@@ -50,14 +77,6 @@ function Questions() {
         { name: "Questions", href: "/questions" },
         { name: "Profile", href: "/profile" },
     ];
-
-    // Client-side filtering
-    const filteredQuestions = questions.filter(q => {
-        const matchesSearch = q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-            q.topics.some(topic => topic.name.toLowerCase().includes(searchQuery.toLowerCase()));
-        const matchesTopic = topicFilter === 'All topics' || q.topics.some(topic => topic.name === topicFilter);
-        return matchesSearch && matchesTopic;
-    });
 
     const handleQuestionClick = (questionId: number) => {
         router.push(`/practice/${questionId}`);
@@ -127,20 +146,16 @@ function Questions() {
                         {/* Topic Filter */}
                         <div className="relative">
                             <select
-                                value={topicFilter}
-                                onChange={(e) => setTopicFilter(e.target.value)}
+                                value={topicFilter !== null ? topicFilter : ''}
+                                onChange={(e) => setTopicFilter(e.target.value ? parseInt(e.target.value) : null)}
                                 className="bg-transparent border-2 border-white/20 rounded-full pl-6 pr-12 py-3 font-montserrat text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors min-w-[180px]"
                             >
-                                <option value="All topics" className="bg-[#333232] text-white">All topics</option>
-                                <option value="Arrays" className="bg-[#333232] text-white">Arrays</option>
-                                <option value="Strings" className="bg-[#333232] text-white">Strings</option>
-                                <option value="Hash Table" className="bg-[#333232] text-white">Hash Table</option>
-                                <option value="Linked List" className="bg-[#333232] text-white">Linked List</option>
-                                <option value="Tree" className="bg-[#333232] text-white">Tree</option>
-                                <option value="Binary Search" className="bg-[#333232] text-white">Binary Search</option>
-                                <option value="DP" className="bg-[#333232] text-white">Dynamic Programming</option>
-                                <option value="DFS" className="bg-[#333232] text-white">DFS</option>
-                                <option value="Sorting" className="bg-[#333232] text-white">Sorting</option>
+                                <option value="" className="bg-[#333232] text-white">All topics</option>
+                                {topics.map((topic) => (
+                                    <option key={topic.id} value={topic.id} className="bg-[#333232] text-white">
+                                        {topic.name}
+                                    </option>
+                                ))}
                             </select>
                             <div className="absolute right-6 top-1/2 transform -translate-y-1/2 pointer-events-none">
                                 <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
@@ -178,9 +193,9 @@ function Questions() {
                         <div className="text-center py-12">
                             <p className="text-red-400 text-lg">{error}</p>
                         </div>
-                    ) : filteredQuestions.length > 0 ? (
+                    ) : questions.length > 0 ? (
                         <div className="space-y-3">
-                            {filteredQuestions.map((question) => (
+                            {questions.map((question) => (
                                 <div
                                     key={question.id}
                                     onClick={() => handleQuestionClick(question.id)}
