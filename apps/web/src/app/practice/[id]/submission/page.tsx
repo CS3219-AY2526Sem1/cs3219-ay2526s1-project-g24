@@ -156,7 +156,12 @@ export default function SubmissionResultPage() {
             <header className="fixed top-0 left-0 right-0 z-50 bg-[#333232] border-b-2 border-dashed border-white/20">
                 <div className="flex justify-between items-center px-6 md:px-12 py-9 max-w-[68rem] mx-auto">
                     <div className="flex items-center gap-6">
-                        <h1 className="font-mclaren text-white text-2xl md:text-3xl">PeerPrep</h1>
+                        <h1 
+                            onClick={() => router.push('/home')}
+                            className="font-mclaren text-white text-2xl md:text-3xl cursor-pointer hover:opacity-80 transition-opacity"
+                        >
+                            PeerPrep
+                        </h1>
                         <span className="text-[#9e9e9e] text-sm font-medium">Submission Result</span>
                     </div>
                     <button

@@ -296,7 +296,12 @@ export default function PracticePage() {
             {/* Header */}
             <header className="bg-[#2e2e2e] px-6 py-2.5 flex items-center justify-between border-b border-[#3e3e3e]">
                 <div className="flex items-center gap-6">
-                    <h1 className="font-mclaren text-xl text-white">PeerPrep</h1>
+                    <h1 
+                        className="font-mclaren text-xl text-white cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => router.push('/home')}
+                    >
+                        PeerPrep
+                    </h1>
                     <span className="text-gray-400 text-sm">Solo Practice</span>
                 </div>
                 <span className="text-white text-sm">Cliff Hänger</span>
