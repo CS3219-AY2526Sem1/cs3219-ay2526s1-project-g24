@@ -1,6 +1,5 @@
 // Type definitions for the web application
 
-
 // ========== USER TYPES ==========
 
 export enum ProficiencyLevel {
@@ -15,8 +14,6 @@ export enum ProgrammingLanguage {
     PYTHON = "python",
     JAVASCRIPT = "javascript",
 }
-
-export type UserRole = "user" | "admin";
 
 export interface Permission {
     id: number;
@@ -44,7 +41,6 @@ export interface User {
     description?: string;
     programming_proficiency?: ProficiencyLevel;
     preferred_language?: ProgrammingLanguage;
-    role?: UserRole;
     roles?: Role[];
     created_at: string;
     updated_at: string;
@@ -61,7 +57,42 @@ export interface AuthResponse {
 
 export interface Session {
     user: User;
-    isAdmin: boolean;
+}
+
+// ========== MATCHING TYPES ==========
+
+export type MatchingDifficulty = "easy" | "medium" | "hard";
+
+export type MatchStatus = 'queued' | 'matched' | 'cancelled' | 'timeout';
+
+export interface MatchRequest {
+  userId: string;
+  difficulty: MatchingDifficulty;
+  topics: string[];
+  languages: string[];
+}
+
+export interface MatchRequestResponse {
+  reqId: string;
+  alreadyQueued?: boolean;
+}
+
+export interface MatchRequestStatus {
+  reqId: string;
+  userId: string;
+  difficulty: MatchingDifficulty;
+  topics: string[];
+  languages: string[];
+  status: MatchStatus;
+  createdAt: number;
+  sessionId?: string;
+}
+
+export interface MatchEvent {
+  status: MatchStatus;
+  sessionId?: string;
+  timestamp: number;
+  elapsed?: number;
 }
 
 // ========== QUESTION TYPES ==========
@@ -163,7 +194,7 @@ export interface AdminUserProfile {
     google_id: string;
     description?: string;
     programming_proficiency?: "beginner" | "intermediate" | "advanced";
-    role: UserRole;
+    roles: Role[];
     created_at: string;
     updated_at: string;
     last_login?: string;

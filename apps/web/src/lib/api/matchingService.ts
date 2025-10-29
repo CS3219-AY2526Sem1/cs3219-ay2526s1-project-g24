@@ -4,39 +4,7 @@
  */
 
 import { API_CONFIG } from '../apiConfig';
-
-export type Difficulty = 'easy' | 'medium' | 'hard';
-export type MatchStatus = 'queued' | 'matched' | 'cancelled' | 'timeout';
-
-export interface MatchRequest {
-  userId: string;
-  difficulty: Difficulty;
-  topics: string[];
-  languages: string[];
-}
-
-export interface MatchRequestResponse {
-  reqId: string;
-  alreadyQueued?: boolean;
-}
-
-export interface MatchRequestStatus {
-  reqId: string;
-  userId: string;
-  difficulty: Difficulty;
-  topics: string[];
-  languages: string[];
-  status: MatchStatus;
-  createdAt: number;
-  sessionId?: string;
-}
-
-export interface MatchEvent {
-  status: MatchStatus;
-  sessionId?: string;
-  timestamp: number;
-  elapsed?: number;
-}
+import { MatchEvent, MatchRequest, MatchRequestResponse, MatchRequestStatus } from '@/lib/types';
 
 class MatchingServiceClient {
   private baseUrl: string;

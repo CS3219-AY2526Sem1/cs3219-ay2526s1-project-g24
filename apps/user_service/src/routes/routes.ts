@@ -37,6 +37,16 @@ const models: TsoaRoute.Models = {
         "type": {"ref":"_36_Enums.proficiency_level","validators":{}},
     },
     // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "_36_Enums.programming_language": {
+        "dataType": "refAlias",
+        "type": {"dataType":"union","subSchemas":[{"dataType":"enum","enums":["cpp"]},{"dataType":"enum","enums":["java"]},{"dataType":"enum","enums":["python"]},{"dataType":"enum","enums":["javascript"]}],"validators":{}},
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
+    "programming_language": {
+        "dataType": "refAlias",
+        "type": {"ref":"_36_Enums.programming_language","validators":{}},
+    },
+    // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
     "User": {
         "dataType": "refObject",
         "properties": {
@@ -48,6 +58,7 @@ const models: TsoaRoute.Models = {
             "google_id": {"dataType":"string"},
             "description": {"dataType":"string"},
             "programming_proficiency": {"ref":"proficiency_level"},
+            "preferred_language": {"ref":"programming_language"},
             "created_at": {"dataType":"datetime","required":true},
             "updated_at": {"dataType":"datetime","required":true},
         },
@@ -116,6 +127,7 @@ export function RegisterRoutes(app: Router) {
                 display_name: {"in":"body-prop","name":"display_name","dataType":"string"},
                 description: {"in":"body-prop","name":"description","dataType":"string"},
                 programming_proficiency: {"in":"body-prop","name":"programming_proficiency","dataType":"union","subSchemas":[{"dataType":"enum","enums":["beginner"]},{"dataType":"enum","enums":["intermediate"]},{"dataType":"enum","enums":["advanced"]}]},
+                preferred_language: {"in":"body-prop","name":"preferred_language","dataType":"union","subSchemas":[{"dataType":"enum","enums":["cpp"]},{"dataType":"enum","enums":["java"]},{"dataType":"enum","enums":["python"]},{"dataType":"enum","enums":["javascript"]}]},
                 avatar_url: {"in":"body-prop","name":"avatar_url","dataType":"string"},
         };
         app.patch('/v1/users/me',
@@ -214,6 +226,7 @@ export function RegisterRoutes(app: Router) {
                 display_name: {"in":"body-prop","name":"display_name","dataType":"string"},
                 description: {"in":"body-prop","name":"description","dataType":"string"},
                 programming_proficiency: {"in":"body-prop","name":"programming_proficiency","dataType":"union","subSchemas":[{"dataType":"enum","enums":["beginner"]},{"dataType":"enum","enums":["intermediate"]},{"dataType":"enum","enums":["advanced"]}]},
+                preferred_language: {"in":"body-prop","name":"preferred_language","dataType":"union","subSchemas":[{"dataType":"enum","enums":["cpp"]},{"dataType":"enum","enums":["java"]},{"dataType":"enum","enums":["python"]},{"dataType":"enum","enums":["javascript"]}]},
         };
         app.patch('/v1/users/:userId',
             authenticateMiddleware([{"jwt":["admin:users:edit"]}]),

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
   getSession,
@@ -9,7 +9,6 @@ import { User } from "@/lib/types";
 
 export const useAuth = () => {
   const [user, setUser] = useState<User | null>(null);
-  const [isAdmin, setIsAdmin] = useState<boolean>(false);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
@@ -18,21 +17,13 @@ export const useAuth = () => {
     try {
       const session = await getSession();
       if (session?.user) {
-        const derivedRole = session.isAdmin ? "admin" : "user";
-        const userWithRole: User = {
-          ...session.user,
-          role: session.user.role ?? derivedRole,
-        };
-        setUser(userWithRole);
-        setIsAdmin(session.isAdmin || userWithRole.role === "admin");
+        setUser(session.user);
       } else {
         setUser(null);
-        setIsAdmin(false);
       }
     } catch (error) {
       console.error("Failed to fetch session", error);
       setUser(null);
-      setIsAdmin(false);
     } finally {
       setLoading(false);
     }
@@ -56,6 +47,12 @@ export const useAuth = () => {
       console.error("Failed to logout", error);
     }
   };
+
+  const isAdmin = useMemo(() => {
+    return (
+      user?.roles?.some((role) => role.name?.toLowerCase() === "admin") ?? false
+    );
+  }, [user]);
 
   useEffect(() => {
     checkSession();
