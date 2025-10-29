@@ -18,6 +18,8 @@ export interface TopicResponse {
 export interface CompanyResponse {
     id: number;
     name: string;
+    description?: string;
+    question_count?: number;
 }
 
 // Test Case interfaces
@@ -334,6 +336,26 @@ export async function getTopics(): Promise<TopicResponse[]> {
 
     if (!response.ok) {
         throw new Error(`Failed to fetch topics: ${response.statusText}`);
+    }
+
+    return response.json();
+}
+
+/**
+ * Fetch all companies from the question service
+ * Endpoint: GET /api/companies
+ */
+export async function getCompanies(): Promise<CompanyResponse[]> {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/companies`, {
+        method: 'GET',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+    });
+
+    if (!response.ok) {
+        throw new Error(`Failed to fetch companies: ${response.statusText}`);
     }
 
     return response.json();

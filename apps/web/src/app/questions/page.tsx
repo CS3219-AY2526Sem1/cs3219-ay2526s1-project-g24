@@ -5,19 +5,22 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getDifficultyStyles } from "@/lib/difficulty";
 import withAuth from "@/components/withAuth";
-import { getQuestions, getTopics, QuestionListItem, TopicResponse } from "@/lib/api/questionService";
+import { getQuestions, getTopics, getCompanies, QuestionListItem, TopicResponse, CompanyResponse } from "@/lib/api/questionService";
 
 function Questions() {
     const router = useRouter();
     const [activeTab, setActiveTab] = useState("Questions");
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
-    const [topicFilter, setTopicFilter] = useState<number | null>(null); // Store topic ID instead of name
+    const [topicFilter, setTopicFilter] = useState<number | null>(null);
+    const [companyFilter, setCompanyFilter] = useState<number | null>(null);
     const [difficultyFilter, setDifficultyFilter] = useState('All difficulty');
+    const [statusFilter, setStatusFilter] = useState<'all' | 'attempted' | 'not-attempted' | 'solved' | 'unsolved'>('all');
     
     // API state
     const [questions, setQuestions] = useState<QuestionListItem[]>([]);
     const [topics, setTopics] = useState<TopicResponse[]>([]);
+    const [companies, setCompanies] = useState<CompanyResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [page, setPage] = useState(1);
@@ -46,6 +49,20 @@ function Questions() {
         fetchTopics();
     }, []);
 
+    // Fetch companies on mount
+    useEffect(() => {
+        const fetchCompanies = async () => {
+            try {
+                const companiesData = await getCompanies();
+                setCompanies(companiesData);
+            } catch (err) {
+                console.error('Failed to load companies:', err);
+            }
+        };
+
+        fetchCompanies();
+    }, []);
+
     // Fetch questions from API
     useEffect(() => {
         const fetchQuestions = async () => {
@@ -57,10 +74,21 @@ function Questions() {
                     page_size: 100,
                     difficulties: difficultyFilter !== 'All difficulty' ? difficultyFilter.toLowerCase() : undefined,
                     topic_ids: topicFilter !== null ? topicFilter.toString() : undefined,
+                    company_ids: companyFilter !== null ? companyFilter.toString() : undefined,
                     search: debouncedSearchQuery || undefined,
+                    attempted_only: statusFilter === 'attempted' || statusFilter === 'unsolved',
+                    solved_only: statusFilter === 'solved',
+                    unsolved_only: statusFilter === 'unsolved',
                 });
-                setQuestions(data.questions);
-                setTotalQuestions(data.total);
+                
+                // Client-side filter for "not-attempted" since backend doesn't support it directly
+                let filteredQuestions = data.questions;
+                if (statusFilter === 'not-attempted') {
+                    filteredQuestions = data.questions.filter(q => !q.is_attempted);
+                }
+                
+                setQuestions(filteredQuestions);
+                setTotalQuestions(statusFilter === 'not-attempted' ? filteredQuestions.length : data.total);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load questions');
             } finally {
@@ -69,7 +97,7 @@ function Questions() {
         };
 
         fetchQuestions();
-    }, [page, difficultyFilter, topicFilter, debouncedSearchQuery]);
+    }, [page, difficultyFilter, topicFilter, companyFilter, debouncedSearchQuery, statusFilter]);
 
     const tabs = [
         { name: "Home", href: "/home" },
@@ -123,7 +151,7 @@ function Questions() {
                     </h1>
 
                     {/* Filters */}
-                    <div className="flex gap-4 mb-8">
+                    <div className="flex gap-4 mb-6">
                         {/* Search Bar */}
                         <div className="flex-1 relative">
                             <input
@@ -164,6 +192,27 @@ function Questions() {
                             </div>
                         </div>
 
+                        {/* Company Filter */}
+                        <div className="relative">
+                            <select
+                                value={companyFilter !== null ? companyFilter : ''}
+                                onChange={(e) => setCompanyFilter(e.target.value ? parseInt(e.target.value) : null)}
+                                className="bg-transparent border-2 border-white/20 rounded-full pl-6 pr-12 py-3 font-montserrat text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors min-w-[180px]"
+                            >
+                                <option value="" className="bg-[#333232] text-white">All companies</option>
+                                {companies.map((company) => (
+                                    <option key={company.id} value={company.id} className="bg-[#333232] text-white">
+                                        {company.name}
+                                    </option>
+                                ))}
+                            </select>
+                            <div className="absolute right-6 top-1/2 transform -translate-y-1/2 pointer-events-none">
+                                <svg width="12" height="8" viewBox="0 0 12 8" fill="none">
+                                    <path d="M1 1L6 6L11 1" stroke="#585858" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
+                            </div>
+                        </div>
+
                         {/* Difficulty Filter */}
                         <div className="relative">
                             <select
@@ -184,6 +233,60 @@ function Questions() {
                         </div>
                     </div>
 
+                    {/* Status Filter Chips */}
+                    <div className="flex gap-3 mb-8">
+                        <button
+                            onClick={() => setStatusFilter('all')}
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
+                                statusFilter === 'all'
+                                    ? 'bg-white/20 text-white border-2 border-white/40'
+                                    : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
+                            }`}
+                        >
+                            All
+                        </button>
+                        <button
+                            onClick={() => setStatusFilter('attempted')}
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
+                                statusFilter === 'attempted'
+                                    ? 'bg-white/20 text-white border-2 border-white/40'
+                                    : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
+                            }`}
+                        >
+                            Attempted
+                        </button>
+                        <button
+                            onClick={() => setStatusFilter('not-attempted')}
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
+                                statusFilter === 'not-attempted'
+                                    ? 'bg-white/20 text-white border-2 border-white/40'
+                                    : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
+                            }`}
+                        >
+                            Not Attempted
+                        </button>
+                        <button
+                            onClick={() => setStatusFilter('solved')}
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
+                                statusFilter === 'solved'
+                                    ? 'bg-white/20 text-white border-2 border-white/40'
+                                    : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
+                            }`}
+                        >
+                            Solved
+                        </button>
+                        <button
+                            onClick={() => setStatusFilter('unsolved')}
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
+                                statusFilter === 'unsolved'
+                                    ? 'bg-white/20 text-white border-2 border-white/40'
+                                    : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
+                            }`}
+                        >
+                            Unsolved
+                        </button>
+                    </div>
+
                     {/* Questions List */}
                     {isLoading ? (
                         <div className="text-center py-12">
@@ -199,15 +302,44 @@ function Questions() {
                                 <div
                                     key={question.id}
                                     onClick={() => handleQuestionClick(question.id)}
-                                    className="bg-[#3a3a3a] border border-[#4a4a4a] rounded-lg px-6 py-5 flex items-center justify-between hover:bg-[#404040] transition-colors cursor-pointer"
+                                    className="bg-[#3a3a3a] border border-[#4a4a4a] rounded-lg px-6 py-5 flex items-center gap-4 hover:bg-[#404040] transition-colors cursor-pointer"
                                 >
-                                    <div className="flex-1">
-                                        <h3 className="text-white text-lg font-medium">{question.title}</h3>
+                                    {/* Status Indicator */}
+                                    <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
+                                        {question.is_solved ? (
+                                            <svg className="w-6 h-6 text-[#4ade80]" fill="currentColor" viewBox="0 0 20 20">
+                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                            </svg>
+                                        ) : question.is_attempted ? (
+                                            <svg className="w-5 h-5 text-[#fb923c]" fill="currentColor" viewBox="0 0 20 20">
+                                                <circle cx="10" cy="10" r="8" />
+                                            </svg>
+                                        ) : null}
                                     </div>
+                                    
+                                    {/* Question Title */}
+                                    <div className="flex-1 min-w-0">
+                                        <h3 className="text-white text-lg font-medium truncate">{question.title}</h3>
+                                    </div>
+                                    
+                                    {/* Topics */}
                                     <div className="flex-1 text-center">
-                                        <p className="text-[#9e9e9e] text-sm">{question.topics.map(t => t.name).join(', ')}</p>
+                                        <p className="text-[#9e9e9e] text-sm truncate">
+                                            {question.topics.map(t => t.name).join(', ')}
+                                        </p>
                                     </div>
-                                    <div className="flex-1 flex justify-end">
+                                    
+                                    {/* Companies */}
+                                    <div className="flex-1 text-center">
+                                        <p className="text-[#9e9e9e] text-sm truncate">
+                                            {question.companies.length > 0 
+                                                ? question.companies.map(c => c.name).join(', ')
+                                                : '—'}
+                                        </p>
+                                    </div>
+                                    
+                                    {/* Difficulty Badge */}
+                                    <div className="flex-shrink-0">
                                         <span className={`text-xs px-4 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
                                             {question.difficulty}
                                         </span>
