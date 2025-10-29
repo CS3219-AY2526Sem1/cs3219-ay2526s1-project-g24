@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: api
-        image: REPLACE_WITH_ECR_API_IMAGE
+        image: ghcr.io/CS3219-AY2526Sem1/g24/api:latest
         ports:
         - containerPort: 3001
           name: http

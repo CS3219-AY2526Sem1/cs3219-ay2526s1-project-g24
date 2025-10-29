@@ -18,7 +18,7 @@ spec:
       initContainers:
       # Init container to run migrations and seed
       - name: migration
-        image: 625737183926.dkr.ecr.ap-southeast-1.amazonaws.com/user-service:latest
+        image: ghcr.io/CS3219-AY2526Sem1/g24/user-service:latest
         env:
         - name: POSTGRES_USER
           valueFrom:
@@ -53,7 +53,7 @@ spec:
         workingDir: /app/apps/user_service
       containers:
       - name: user-service
-        image: 625737183926.dkr.ecr.ap-southeast-1.amazonaws.com/user-service:latest
+        image: ghcr.io/CS3219-AY2526Sem1/g24/user-service:latest
         ports:
         - containerPort: 8000
           name: http

@@ -18,7 +18,7 @@ spec:
       initContainers:
       # Init container to run migrations
       - name: migration
-        image: REPLACE_WITH_ECR_QUESTION_SERVICE_IMAGE
+        image: ghcr.io/CS3219-AY2526Sem1/g24/question-service:latest
         env:
         - name: POSTGRES_USER
           valueFrom:
@@ -53,7 +53,7 @@ spec:
           echo '✅ Migrations complete'
       containers:
       - name: question-service
-        image: REPLACE_WITH_ECR_QUESTION_SERVICE_IMAGE
+        image: ghcr.io/CS3219-AY2526Sem1/g24/question-service:latest
         ports:
         - containerPort: 80
           name: http

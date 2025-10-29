@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: matching-service
-        image: REPLACE_WITH_ECR_MATCHING_SERVICE_IMAGE
+        image: ghcr.io/CS3219-AY2526Sem1/g24/matching-service:latest
         ports:
         - containerPort: 3000
           name: http

@@ -258,99 +258,125 @@ aws ssm get-parameters-by-path \
 
 ---
 
-### Step 5: Build and Push Docker Images (15-20 minutes)
+### Step 5: Build and Push Docker Images to GHCR (15-20 minutes)
 
-**5.1 Create ECR Repositories**
+We use GitHub Container Registry (GHCR) instead of AWS ECR. GHCR repositories are created automatically on first push.
 
-```bash
-# Get your AWS account ID
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-REGION=ap-southeast-1
+**5.1 Authenticate Docker with GHCR**
 
-# Create repositories for each service
-for service in web api question-service user-service matching-service collab-service; do
-  aws ecr create-repository \
-    --repository-name $service \
-    --region $REGION || echo "Repository $service already exists"
-done
+Create a GitHub Personal Access Token (fine-grained or classic) with at least:
+- read:packages, write:packages (delete:packages optional)
 
-# List repositories
-aws ecr describe-repositories --region $REGION --query 'repositories[].repositoryName'
-```
-
-**5.2 Authenticate Docker with ECR**
+If your images live under an organization (recommended), ensure your token has access to that org's packages.
 
 ```bash
-aws ecr get-login-password --region $REGION | \
-  docker login --username AWS --password-stdin ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com
+# Set your GitHub username and org
+GITHUB_USER="<your-github-username>"
+ORG="CS3219-AY2526Sem1"
+
+# Paste or export a token with write:packages
+# Prefer exporting to your shell before running this: export GHCR_TOKEN=xxxxx
+echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_USER" --password-stdin
 ```
 
-**5.3 Build and Push Images**
+Tip: You can also use GITHUB_TOKEN inside GitHub Actions to push to GHCR without a PAT.
+
+**5.2 Build and Push Images**
+
+Choose a consistent naming scheme. We'll use a team subpath under the org: ghcr.io/<org>/<team>/<image>
 
 ```bash
 # Navigate to repository root
 cd <repo-root>
 
+# Common prefix for images
+ORG="CS3219-AY2526Sem1"
+TEAM="g24"
+IMG="ghcr.io/${ORG}/${TEAM}"
+
 # Web (Next.js)
-docker build -t ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/web:latest -f apps/web/Dockerfile .
-docker push ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/web:latest
+docker build -t ${IMG}/web:latest -f apps/web/Dockerfile .
+docker push ${IMG}/web:latest
 
 # API Gateway
-docker build -t ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/api:latest -f apps/api/Dockerfile .
-docker push ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/api:latest
+docker build -t ${IMG}/api:latest -f apps/api/Dockerfile .
+docker push ${IMG}/api:latest
 
 # Question Service (Python/FastAPI)
-docker build -t ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/question-service:latest \
+docker build -t ${IMG}/question-service:latest \
   -f apps/question_service/dockerfile apps/question_service
-docker push ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/question-service:latest
+docker push ${IMG}/question-service:latest
 
 # User Service (Node.js/Prisma)
-docker build -t ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/user-service:latest \
+docker build -t ${IMG}/user-service:latest \
   -f apps/user_service/Dockerfile .
-docker push ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/user-service:latest
+docker push ${IMG}/user-service:latest
 
 # Matching Service (Node.js)
-docker build -t ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/matching-service:latest \
+docker build -t ${IMG}/matching-service:latest \
   -f apps/matching-service/Dockerfile .
-docker push ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/matching-service:latest
+docker push ${IMG}/matching-service:latest
 
 # Collaboration Service (Node.js/WebSocket/Yjs)
-docker build -t ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/collab-service:latest \
+docker build -t ${IMG}/collab-service:latest \
   -f apps/collab-service/Dockerfile .
-docker push ${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/collab-service:latest
+docker push ${IMG}/collab-service:latest
+```
+
+**5.3 Set Image Visibility or Create Pull Secret**
+
+By default, GHCR images are private:
+- Option A (simple): Make each package public in the GitHub UI (Packages → container → Package settings → Change visibility to Public).
+- Option B (secure): Keep images private and create a Kubernetes imagePullSecret used by your workloads.
+
+```bash
+# Create a pull secret in the cs3219 namespace (if keeping images private)
+kubectl create secret docker-registry ghcr-pull-secret -n cs3219 \
+  --docker-server=ghcr.io \
+  --docker-username="$GITHUB_USER" \
+  --docker-password="$GHCR_TOKEN"
+
+# Then reference it either at the namespace level or in each Deployment spec:
+# spec:
+#   imagePullSecrets:
+#   - name: ghcr-pull-secret
 ```
 
 **5.4 Verify Images**
 
 ```bash
-# Check images were pushed
-for service in web api question-service user-service matching-service collab-service; do
-  echo "=== $service ==="
-  aws ecr list-images --repository-name $service --region $REGION
-done
+# Pull one of the images locally to verify auth and availability
+docker pull ${IMG}/web:latest
+
+# Or verify in GitHub: https://github.com/orgs/${ORG}/packages?repo_name=cs3219-ay2526s1-project-g24
 ```
 
 ---
 
-### Step 6: Update Kubernetes Manifests with Image URLs (2 minutes)
+### Step 6: Update Kubernetes Manifests with GHCR Image URLs (2-3 minutes)
 
 ```bash
 cd infra/k8s
 
-# Set your account ID and region
-ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
-REGION=ap-southeast-1
+# Set your organization and team (must match what you used to push images)
+ORG="CS3219-AY2526Sem1"
+TEAM="g24"
+IMG="ghcr.io/${ORG}/${TEAM}"
 
-# Update all service YAMLs with ECR image URLs
-sed -i '' "s|REPLACE_WITH_ECR_QUESTION_SERVICE_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/question-service:latest|g" question-service.yaml
-sed -i '' "s|REPLACE_WITH_ECR_USER_SERVICE_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/user-service:latest|g" user-service.yaml
-sed -i '' "s|REPLACE_WITH_ECR_MATCHING_SERVICE_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/matching-service:latest|g" matching-service.yaml
-sed -i '' "s|REPLACE_WITH_ECR_COLLAB_SERVICE_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/collab-service:latest|g" collab-service.yaml
-sed -i '' "s|REPLACE_WITH_ECR_WEB_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/web:latest|g" web.yaml
-sed -i '' "s|REPLACE_WITH_ECR_API_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/api:latest|g" api.yaml
+# Replace placeholders with GHCR image URLs (placeholders may already exist in some files)
+sed -i '' "s|REPLACE_WITH_ECR_QUESTION_SERVICE_IMAGE|${IMG}/question-service:latest|g" question-service.yaml
+sed -i '' "s|REPLACE_WITH_ECR_USER_SERVICE_IMAGE|${IMG}/user-service:latest|g" user-service.yaml
+sed -i '' "s|REPLACE_WITH_ECR_MATCHING_SERVICE_IMAGE|${IMG}/matching-service:latest|g" matching-service.yaml
+sed -i '' "s|REPLACE_WITH_ECR_COLLAB_SERVICE_IMAGE|${IMG}/collab-service:latest|g" collab-service.yaml
+sed -i '' "s|REPLACE_WITH_ECR_WEB_IMAGE|${IMG}/web:latest|g" web.yaml
+sed -i '' "s|REPLACE_WITH_ECR_API_IMAGE|${IMG}/api:latest|g" api.yaml
+
+# Some manifests may still contain hardcoded ECR references; switch those to GHCR too
+sed -i '' "s|[0-9]\{12\}\.dkr\.ecr\.[-a-z0-9]\+\.amazonaws\.com/web:latest|${IMG}/web:latest|g" web.yaml || true
+sed -i '' "s|[0-9]\{12\}\.dkr\.ecr\.[-a-z0-9]\+\.amazonaws\.com/user-service:latest|${IMG}/user-service:latest|g" user-service.yaml || true
 
 # Verify replacements worked
-grep "dkr.ecr" *.yaml
+grep -n "ghcr.io" *.yaml || true
 ```
 
 ---
@@ -508,8 +534,7 @@ kubectl logs -n cs3219 deployment/collab-service
 - [ ] EBS CSI Driver installed
 - [ ] gp3 StorageClass created
 - [ ] Secrets stored in Parameter Store
-- [ ] ECR repositories created
-- [ ] Docker images built and pushed
+- [ ] Docker images built and pushed to GHCR
 - [ ] K8s manifest image URLs updated
 - [ ] Manual deployment tested and working
 - [ ] ALB URL accessible
@@ -570,12 +595,14 @@ kubectl logs -n karpenter -l app.kubernetes.io/name=karpenter
 
 ### Image pull errors
 ```bash
-# Re-authenticate with ECR
-aws ecr get-login-password --region ap-southeast-1 | \
-  docker login --username AWS --password-stdin ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com
+# Re-authenticate with GHCR
+echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GITHUB_USER" --password-stdin
 
-# Verify image exists
-aws ecr list-images --repository-name web --region ap-southeast-1
+# Verify the image is available (and your token has access)
+docker pull ghcr.io/CS3219-AY2526Sem1/g24/web:latest
+
+# If your images are private, ensure the imagePullSecret is present in the namespace
+kubectl get secret ghcr-pull-secret -n cs3219 || echo "Missing ghcr-pull-secret"
 ```
 
 ### Database connection issues

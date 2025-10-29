@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: web
-        image: 625737183926.dkr.ecr.ap-southeast-1.amazonaws.com/web:latest
+        image: ghcr.io/CS3219-AY2526Sem1/g24/web:latest
         ports:
         - containerPort: 3000
           name: http
