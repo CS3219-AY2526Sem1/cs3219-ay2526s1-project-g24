@@ -51,7 +51,7 @@ class MatchingServiceClient {
   async createMatchRequest(
     request: MatchRequest,
   ): Promise<MatchRequestResponse> {
-    const response = await fetch(`${this.baseUrl}/v1/match/requests`, {
+  const response = await fetch(`${this.baseUrl}/api/v1/match/requests`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -87,7 +87,7 @@ class MatchingServiceClient {
    * Get the status of a match request
    */
   async getMatchRequestStatus(reqId: string): Promise<MatchRequestStatus> {
-    const response = await fetch(`${this.baseUrl}/v1/match/requests/${reqId}`, {
+  const response = await fetch(`${this.baseUrl}/api/v1/match/requests/${reqId}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
@@ -115,7 +115,7 @@ class MatchingServiceClient {
     alreadyMatched: boolean;
     sessionId?: string;
   }> {
-    const response = await fetch(`${this.baseUrl}/v1/match/requests/${reqId}`, {
+  const response = await fetch(`${this.baseUrl}/api/v1/match/requests/${reqId}`, {
       method: 'DELETE',
       headers: {
         'Content-Type': 'application/json',
@@ -168,7 +168,7 @@ class MatchingServiceClient {
     onError?: (error: Error) => void,
   ): () => void {
     const eventSource = new EventSource(
-      `${this.baseUrl}/v1/match/requests/${reqId}/events`,
+  `${this.baseUrl}/api/v1/match/requests/${reqId}/events`,
       { withCredentials: true },
     );
 

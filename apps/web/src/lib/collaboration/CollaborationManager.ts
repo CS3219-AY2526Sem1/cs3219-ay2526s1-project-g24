@@ -120,7 +120,7 @@ export class CollaborationManager {
             const token = userId || COLLABORATION_CONFIG.TEST_TOKEN;
 
             // Create WebSocket provider
-            const wsUrl = `${COLLABORATION_CONFIG.WS_URL}/v1/ws/sessions/${sessionId}?token=${token}`;
+            const wsUrl = `${COLLABORATION_CONFIG.WS_URL}/api/v1/ws/sessions/${sessionId}?token=${token}`;
             this.provider = new WebsocketProvider(wsUrl, sessionId, this.ydoc, {
                 connect: true,
                 awareness: undefined,
