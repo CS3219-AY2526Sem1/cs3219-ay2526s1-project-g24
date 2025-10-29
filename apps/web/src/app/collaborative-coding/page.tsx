@@ -61,11 +61,12 @@ function CollaborativeCodingPage() {
   // Collaboration state
   const [sessionId, setSessionId] = useState('');
   const [sessionInputValue, setSessionInputValue] = useState('');
-  const [userIdInputValue, setUserIdInputValue] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [connectedUsers, setConnectedUsers] = useState<UserPresence[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isFromMatchFlow, setIsFromMatchFlow] = useState(false);
+  const [isEditorReady, setIsEditorReady] = useState(false);
 
   // Collaboration manager and editor ref
   const collaborationManagerRef = useRef<CollaborationManager | null>(null);
@@ -115,14 +116,11 @@ function CollaborativeCodingPage() {
   };
 
   // Connect to collaboration session
-  const connectToSession = async () => {
-    if (!sessionInputValue.trim()) {
-      addToast('Please enter a session ID', 'warning');
-      return;
-    }
+  const connectToSession = async (autoSessionId?: string) => {
+    const targetSessionId = autoSessionId || sessionInputValue.trim();
 
-    if (!userIdInputValue.trim()) {
-      addToast('Please enter a user ID', 'warning');
+    if (!targetSessionId) {
+      addToast('Please enter a session ID', 'warning');
       return;
     }
 
@@ -131,9 +129,7 @@ function CollaborativeCodingPage() {
       return;
     }
 
-    const trimmedSessionId = sessionInputValue.trim();
-    const trimmedUserId = userIdInputValue.trim();
-    setSessionId(trimmedSessionId);
+    setSessionId(targetSessionId);
     setConnectionStatus('connecting');
 
     try {
@@ -149,19 +145,15 @@ function CollaborativeCodingPage() {
       // Set up error notification callback
       collaborationManagerRef.current.onErrorNotification(handleCollaborationError);
 
-      await collaborationManagerRef.current.connect(
-        trimmedSessionId,
-        editorRef.current,
-        (status) => {
-          setConnectionStatus(status);
-          setIsConnected(status === 'connected');
+      // Connect to session - auth token will be sent via HttpOnly cookie automatically
+      await collaborationManagerRef.current.connect(targetSessionId, editorRef.current, (status) => {
+        setConnectionStatus(status);
+        setIsConnected(status === 'connected');
 
-          if (status === 'connected') {
-            addToast('Successfully connected to session', 'success', 3000);
-          }
-        },
-        trimmedUserId
-      );
+        if (status === 'connected') {
+          addToast('Successfully connected to session', 'success', 3000);
+        }
+      });
     } catch (error) {
       console.error('[CollaborativeCoding] Failed to connect:', error);
       setConnectionStatus('error');
@@ -172,6 +164,18 @@ function CollaborativeCodingPage() {
 
   // Disconnect from collaboration session
   const disconnectFromSession = () => {
+    console.log('[CollaborativeCoding] Disconnect clicked');
+
+    // Show confirmation dialog
+    const confirmed = window.confirm(
+      'Are you sure you want to disconnect from this session? Your partner will continue to be in the session.'
+    );
+
+    if (!confirmed) {
+      console.log('[CollaborativeCoding] Disconnect cancelled by user');
+      return;
+    }
+
     console.log('[CollaborativeCoding] Disconnecting from session');
 
     if (collaborationManagerRef.current) {
@@ -181,10 +185,10 @@ function CollaborativeCodingPage() {
 
     setSessionId('');
     setSessionInputValue('');
-    setUserIdInputValue('');
     setIsConnected(false);
     setConnectionStatus('disconnected');
     setConnectedUsers([]);
+    setIsFromMatchFlow(false);
 
     // Reset code to default
     if (editorRef.current) {
@@ -198,16 +202,66 @@ function CollaborativeCodingPage() {
   // Handle editor mount
   const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor) => {
     editorRef.current = editor;
+    setIsEditorReady(true);
   };
 
   // Cleanup on component unmount
   useEffect(() => {
     return () => {
+      console.log('[CollaborativeCoding] Component unmounting, disconnecting...');
       if (collaborationManagerRef.current) {
         collaborationManagerRef.current.disconnect();
+        collaborationManagerRef.current = null;
       }
     };
   }, []);
+
+  // Handle page exit/refresh - ensure disconnection
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      console.log('[CollaborativeCoding] Page unloading, disconnecting...');
+      if (collaborationManagerRef.current && isConnected) {
+        // Synchronously disconnect
+        collaborationManagerRef.current.disconnect();
+        collaborationManagerRef.current = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden && collaborationManagerRef.current && isConnected) {
+        console.log('[CollaborativeCoding] Page hidden, disconnecting...');
+        collaborationManagerRef.current.disconnect();
+        collaborationManagerRef.current = null;
+        setIsConnected(false);
+        setConnectionStatus('disconnected');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isConnected]);
+
+  // Auto-connect to session from match flow
+  useEffect(() => {
+    const storedSessionId = sessionStorage.getItem('sessionId');
+    if (storedSessionId && isEditorReady) {
+      console.log('[CollaborativeCoding] Auto-connecting to session from match flow:', storedSessionId);
+      setIsFromMatchFlow(true);
+      connectToSession(storedSessionId);
+      // Clear the session ID from storage after using it
+      sessionStorage.removeItem('sessionId');
+    } else if (storedSessionId && !isEditorReady) {
+      // Editor not ready yet, set flag to show we came from match flow
+      setIsFromMatchFlow(true);
+      setSessionInputValue(storedSessionId);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditorReady]); // Only re-run when editor becomes ready
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -255,6 +309,37 @@ function CollaborativeCodingPage() {
   }, [isDraggingVertical, isDraggingHorizontal]);
 
   const handleTerminate = () => {
+    console.log('[CollaborativeCoding] Terminate clicked');
+
+    // If connected, show confirmation dialog
+    if (isConnected) {
+      const confirmed = window.confirm(
+        'Are you sure you want to terminate this session? You will be disconnected from the collaborative coding session.'
+      );
+
+      if (!confirmed) {
+        console.log('[CollaborativeCoding] Terminate cancelled by user');
+        return;
+      }
+    }
+
+    console.log('[CollaborativeCoding] Terminating session, disconnecting...');
+
+    // Disconnect from collaboration session
+    if (collaborationManagerRef.current) {
+      collaborationManagerRef.current.disconnect();
+      collaborationManagerRef.current = null;
+    }
+
+    // Clear session state
+    setSessionId('');
+    setSessionInputValue('');
+    setIsConnected(false);
+    setConnectionStatus('disconnected');
+    setConnectedUsers([]);
+    setIsFromMatchFlow(false);
+
+    // Navigate to home
     router.push('/home');
   };
 
@@ -269,36 +354,30 @@ function CollaborativeCodingPage() {
           <div className='flex items-center gap-2'>
             {!sessionId ? (
               <>
-                <input
-                  type='text'
-                  value={userIdInputValue}
-                  onChange={(e) => setUserIdInputValue(e.target.value)}
-                  placeholder='User ID'
-                  className='bg-[#1e1e1e] border border-[#3e3e3e] text-white text-sm px-3 py-1 rounded focus:outline-none focus:border-[#5e5e5e] w-32'
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      connectToSession();
-                    }
-                  }}
-                />
-                <input
-                  type='text'
-                  value={sessionInputValue}
-                  onChange={(e) => setSessionInputValue(e.target.value)}
-                  placeholder='Session ID'
-                  className='bg-[#1e1e1e] border border-[#3e3e3e] text-white text-sm px-3 py-1 rounded focus:outline-none focus:border-[#5e5e5e] w-40'
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      connectToSession();
-                    }
-                  }}
-                />
-                <button
-                  onClick={connectToSession}
-                  className='px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white text-sm font-medium transition-colors rounded'
-                >
-                  Connect
-                </button>
+                {isFromMatchFlow ? (
+                  <span className='text-sm text-blue-400 animate-pulse'>Connecting to matched session...</span>
+                ) : (
+                  <>
+                    <input
+                      type='text'
+                      value={sessionInputValue}
+                      onChange={(e) => setSessionInputValue(e.target.value)}
+                      placeholder='Session ID'
+                      className='bg-[#1e1e1e] border border-[#3e3e3e] text-white text-sm px-3 py-1 rounded focus:outline-none focus:border-[#5e5e5e] w-40'
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          connectToSession();
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => connectToSession()}
+                      className='px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white text-sm font-medium transition-colors rounded'
+                    >
+                      Connect
+                    </button>
+                  </>
+                )}
               </>
             ) : (
               <>
@@ -336,10 +415,11 @@ function CollaborativeCodingPage() {
             )}
           </div>
         </div>
-        <span className='text-white text-sm'>Cliff Hänger (you) x Xiao Ming</span>
+
+        {/* Terminate Session Button */}
         <button
           onClick={handleTerminate}
-          className='px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors'
+          className='px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors rounded'
         >
           Terminate
         </button>

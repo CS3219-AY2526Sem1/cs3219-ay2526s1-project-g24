@@ -1,10 +1,10 @@
 import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
-import { config } from '../config';
-import { YjsDocument } from '../types';
-import { getRedisClient, getRedisPubClient, getRedisSubClient } from '../utils/redis';
+import { config } from '../config/index.js';
+import { YjsDocument } from '../types/index.js';
+import { getRedisClient, getRedisPubClient, getRedisSubClient } from '../utils/redis.js';
 import { randomUUID } from 'crypto';
-import { ErrorHandler } from '../utils/errors';
+import { ErrorHandler } from '../utils/errors.js';
 
 // Unique server instance ID to prevent applying our own pub/sub messages
 const SERVER_ID = process.env.INSTANCE_ID || randomUUID();
@@ -120,7 +120,7 @@ export class YjsService {
             // Step 1b: If Redis cache miss, try PostgreSQL snapshot
             if (!stateLoaded) {
                 try {
-                    const { SnapshotService } = await import('./snapshot.service');
+                    const { SnapshotService } = await import('./snapshot.service.js');
                     const snapshot = await SnapshotService.loadLatestSnapshot(sessionId);
                     if (snapshot && snapshot.length > 0) {
                         Y.applyUpdate(doc, snapshot, 'postgres-init');

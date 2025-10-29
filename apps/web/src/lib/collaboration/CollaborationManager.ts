@@ -90,13 +90,11 @@ export class CollaborationManager {
      * @param sessionId - The collaboration session ID
      * @param editor - Monaco editor instance
      * @param onStatusChange - Callback for connection status changes
-     * @param userId - Optional user ID for authentication (defaults to TEST_TOKEN)
      */
     async connect(
         sessionId: string,
         editor: editor.IStandaloneCodeEditor,
-        onStatusChange: (status: ConnectionStatus) => void,
-        userId?: string
+        onStatusChange: (status: ConnectionStatus) => void
     ): Promise<void> {
         // Preserve callbacks before disconnect
         const savedPresenceCallback = this.onPresenceChange;
@@ -116,11 +114,10 @@ export class CollaborationManager {
             // Create Yjs document
             this.ydoc = new Y.Doc();
 
-            // Use provided userId or fall back to TEST_TOKEN
-            const token = userId || COLLABORATION_CONFIG.TEST_TOKEN;
-
             // Create WebSocket provider
-            const wsUrl = `${COLLABORATION_CONFIG.WS_URL}/v1/ws/sessions/${sessionId}?token=${token}`;
+            // Note: We don't pass the token in the URL because the browser automatically
+            // sends HttpOnly cookies with the WebSocket connection
+            const wsUrl = `${COLLABORATION_CONFIG.WS_URL}/v1/ws/sessions/${sessionId}`;
             this.provider = new WebsocketProvider(wsUrl, sessionId, this.ydoc, {
                 connect: true,
                 awareness: undefined,

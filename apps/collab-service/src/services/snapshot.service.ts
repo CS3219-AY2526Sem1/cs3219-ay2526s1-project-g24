@@ -1,7 +1,7 @@
-import { prisma } from '../utils/prisma';
-import { YjsService } from './yjs.service';
-import { config } from '../config';
-import { ErrorHandler, withRetry } from '../utils/errors';
+import { prisma } from '../utils/prisma.js';
+import { YjsService } from './yjs.service.js';
+import { config } from '../config/index.js';
+import { ErrorHandler, withRetry } from '../utils/errors.js';
 
 /**
  * SnapshotService handles periodic saving of Y.Doc state to PostgreSQL

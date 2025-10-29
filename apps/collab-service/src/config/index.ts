@@ -19,9 +19,11 @@ export const config = {
 
     // External Services
     questionServiceUrl: process.env.QUESTION_SERVICE_URL || 'http://localhost:3001',
+    userServiceUrl: process.env.USER_SERVICE_URL || 'http://localhost:8000',
 
-    // JWT
-    jwtSecret: process.env.JWT_SECRET || 'your-jwt-secret-change-in-production',
+    // JWT Authentication
+    jwtSecret: process.env.JWT_SECRET || 'your-jwt-secret-change-in-production', // Deprecated - kept for backward compatibility
+    jwtAlgorithm: (process.env.JWT_ALGORITHM || 'RS256') as 'RS256' | 'HS256',
     enableMockAuth: process.env.ENABLE_MOCK_AUTH === 'true', // Set to 'true' for local testing without user service
 
     // Session Configuration
@@ -34,12 +36,17 @@ export const config = {
 } as const;
 
 // Validate required config
-const requiredEnvVars = ['DATABASE_URL', 'JWT_SECRET'];
+const requiredEnvVars = ['DATABASE_URL'];
 
 if (config.nodeEnv === 'production') {
     for (const envVar of requiredEnvVars) {
         if (!process.env[envVar]) {
             throw new Error(`Missing required environment variable: ${envVar}`);
         }
+    }
+
+    // For production, require either mock auth to be disabled or User Service URL to be set
+    if (!config.enableMockAuth && !process.env.USER_SERVICE_URL) {
+        throw new Error('USER_SERVICE_URL is required when ENABLE_MOCK_AUTH is not true');
     }
 }

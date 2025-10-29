@@ -4,10 +4,15 @@ import helmet from 'helmet';
 import { WebSocketServer } from 'ws';
 import { Server as HTTPServer } from 'http';
 import path from 'path';
-import { config } from './config';
-import { errorHandler } from './middleware/errorHandler';
-import observabilityRoutes from './routes/observability.routes';
-import sessionRoutes from './routes/session.routes';
+import { fileURLToPath } from 'url';
+import { config } from './config/index.js';
+import { errorHandler } from './middleware/errorHandler.js';
+import observabilityRoutes from './routes/observability.routes.js';
+import sessionRoutes from './routes/session.routes.js';
+
+// ES module equivalent of __dirname
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export function createServer(): { app: Express; wss: WebSocketServer } {
     const app = express();

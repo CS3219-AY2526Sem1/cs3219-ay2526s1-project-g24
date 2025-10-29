@@ -1,6 +1,6 @@
-import { prisma } from '../utils/prisma';
-import { Session, CreateSessionRequest, AppError } from '../types';
-import { YjsService } from './yjs.service';
+import { prisma } from '../utils/prisma.js';
+import { Session, CreateSessionRequest, AppError } from '../types/index.js';
+import { YjsService } from './yjs.service.js';
 
 /**
  * SessionService handles CRUD operations for collaboration sessions
@@ -10,6 +10,16 @@ export class SessionService {
      * Create a new collaboration session
      */
     static async createSession(data: CreateSessionRequest): Promise<Session> {
+        console.log(`[SessionService] Creating session:`, {
+            sessionId: data.sessionId,
+            user1Id: data.user1Id,
+            user2Id: data.user2Id,
+            questionId: data.questionId,
+            difficulty: data.difficulty,
+            topic: data.topic,
+            language: data.language || 'python',
+        });
+
         try {
             // Validate that sessionId doesn't already exist
             const existing = await prisma.session.findUnique({
@@ -17,6 +27,7 @@ export class SessionService {
             });
 
             if (existing) {
+                console.warn(`[SessionService] ⚠️  Session already exists: ${data.sessionId}`);
                 throw new AppError('Session already exists', 409);
             }
 
@@ -35,15 +46,20 @@ export class SessionService {
                 },
             });
 
-            console.log(`✓ Created session ${data.sessionId} for users ${data.user1Id} and ${data.user2Id}`);
+            console.log(`[SessionService] ✓ Created session ${data.sessionId} for users ${data.user1Id} and ${data.user2Id}`);
 
             // Initialize Y.Doc for this session
             YjsService.getDocument(data.sessionId);
+            console.log(`[SessionService] ✓ Initialized Y.Doc for session ${data.sessionId}`);
 
             return session as Session;
         } catch (error) {
             if (error instanceof AppError) throw error;
-            console.error('Failed to create session:', error);
+            console.error('[SessionService] ❌ Failed to create session:', {
+                error: error instanceof Error ? error.message : String(error),
+                stack: error instanceof Error ? error.stack : undefined,
+                data,
+            });
             throw new AppError('Failed to create session', 500);
         }
     }
@@ -57,9 +73,18 @@ export class SessionService {
                 where: { sessionId },
             });
 
+            if (session) {
+                console.log(`[SessionService] ✓ Found session ${sessionId}, status: ${session.status}`);
+            } else {
+                console.log(`[SessionService] ℹ️  Session not found: ${sessionId}`);
+            }
+
             return session as Session | null;
         } catch (error) {
-            console.error('Failed to get session:', error);
+            console.error('[SessionService] ❌ Failed to get session:', {
+                sessionId,
+                error: error instanceof Error ? error.message : String(error),
+            });
             throw new AppError('Failed to get session', 500);
         }
     }
@@ -85,12 +110,19 @@ export class SessionService {
      */
     static async isParticipant(sessionId: string, userId: string): Promise<boolean> {
         const session = await this.getSession(sessionId);
-        if (!session) return false;
+        if (!session) {
+            console.log(`[SessionService] ℹ️  isParticipant check failed: session ${sessionId} not found`);
+            return false;
+        }
 
-        console.log(session);
-        console.log(userId);
+        const isParticipant = session.user1Id === userId || session.user2Id === userId;
 
-        return session.user1Id === userId || session.user2Id === userId;
+        console.log(`[SessionService] isParticipant check: session=${sessionId}, userId=${userId}, result=${isParticipant}`, {
+            user1Id: session.user1Id,
+            user2Id: session.user2Id,
+        });
+
+        return isParticipant;
     }
 
     /**
