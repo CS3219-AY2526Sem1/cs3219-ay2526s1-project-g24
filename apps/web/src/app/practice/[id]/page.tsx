@@ -410,7 +410,7 @@ export default function PracticePage() {
                                 {/* Similar Questions Section */}
                                 {!isLoadingSimilar && similarQuestions.length > 0 && (
                                     <div className="mt-6 pt-6 border-t border-[#3e3e3e]">
-                                        <h3 className="text-white font-semibold mb-4 text-sm">🔗 Similar Questions</h3>
+                                        <h3 className="text-white font-semibold mb-4 text-sm">Similar Questions</h3>
                                         <div className="space-y-2">
                                             {similarQuestions.map((similar) => (
                                                 <div
@@ -577,9 +577,28 @@ export default function PracticePage() {
                         </div>
 
                         {/* Tab Content */}
-                        <div className="flex-1 overflow-y-auto p-4">
+                        <div className="flex-1 overflow-y-auto p-4 relative">
                             {activeTab === 'testResults' ? (
                                 <div>
+                                    {/* Loading Overlay */}
+                                    {isRunning && (
+                                        <div className="absolute inset-0 bg-[#252525]/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+                                            <div className="flex flex-col items-center gap-4">
+                                                {/* Animated spinner */}
+                                                <div className="relative">
+                                                    <div className="w-16 h-16 border-4 border-gray-700 rounded-full"></div>
+                                                    <div className="w-16 h-16 border-4 border-profile-avatar rounded-full border-t-transparent animate-spin absolute top-0"></div>
+                                                </div>
+                                                
+                                                {/* Status message */}
+                                                <div className="text-center">
+                                                    <p className="text-white font-semibold text-lg mb-1">Running Code...</p>
+                                                    <p className="text-gray-400 text-sm">Executing test cases</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
                                     {executionError && (
                                         <div className="mb-4 p-3 bg-red-900/20 border border-red-500 rounded text-red-300 text-sm">
                                             {executionError}
@@ -690,7 +709,23 @@ export default function PracticePage() {
                                     )}
                                 </div>
                             ) : (
-                                <div className="space-y-4">
+                                <div className="space-y-4 relative">
+                                    {/* Loading Overlay for Custom Input */}
+                                    {isRunningCustom && (
+                                        <div className="absolute inset-0 bg-[#252525]/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+                                            <div className="flex flex-col items-center gap-4">
+                                                <div className="relative">
+                                                    <div className="w-16 h-16 border-4 border-gray-700 rounded-full"></div>
+                                                    <div className="w-16 h-16 border-4 border-profile-avatar rounded-full border-t-transparent animate-spin absolute top-0"></div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <p className="text-white font-semibold text-lg mb-1">Running Code...</p>
+                                                    <p className="text-gray-400 text-sm">Executing with custom input</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
                                     {/* Help text */}
                                     <div className="bg-[#2e2e2e] border border-[#3e3e3e] p-3 rounded">
                                         <p className="text-gray-400 text-xs mb-2">
