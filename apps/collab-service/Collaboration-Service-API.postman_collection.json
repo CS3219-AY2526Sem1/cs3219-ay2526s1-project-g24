@@ -1,0 +1,456 @@
+{
+  "info": {
+    "name": "Collaboration Service API",
+    "description": "Complete API collection for testing the PeerPrep Collaboration Service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_exporter_id": "collaboration-service"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:3003",
+      "type": "string"
+    },
+    {
+      "key": "sessionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user1Token",
+      "value": "123e4567-e89b-12d3-a456-426614174001",
+      "type": "string"
+    },
+    {
+      "key": "user2Token",
+      "value": "123e4567-e89b-12d3-a456-426614174002",
+      "type": "string"
+    },
+    {
+      "key": "aliceId",
+      "value": "123e4567-e89b-12d3-a456-426614174001",
+      "type": "string"
+    },
+    {
+      "key": "bobId",
+      "value": "123e4567-e89b-12d3-a456-426614174002",
+      "type": "string"
+    },
+    {
+      "key": "charlieId",
+      "value": "123e4567-e89b-12d3-a456-426614174003",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Basic health check endpoint. Returns 200 if service is running."
+          },
+          "response": []
+        },
+        {
+          "name": "Ready Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/ready",
+              "host": ["{{baseUrl}}"],
+              "path": ["ready"]
+            },
+            "description": "Detailed readiness check. Verifies database and Redis connections."
+          },
+          "response": []
+        }
+      ],
+      "description": "Endpoints to verify service health and readiness"
+    },
+    {
+      "name": "Session Management",
+      "item": [
+        {
+          "name": "Create Session",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "// Save session ID for subsequent requests",
+                  "if (pm.response.code === 201) {",
+                  "    const response = pm.response.json();",
+                  "    pm.collectionVariables.set('sessionId', response.id);",
+                  "    console.log('Session ID saved:', response.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1Token}}",
+                "description": "Optional with mock auth enabled"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user1Id\": \"{{aliceId}}\",\n  \"user2Id\": \"{{bobId}}\",\n  \"questionId\": \"two-sum\",\n  \"difficulty\": \"easy\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/v1/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "sessions"]
+            },
+            "description": "Create a new collaboration session between two users.\n\n**Request Body:**\n- `user1Id`: First participant ID\n- `user2Id`: Second participant ID\n- `questionId`: Question identifier\n- `difficulty`: easy | medium | hard\n\n**Response:** Session object with ID, participants, and expiration time.\n\n💡 The session ID is automatically saved to collection variables for subsequent requests."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Session by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1Token}}",
+                "description": "Required - must be a session participant"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/sessions/{{sessionId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "sessions", "{{sessionId}}"]
+            },
+            "description": "Get details of a specific session.\n\n**Authorization:** Must be a participant (user1 or user2) of the session.\n\n**Response:** Complete session details including status, participants, and timestamps."
+          },
+          "response": []
+        },
+        {
+          "name": "Get User's Sessions",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1Token}}",
+                "description": "Required - returns sessions for this user"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/sessions",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "sessions"]
+            },
+            "description": "Get all active sessions for the authenticated user.\n\n**Authorization:** Required - returns sessions where user is a participant.\n\n**Response:** Array of session objects."
+          },
+          "response": []
+        },
+        {
+          "name": "Terminate Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1Token}}",
+                "description": "Required - must be a session participant"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/sessions/{{sessionId}}/terminate",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "sessions", "{{sessionId}}", "terminate"]
+            },
+            "description": "Terminate an active session.\n\n**Authorization:** Must be a participant of the session.\n\n**Effect:** \n- Changes session status to TERMINATED\n- Prevents new connections\n- Existing connections remain active until disconnected\n\n**Response:** Updated session object with TERMINATED status."
+          },
+          "response": []
+        },
+        {
+          "name": "Rejoin Session",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1Token}}",
+                "description": "Required - must be a session participant"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/sessions/{{sessionId}}/rejoin",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "sessions", "{{sessionId}}", "rejoin"]
+            },
+            "description": "Check if user can rejoin a session.\n\n**Authorization:** Must be a participant of the session.\n\n**Rules:**\n- Can rejoin if disconnected < 2 minutes ago\n- Cannot rejoin if session is TERMINATED\n- Cannot rejoin if session is EXPIRED\n\n**Response:** \n- 200: Can rejoin\n- 403: Cannot rejoin (terminated or expired)\n- 409: Session has expired"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Session Snapshot",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{user1Token}}",
+                "description": "Required - must be a session participant"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/v1/sessions/{{sessionId}}/snapshot",
+              "host": ["{{baseUrl}}"],
+              "path": ["v1", "sessions", "{{sessionId}}", "snapshot"]
+            },
+            "description": "Get the current code snapshot of the session.\n\n**Authorization:** Must be a participant of the session.\n\n**Response:**\n```json\n{\n  \"code\": \"function twoSum(nums, target) {\\n  // code here\\n}\",\n  \"metadata\": {\n    \"language\": \"javascript\",\n    \"participants\": 2,\n    \"lastModified\": \"2025-10-16T...\"\n  }\n}\n```"
+          },
+          "response": []
+        }
+      ],
+      "description": "REST API endpoints for managing collaboration sessions"
+    },
+    {
+      "name": "Test Scenarios",
+      "item": [
+        {
+          "name": "Scenario 1: Create and Connect",
+          "item": [
+            {
+              "name": "1. Create Session",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user1Id\": \"alice\",\n  \"user2Id\": \"bob\",\n  \"questionId\": \"two-sum\",\n  \"difficulty\": \"easy\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/sessions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "sessions"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "2. Verify Session",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer {{aliceId}}"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/sessions/{{sessionId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "sessions", "{{sessionId}}"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "3. Connect Alice (WebSocket)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "ws://localhost:3003/v1/ws/sessions/{{sessionId}}?token={{aliceId}}",
+                  "protocol": "ws",
+                  "host": ["localhost"],
+                  "port": "3003",
+                  "path": ["v1", "ws", "sessions", "{{sessionId}}"],
+                  "query": [
+                    {
+                      "key": "token",
+                      "value": "{{aliceId}}"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "4. Connect Bob (WebSocket)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "ws://localhost:3003/v1/ws/sessions/{{sessionId}}?token={{bobId}}",
+                  "protocol": "ws",
+                  "host": ["localhost"],
+                  "port": "3003",
+                  "path": ["v1", "ws", "sessions", "{{sessionId}}"],
+                  "query": [
+                    {
+                      "key": "token",
+                      "value": "{{bobId}}"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            }
+          ],
+          "description": "Complete flow: Create session → Verify → Connect both users"
+        },
+        {
+          "name": "Scenario 2: Session Termination",
+          "item": [
+            {
+              "name": "1. Create Session",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user1Id\": \"alice\",\n  \"user2Id\": \"bob\",\n  \"questionId\": \"test\",\n  \"difficulty\": \"medium\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/sessions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "sessions"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "2. Terminate Session",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer alice"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/sessions/{{sessionId}}/terminate",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "sessions", "{{sessionId}}", "terminate"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "3. Try to Rejoin (Should Fail)",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer alice"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/sessions/{{sessionId}}/rejoin",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "sessions", "{{sessionId}}", "rejoin"]
+                }
+              },
+              "response": []
+            }
+          ],
+          "description": "Test session termination and rejoin validation"
+        },
+        {
+          "name": "Scenario 3: Get Code Snapshot",
+          "item": [
+            {
+              "name": "1. Create Session",
+              "request": {
+                "method": "POST",
+                "header": [
+                  {
+                    "key": "Content-Type",
+                    "value": "application/json"
+                  }
+                ],
+                "body": {
+                  "mode": "raw",
+                  "raw": "{\n  \"user1Id\": \"alice\",\n  \"user2Id\": \"bob\",\n  \"questionId\": \"reverse-string\",\n  \"difficulty\": \"easy\"\n}"
+                },
+                "url": {
+                  "raw": "{{baseUrl}}/v1/sessions",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "sessions"]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "2. Connect and Type (Use WebSocket)",
+              "request": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "ws://localhost:3003/v1/ws/sessions/{{sessionId}}?token=alice",
+                  "protocol": "ws",
+                  "host": ["localhost"],
+                  "port": "3003",
+                  "path": ["v1", "ws", "sessions", "{{sessionId}}"],
+                  "query": [
+                    {
+                      "key": "token",
+                      "value": "{{aliceId}}"
+                    }
+                  ]
+                }
+              },
+              "response": []
+            },
+            {
+              "name": "3. Get Snapshot",
+              "request": {
+                "method": "GET",
+                "header": [
+                  {
+                    "key": "Authorization",
+                    "value": "Bearer alice"
+                  }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/v1/sessions/{{sessionId}}/snapshot",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["v1", "sessions", "{{sessionId}}", "snapshot"]
+                }
+              },
+              "response": []
+            }
+          ],
+          "description": "Test code snapshot retrieval after editing"
+        }
+      ],
+      "description": "Complete test scenarios with multiple steps"
+    }
+  ]
+}

@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: cs3219
+data:
+  # Matching Service Config
+  MATCH_TIMEOUT_SECONDS: "30"
+  REQUEST_TTL_SECONDS: "60"
+  LOG_LEVEL: "info"
+  
+  # Question Service Config
+  QUESTION_SERVICE_ENV: "production"
+  
+  # User Service Config
+  USER_SERVICE_ENV: "production"
+  
+  # Service URLs for web (via Ingress paths; relative to ALB host)
+  # These are exposed to the browser, so use ingress path prefixes
+  MATCHING_SERVICE_URL: "/match"
+  QUESTION_SERVICE_URL: "/questions"
+  USER_SERVICE_URL: "/users"
+  CODE_EXECUTION_SERVICE_URL: "/code" # placeholder if added to ingress later
+
+  # Internal service-to-service URL
+  COLLABORATION_SERVICE_URL: "http://collab-service:3003"
