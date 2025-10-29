@@ -18,6 +18,22 @@ export enum ProgrammingLanguage {
 
 export type UserRole = "user" | "admin";
 
+export interface Permission {
+    id: number;
+    name: string;
+    description?: string;
+    created_at?: string;
+    updated_at?: string;
+}
+
+export interface Role {
+    id: number;
+    name: string;
+    permissions: Permission[];
+    created_at?: string;
+    updated_at?: string;
+}
+
 export interface User {
     id: string;
     username?: string;
@@ -29,6 +45,7 @@ export interface User {
     programming_proficiency?: ProficiencyLevel;
     preferred_language?: ProgrammingLanguage;
     role?: UserRole;
+    roles?: Role[];
     created_at: string;
     updated_at: string;
 }
@@ -224,4 +241,3 @@ export interface ApiError {
     message: string;
     statusCode: number;
 }
-
