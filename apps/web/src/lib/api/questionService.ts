@@ -34,7 +34,7 @@ export interface TestCasePublic {
 export interface QuestionListItem {
     id: number;
     title: string;
-    difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+    difficulty: 'easy' | 'medium' | 'hard';
     acceptance_rate: number;
     topics: TopicResponse[];
     companies: CompanyResponse[];
@@ -47,7 +47,7 @@ export interface QuestionDetail {
     id: number;
     title: string;
     description: string;
-    difficulty: 'EASY' | 'MEDIUM' | 'HARD';
+    difficulty: 'easy' | 'medium' | 'hard';
     code_templates: Record<string, string>; // {"python": "...", "javascript": "...", etc}
     function_signature: {
         function_name: string;
@@ -379,6 +379,33 @@ export interface QuestionUpdateRequest {
     memory_limit?: Record<string, number>;
 }
 
+export interface TestCaseCreate {
+    input_data: Record<string, any>;
+    expected_output: any;
+    visibility: 'public' | 'private' | 'sample';
+    order_index: number;
+    explanation?: string;
+}
+
+export interface QuestionCreateRequest {
+    title: string;
+    description: string;
+    difficulty: 'easy' | 'medium' | 'hard';
+    topic_ids: number[];
+    company_ids: number[];
+    code_templates: Record<string, string>;
+    function_signature: {
+        function_name: string;
+        arguments: Array<{ name: string; type: string }>;
+        return_type: string;
+    };
+    constraints?: string;
+    hints?: string[];
+    time_limit?: Record<string, number>;
+    memory_limit?: Record<string, number>;
+    test_cases: TestCaseCreate[];
+}
+
 export async function updateQuestion(
     questionId: number,
     updates: QuestionUpdateRequest
@@ -400,7 +427,7 @@ export async function updateQuestion(
     return response.json();
 }
 
-export async function createQuestion(question: QuestionUpdateRequest): Promise<QuestionDetail> {
+export async function createQuestion(question: QuestionCreateRequest): Promise<QuestionDetail> {
     const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/`, {
         method: 'POST',
         headers: {
@@ -658,5 +685,80 @@ export async function deleteQuestion(questionId: number): Promise<void> {
     if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: response.statusText }));
         throw new Error(errorData.detail || `Failed to delete question: ${response.statusText}`);
+    }
+}
+
+// ============================================================================
+// ADMIN DASHBOARD STATISTICS
+// ============================================================================
+
+export interface DashboardStats {
+    totalQuestions: number;
+    easyQuestions: number;
+    mediumQuestions: number;
+    hardQuestions: number;
+}
+
+/**
+ * Get dashboard statistics for admin panel
+ * Fetches all questions and calculates difficulty distribution
+ */
+export async function getDashboardStats(): Promise<DashboardStats> {
+    try {
+        // The API limits page_size to 100, so we need to fetch multiple pages
+        let allQuestions: QuestionListItem[] = [];
+        let currentPage = 1;
+        let totalPages = 1;
+        const pageSize = 100; // Max allowed by the API
+
+        // Fetch all pages
+        while (currentPage <= totalPages) {
+            const response = await getQuestions({
+                page: currentPage,
+                page_size: pageSize,
+            });
+
+            allQuestions = allQuestions.concat(response.questions);
+            totalPages = response.total_pages;
+            currentPage++;
+            
+            // Safety check to prevent infinite loops
+            if (currentPage > 100) {
+                console.warn('Reached maximum page limit (100)');
+                break;
+            }
+        }
+
+        console.log(`[getDashboardStats] Fetched ${allQuestions.length} total questions`);
+
+        const stats: DashboardStats = {
+            totalQuestions: allQuestions.length,
+            easyQuestions: 0,
+            mediumQuestions: 0,
+            hardQuestions: 0,
+        };
+
+        // Count questions by difficulty
+        allQuestions.forEach((question) => {
+            switch (question.difficulty) {
+                case 'easy':
+                    stats.easyQuestions++;
+                    break;
+                case 'medium':
+                    stats.mediumQuestions++;
+                    break;
+                case 'hard':
+                    stats.hardQuestions++;
+                    break;
+                default:
+                    console.warn(`Unknown difficulty: ${question.difficulty}`, question);
+            }
+        });
+
+        console.log('[getDashboardStats] Stats:', stats);
+        return stats;
+    } catch (error) {
+        console.error('Error fetching dashboard stats:', error);
+        throw error;
     }
 }
