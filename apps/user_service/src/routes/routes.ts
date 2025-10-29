@@ -128,7 +128,6 @@ export function RegisterRoutes(app: Router) {
                 description: {"in":"body-prop","name":"description","dataType":"string"},
                 programming_proficiency: {"in":"body-prop","name":"programming_proficiency","dataType":"union","subSchemas":[{"dataType":"enum","enums":["beginner"]},{"dataType":"enum","enums":["intermediate"]},{"dataType":"enum","enums":["advanced"]}]},
                 preferred_language: {"in":"body-prop","name":"preferred_language","dataType":"union","subSchemas":[{"dataType":"enum","enums":["cpp"]},{"dataType":"enum","enums":["java"]},{"dataType":"enum","enums":["python"]},{"dataType":"enum","enums":["javascript"]}]},
-                avatar_url: {"in":"body-prop","name":"avatar_url","dataType":"string"},
         };
         app.patch('/v1/users/me',
             authenticateMiddleware([{"jwt":[]}]),
@@ -222,11 +221,11 @@ export function RegisterRoutes(app: Router) {
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsUsersController_updateUserById: Record<string, TsoaRoute.ParameterSchema> = {
                 userId: {"in":"path","name":"userId","required":true,"dataType":"string"},
-                username: {"in":"body-prop","name":"username","dataType":"string"},
-                display_name: {"in":"body-prop","name":"display_name","dataType":"string"},
-                description: {"in":"body-prop","name":"description","dataType":"string"},
-                programming_proficiency: {"in":"body-prop","name":"programming_proficiency","dataType":"union","subSchemas":[{"dataType":"enum","enums":["beginner"]},{"dataType":"enum","enums":["intermediate"]},{"dataType":"enum","enums":["advanced"]}]},
-                preferred_language: {"in":"body-prop","name":"preferred_language","dataType":"union","subSchemas":[{"dataType":"enum","enums":["cpp"]},{"dataType":"enum","enums":["java"]},{"dataType":"enum","enums":["python"]},{"dataType":"enum","enums":["javascript"]}]},
+                username: {"in":"body-prop","name":"username","dataType":"union","subSchemas":[{"dataType":"string"},{"dataType":"enum","enums":[null]}]},
+                display_name: {"in":"body-prop","name":"display_name","dataType":"union","subSchemas":[{"dataType":"string"},{"dataType":"enum","enums":[null]}]},
+                description: {"in":"body-prop","name":"description","dataType":"union","subSchemas":[{"dataType":"string"},{"dataType":"enum","enums":[null]}]},
+                programming_proficiency: {"in":"body-prop","name":"programming_proficiency","dataType":"union","subSchemas":[{"dataType":"enum","enums":["beginner"]},{"dataType":"enum","enums":["intermediate"]},{"dataType":"enum","enums":["advanced"]},{"dataType":"enum","enums":[null]}]},
+                preferred_language: {"in":"body-prop","name":"preferred_language","dataType":"union","subSchemas":[{"dataType":"enum","enums":["cpp"]},{"dataType":"enum","enums":["java"]},{"dataType":"enum","enums":["python"]},{"dataType":"enum","enums":["javascript"]},{"dataType":"enum","enums":[null]}]},
         };
         app.patch('/v1/users/:userId',
             authenticateMiddleware([{"jwt":["admin:users:edit"]}]),
