@@ -16,6 +16,7 @@ import PresenceIndicator from '@/components/PresenceIndicator';
 import ToastNotification, { Toast } from '@/components/ToastNotification';
 
 import withAuth from '@/components/withAuth';
+import { useAuth } from '@/hooks/useAuth';
 
 const questions = [
   {
@@ -46,6 +47,7 @@ Return the quotient after dividing dividend by divisor.`,
 
 function CollaborativeCodingPage() {
   const router = useRouter();
+  const { user } = useAuth();
   const [currentQuestion] = useState(0);
   const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
   const [codeHeight, setCodeHeight] = useState<number>(LAYOUT_DEFAULTS.CODE_HEIGHT_PERCENT);
@@ -341,7 +343,7 @@ function CollaborativeCodingPage() {
             )}
           </div>
         </div>
-        <span className='text-white text-sm'>Cliff Hänger (you) x Xiao Ming</span>
+        <span className='text-white text-sm'>{user?.display_name || 'User'} (you){connectedUsers.length > 0 && ` x ${connectedUsers.map(u => u.name).join(', ')}`}</span>
         <button
           onClick={handleTerminate}
           className='px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors'

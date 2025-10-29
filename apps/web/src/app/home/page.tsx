@@ -96,7 +96,7 @@ function Home() {
             </div>
             <div className="ml-8">
               <Image
-                src="/bro_profile.png"
+                src={user?.avatar_url || "/bro_profile.png"}
                 alt="Profile"
                 width={240}
                 height={240}

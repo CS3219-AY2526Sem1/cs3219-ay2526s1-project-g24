@@ -6,12 +6,14 @@ import { getDifficultyStyles } from '@/lib/difficulty';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
 import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult, getSimilarQuestions, QuestionListItem } from '@/lib/api/questionService';
 import { ProgrammingLanguage } from '@/lib/types';
+import { useAuth } from '@/hooks/useAuth';
 
 
 export default function PracticePage() {
     const router = useRouter();
     const params = useParams();
     const questionId = Number(params.id);
+    const { user } = useAuth();
 
     const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
     const [codeHeight, setCodeHeight] = useState<number>(LAYOUT_DEFAULTS.CODE_HEIGHT_PERCENT);
@@ -325,7 +327,7 @@ export default function PracticePage() {
                     </h1>
                     <span className="text-gray-400 text-sm">Solo Practice</span>
                 </div>
-                <span className="text-white text-sm">Cliff Hänger</span>
+                <span className="text-white text-sm">{user?.display_name || 'User'}</span>
                 <button
                     onClick={handleExit}
                     className="px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors"
