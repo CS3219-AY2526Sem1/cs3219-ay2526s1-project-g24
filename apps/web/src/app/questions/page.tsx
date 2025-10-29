@@ -5,7 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { getDifficultyStyles } from "@/lib/difficulty";
 import withAuth from "@/components/withAuth";
-import { getQuestions, getTopics, getCompanies, QuestionListItem, TopicResponse, CompanyResponse } from "@/lib/api/questionService";
+import { getQuestions, getTopics, getCompanies, getRandomQuestion, QuestionListItem, TopicResponse, CompanyResponse } from "@/lib/api/questionService";
 
 function Questions() {
     const router = useRouter();
@@ -110,6 +110,22 @@ function Questions() {
         router.push(`/practice/${questionId}`);
     };
 
+    const handleRandomQuestion = async () => {
+        try {
+            const randomQuestion = await getRandomQuestion({
+                difficulties: difficultyFilter !== 'All difficulty' ? difficultyFilter.toLowerCase() : undefined,
+                topic_ids: topicFilter !== null ? topicFilter.toString() : undefined,
+                company_ids: companyFilter !== null ? companyFilter.toString() : undefined
+            });
+            
+            if (randomQuestion) {
+                router.push(`/practice/${randomQuestion.id}`);
+            }
+        } catch (err) {
+            console.error('Failed to get random question:', err);
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#333232] relative overflow-hidden font-montserrat">
             <div className="fixed inset-0 opacity-20 pointer-events-none z-0">
@@ -146,9 +162,18 @@ function Questions() {
 
             <main className="relative z-10 pt-44 pb-20 px-6 md:px-12">
                 <div className="max-w-6xl mx-auto">
-                    <h1 className="font-montserrat text-5xl font-semibold text-white text-center mb-12">
-                        Questions Library
-                    </h1>
+                    <div className="flex items-center justify-between mb-12">
+                        <h1 className="font-montserrat text-5xl font-semibold text-white">
+                            Questions Library
+                        </h1>
+                        <button
+                            onClick={handleRandomQuestion}
+                            className="bg-gradient-to-r from-[#fb923c] to-[#f97316] hover:from-[#f97316] hover:to-[#ea580c] text-white font-montserrat font-semibold px-8 py-4 rounded-full transition-all hover:scale-105 flex items-center gap-3 shadow-lg"
+                        >
+                            <span className="text-2xl">🎲</span>
+                            <span>Pick One For Me</span>
+                        </button>
+                    </div>
 
                     {/* Filters */}
                     <div className="flex gap-4 mb-6">

@@ -3,18 +3,40 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import withAuth from "@/components/withAuth";
 import { useAuth } from "@/hooks/useAuth";
+import { getDailyQuestion, QuestionDetail } from "@/lib/api/questionService";
+import { getDifficultyStyles } from "@/lib/difficulty";
 
 function Home() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState("Home");
   const UNKNOWN_USER = "Unknown User";
   const [displayName, setDisplayName] = useState(UNKNOWN_USER);
   const { user } = useAuth();
+  const [dailyChallenge, setDailyChallenge] = useState<QuestionDetail | null>(null);
+  const [loadingDaily, setLoadingDaily] = useState(true);
 
   useEffect(() => {
     setDisplayName(user?.display_name || UNKNOWN_USER);
   }, [user]);
+
+  // Fetch daily challenge
+  useEffect(() => {
+    const fetchDailyChallenge = async () => {
+      try {
+        const challenge = await getDailyQuestion();
+        setDailyChallenge(challenge);
+      } catch (err) {
+        console.error('Failed to load daily challenge:', err);
+      } finally {
+        setLoadingDaily(false);
+      }
+    };
+
+    fetchDailyChallenge();
+  }, []);
 
   const tabs = [
     { name: "Home", href: "/home" },
@@ -83,6 +105,37 @@ function Home() {
               />
             </div>
           </div>
+
+          {/* Daily Challenge Card */}
+          {!loadingDaily && dailyChallenge && (
+            <div className="mb-8 bg-gradient-to-r from-[#4a4a4a] to-[#3a3a3a] border-2 border-[#fb923c]/40 rounded-2xl p-8 relative overflow-hidden">
+              <div className="absolute top-0 right-0 text-[120px] opacity-10">🔥</div>
+              <div className="relative z-10">
+                <div className="flex items-center gap-3 mb-4">
+                  <span className="text-4xl">🔥</span>
+                  <h2 className="text-2xl font-bold text-white">Daily Challenge</h2>
+                </div>
+                <h3 className="text-xl font-semibold text-white mb-2">{dailyChallenge.title}</h3>
+                <div className="flex items-center gap-4 mb-4">
+                  <span className={`text-xs px-3 py-1 rounded-full font-semibold uppercase ${getDifficultyStyles(dailyChallenge.difficulty)}`}>
+                    {dailyChallenge.difficulty}
+                  </span>
+                  <span className="text-[#9e9e9e] text-sm">
+                    {dailyChallenge.topics.map(t => t.name).join(' • ')}
+                  </span>
+                </div>
+                <p className="text-[#9e9e9e] text-sm mb-6">
+                  Acceptance Rate: {dailyChallenge.acceptance_rate}% • {dailyChallenge.total_submissions.toLocaleString()} submissions
+                </p>
+                <button
+                  onClick={() => router.push(`/practice/${dailyChallenge.id}`)}
+                  className="bg-[#fb923c] hover:bg-[#f97316] text-white font-montserrat font-semibold px-8 py-3 rounded-full transition-all hover:scale-105"
+                >
+                  Start Challenge →
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="relative bg-[#2d2d2d] rounded-3xl border border-white/10 overflow-hidden">
