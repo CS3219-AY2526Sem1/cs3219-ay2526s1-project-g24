@@ -95,6 +95,32 @@ def require_permissions(required_scopes: List[str]):
     return _check_permissions
 
 
+async def get_current_admin_user(user: dict = Depends(get_current_user)) -> dict:
+    """
+    FastAPI dependency to ensure the current user has admin role.
+    
+    Usage:
+        @router.post("/admin/questions")
+        def create_question(admin: dict = Depends(get_current_admin_user)):
+            ...
+    
+    Returns:
+        Dict containing user_id, email, roles, scopes
+        
+    Raises:
+        HTTPException: 403 if user doesn't have admin role
+    """
+    from fastapi import HTTPException
+    
+    if "admin" not in user.get("roles", []):
+        raise HTTPException(
+            status_code=403,
+            detail="Admin privileges required"
+        )
+    return user
+
+
 # Convenience type aliases for common use cases
 CurrentUser = Annotated[dict, Depends(get_current_user)]
 OptionalUser = Annotated[Optional[dict], Depends(get_current_user_optional)]
+AdminUser = Annotated[dict, Depends(get_current_admin_user)]

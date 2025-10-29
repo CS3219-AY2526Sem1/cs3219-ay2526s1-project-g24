@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.code_execution_client import code_execution_client
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, get_current_user_optional
+from app.core.dependencies import get_current_user, get_current_user_optional, get_current_admin_user
 from app.questions import crud, models, schemas
 from app.questions.data_structure_utils import prepend_data_structure_comments
 
@@ -31,13 +31,13 @@ def list_questions(
     page_size: int = Query(20, ge=1, le=100),
     sort_by: str = "id",
     sort_order: str = "asc",
-    user: Optional[dict] = Depends(get_current_user_optional),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List questions with filters and pagination"""
     
-    # Extract user_id from authenticated user if available
-    user_id = user["user_id"] if user else None
+    # Extract user_id from authenticated user
+    user_id = user["user_id"]
     
     # Parse comma-separated values
     difficulty_list = None
@@ -111,13 +111,13 @@ def get_random_question(
     difficulties: Optional[str] = Query(None),
     topic_ids: Optional[str] = Query(None),
     company_ids: Optional[str] = Query(None),
-    user: Optional[dict] = Depends(get_current_user_optional),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get a random question with optional filters"""
     
-    # Extract user_id from authenticated user if available
-    user_id = user["user_id"] if user else None
+    # Extract user_id from authenticated user
+    user_id = user["user_id"]
     
     # Parse filters similar to list_questions
     difficulty_list = None
@@ -150,11 +150,11 @@ def get_random_question(
 
 @router.get("/daily", response_model=schemas.QuestionDetail)
 def get_daily_question(
-    user: Optional[dict] = Depends(get_current_user_optional),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get the daily challenge question"""
-    user_id = user["user_id"] if user else None
+    user_id = user["user_id"]
     question = crud.get_daily_question(db)
     if not question:
         raise HTTPException(status_code=404, detail="No daily question available")
@@ -165,11 +165,11 @@ def get_daily_question(
 @router.get("/{question_id}", response_model=schemas.QuestionDetail)
 def get_question(
     question_id: int,
-    user: Optional[dict] = Depends(get_current_user_optional),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get question details"""
-    user_id = user["user_id"] if user else None
+    user_id = user["user_id"]
     question = crud.get_question(db, question_id)
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
@@ -180,6 +180,7 @@ def get_question(
 @router.post("/", response_model=schemas.QuestionDetail, status_code=201)
 def create_question(
     question: schemas.QuestionCreate,
+    admin: dict = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     """Create a new question (admin only)"""
@@ -194,6 +195,7 @@ def create_question(
 def update_question(
     question_id: int,
     question: schemas.QuestionUpdate,
+    admin: dict = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     """Update a question (admin only)"""
@@ -207,6 +209,7 @@ def update_question(
 @router.delete("/{question_id}", status_code=204)
 def delete_question(
     question_id: int,
+    admin: dict = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     """Delete a question (admin only)"""
@@ -219,11 +222,11 @@ def delete_question(
 def get_similar_questions(
     question_id: int,
     limit: int = Query(5, ge=1, le=20),
-    user: Optional[dict] = Depends(get_current_user_optional),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get similar questions based on topics and difficulty"""
-    user_id = user["user_id"] if user else None
+    user_id = user["user_id"]
     similar = crud.get_similar_questions(db, question_id, limit)
     
     result = []
@@ -260,6 +263,7 @@ def get_similar_questions(
 @router.get("/{question_id}/test-cases", response_model=list[schemas.TestCasePublic])
 def get_test_cases(
     question_id: int,
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get sample/public test cases for a question"""
@@ -285,6 +289,7 @@ def get_test_cases(
 def create_test_case(
     question_id: int,
     test_case: schemas.TestCaseCreate,
+    admin: dict = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     """Add a test case to a question (admin only)"""
@@ -313,6 +318,7 @@ def create_test_case(
 async def run_code(
     question_id: int,
     request: schemas.CodeExecutionRequest,
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Run code against sample/selected test cases or custom input"""
@@ -578,6 +584,7 @@ async def submit_solution(
 @router.get("/{question_id}/stats", response_model=schemas.QuestionStats)
 def get_question_stats(
     question_id: int,
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get question statistics"""
@@ -592,6 +599,7 @@ def get_question_stats(
 def get_question_submissions(
     question_id: int,
     limit: int = Query(20, ge=1, le=100),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get recent anonymized submissions for a question"""
