@@ -531,15 +531,24 @@ async def submit_solution(
         # Record user attempt
         attempt = schemas.UserAttemptCreate(
             question_id=question_id,
+            language=request.language,
             is_solved=is_solved,
             runtime_ms=int(avg_runtime) if avg_runtime else None,
             memory_mb=avg_memory_mb,
         )
         crud.create_user_attempt(db, user_id, attempt)
         
-        # Calculate percentiles (simplified - in production, would query historical data)
-        runtime_percentile = 75.5 if is_solved else None
-        memory_percentile = 80.2 if is_solved else None
+        # Calculate percentiles based on language-specific historical data
+        runtime_percentile = None
+        memory_percentile = None
+        if is_solved and avg_runtime and avg_memory_mb:
+            runtime_percentile, memory_percentile = crud.calculate_percentiles(
+                db=db,
+                question_id=question_id,
+                language=request.language,
+                runtime_ms=int(avg_runtime),
+                memory_mb=avg_memory_mb
+            )
         
         submission_id = str(uuid.uuid4())
         

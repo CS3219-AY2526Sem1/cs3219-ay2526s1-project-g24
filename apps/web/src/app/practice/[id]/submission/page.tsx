@@ -250,7 +250,7 @@ export default function SubmissionResultPage() {
                                     <div className="text-4xl font-bold text-white mb-2">
                                         {submission.runtime_ms} ms
                                     </div>
-                                    {submission.runtime_percentile !== undefined && (
+                                    {submission.runtime_percentile != null && (
                                         <div className="flex items-center gap-2">
                                             <TrendingUp className="w-4 h-4 text-green-300" />
                                             <span className="text-green-300 text-sm font-medium">
@@ -271,7 +271,7 @@ export default function SubmissionResultPage() {
                                     <div className="text-4xl font-bold text-white mb-2">
                                         {submission.memory_mb.toFixed(2)} MB
                                     </div>
-                                    {submission.memory_percentile !== undefined && (
+                                    {submission.memory_percentile != null && (
                                         <div className="flex items-center gap-2">
                                             <TrendingUp className="w-4 h-4 text-green-300" />
                                             <span className="text-green-300 text-sm font-medium">

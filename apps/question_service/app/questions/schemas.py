@@ -263,6 +263,7 @@ class UserAttemptBase(BaseModel):
 
 class UserAttemptCreate(BaseModel):
     question_id: int
+    language: str
     is_solved: bool
     runtime_ms: Optional[int] = None
     memory_mb: Optional[float] = None
