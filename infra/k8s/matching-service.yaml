@@ -41,6 +41,8 @@ spec:
             configMapKeyRef:
               name: app-config
               key: COLLABORATION_SERVICE_URL
+        - name: QUESTION_SERVICE_URL
+          value: "http://question-service:80"
         - name: MATCH_TIMEOUT_SECONDS
           valueFrom:
             configMapKeyRef:
@@ -58,6 +60,8 @@ spec:
               key: LOG_LEVEL
         - name: AUTH_JWKS_URI
           value: "http://user-service:8000/api/v1/.well-known/jwks.json"
+        - name: CORS_ORIGIN
+          value: "https://cs3219.leyew.dev,http://localhost:3000"
         resources:
           requests:
             memory: "256Mi"

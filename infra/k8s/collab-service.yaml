@@ -80,6 +80,8 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: jwt-secret
+        - name: CORS_ORIGINS
+          value: "https://cs3219.leyew.dev,http://localhost:3000"
         resources:
           requests:
             memory: "256Mi"

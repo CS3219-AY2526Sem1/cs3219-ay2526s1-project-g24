@@ -24,11 +24,10 @@ export function createServer(): { app: Express; wss: WebSocketServer } {
         })
     );
 
-    // CORS configuration - must allow credentials and specify origin
-    const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') || [
-        'http://localhost:3000',
-        'http://127.0.0.1:3000',
-    ];
+    // CORS configuration
+    const allowedOrigins = process.env.CORS_ORIGINS
+        ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+        : ['http://localhost:3000', 'http://127.0.0.1:3000'];
 
     app.use(cors({
         origin: (origin, callback) => {
