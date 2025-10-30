@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { withAdminAuth } from "../../components/withAuth";
+import { withAdminAuth } from "@/components/withAuth";
 
 function AdminDashboard() {
     const [stats, setStats] = useState({

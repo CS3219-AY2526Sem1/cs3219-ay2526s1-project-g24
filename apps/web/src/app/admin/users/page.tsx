@@ -2,9 +2,10 @@
 
 import Link from "next/link";
 import { useState, useEffect } from "react";
-import { getUsers, deleteUser, User } from "../../../lib/api/user.service";
+import { getUsers, deleteUser } from "@/lib/api/userService";
 
-import withAuth from "../../../components/withAuth";
+import { withAdminAuth } from "@/components/withAuth";
+import { User } from "@/lib/types";
 
 function AdminUsers() {
     const [users, setUsers] = useState<User[]>([]);
@@ -209,4 +210,4 @@ function AdminUsers() {
     );
 }
 
-export default withAuth(AdminUsers);
+export default withAdminAuth(AdminUsers);

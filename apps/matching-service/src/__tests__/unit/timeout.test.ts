@@ -1,12 +1,14 @@
 import { jest, describe, it, expect, beforeEach } from "@jest/globals";
 import type { Difficulty, StoredMatchRequest } from "../../types";
 
-  const mockGetRequest = jest.fn<() => Promise<StoredMatchRequest | null>>();
+const mockGetRequest = jest.fn<() => Promise<StoredMatchRequest | null>>();
 const mockUpdateRequestStatus = jest.fn<() => Promise<void>>();
+const mockAtomicUpdateRequestStatus = jest.fn<() => Promise<boolean>>();
 const mockDequeue = jest.fn<() => Promise<void>>();
 const mockPublishEvent = jest.fn<() => Promise<void>>();
-const mockGetExpiredTimeouts = jest.fn<() => Promise<Array<{ reqId: string; difficulty: Difficulty }>>>();
-const mockRemoveExpiredTimeouts = jest.fn<() => Promise<number>>();
+const mockRemoveUserActiveRequest = jest.fn<() => Promise<void>>();
+const mockPopExpiredTimeouts =
+  jest.fn<() => Promise<Array<{ reqId: string; difficulty: Difficulty }>>>();
 const mockRecordTimeout = jest.fn<() => void>();
 
 // Use unstable_mockModule for ES modules
@@ -14,10 +16,11 @@ jest.unstable_mockModule("../../services/redis.js", () => ({
   redisOps: {
     getRequest: mockGetRequest,
     updateRequestStatus: mockUpdateRequestStatus,
+    atomicUpdateRequestStatus: mockAtomicUpdateRequestStatus,
     dequeue: mockDequeue,
     publishEvent: mockPublishEvent,
-    getExpiredTimeouts: mockGetExpiredTimeouts,
-    removeExpiredTimeouts: mockRemoveExpiredTimeouts,
+    removeUserActiveRequest: mockRemoveUserActiveRequest,
+    popExpiredTimeouts: mockPopExpiredTimeouts,
   },
 }));
 
@@ -28,7 +31,9 @@ jest.unstable_mockModule("../../observability/metrics.js", () => ({
 }));
 
 // Import after mocking
-const { handleTimeout, scanExpiredTimeouts } = await import("../../workers/timeout.js");
+const { handleTimeout, scanExpiredTimeouts } = await import(
+  "../../workers/timeout.js"
+);
 
 describe("timeout worker (sorted set scanning)", () => {
   beforeEach(() => {
@@ -46,19 +51,26 @@ describe("timeout worker (sorted set scanning)", () => {
         createdAt: Date.now(),
       };
       mockGetRequest.mockResolvedValue(mockRequest);
-      mockUpdateRequestStatus.mockResolvedValue(undefined);
+      mockAtomicUpdateRequestStatus.mockResolvedValue(true); // Atomic update succeeds
       mockDequeue.mockResolvedValue(undefined);
       mockPublishEvent.mockResolvedValue(undefined);
 
       await handleTimeout("req-1", "easy");
 
       expect(mockGetRequest).toHaveBeenCalledWith("req-1");
-      expect(mockUpdateRequestStatus).toHaveBeenCalledWith("req-1", "timeout");
+      expect(mockAtomicUpdateRequestStatus).toHaveBeenCalledWith(
+        "req-1",
+        "queued",
+        "timeout",
+      );
       expect(mockDequeue).toHaveBeenCalledWith("req-1", "easy");
-      expect(mockPublishEvent).toHaveBeenCalledWith("req-1", expect.objectContaining({
-        status: "timeout",
-        timestamp: expect.any(Number),
-      }));
+      expect(mockPublishEvent).toHaveBeenCalledWith(
+        "req-1",
+        expect.objectContaining({
+          status: "timeout",
+          timestamp: expect.any(Number),
+        }),
+      );
       expect(mockRecordTimeout).toHaveBeenCalledWith("easy");
     });
 
@@ -91,6 +103,44 @@ describe("timeout worker (sorted set scanning)", () => {
       expect(mockRecordTimeout).not.toHaveBeenCalled();
     });
 
+    it("handles race condition when request is matched during timeout processing", async () => {
+      const mockRequest = {
+        userId: "user4",
+        difficulty: "medium" as Difficulty,
+        topics: "trees",
+        languages: "python",
+        status: "queued" as const,
+        createdAt: Date.now(),
+      };
+
+      const matchedRequest = {
+        ...mockRequest,
+        status: "matched" as const,
+        sessionId: "session-123",
+      };
+
+      // First call returns queued, second call (after atomic update fails) returns matched
+      mockGetRequest
+        .mockResolvedValueOnce(mockRequest)
+        .mockResolvedValueOnce(matchedRequest);
+      mockAtomicUpdateRequestStatus.mockResolvedValue(false); // Atomic update fails (already matched)
+
+      await handleTimeout("req-race", "medium");
+
+      // Should check status and try atomic update
+      expect(mockGetRequest).toHaveBeenCalledWith("req-race");
+      expect(mockAtomicUpdateRequestStatus).toHaveBeenCalledWith(
+        "req-race",
+        "queued",
+        "timeout",
+      );
+
+      // Should NOT proceed with timeout since atomic update failed
+      expect(mockDequeue).not.toHaveBeenCalled();
+      expect(mockPublishEvent).not.toHaveBeenCalled();
+      expect(mockRecordTimeout).not.toHaveBeenCalled();
+    });
+
     it("records timeout with correct difficulty label", async () => {
       const mockRequest = {
         userId: "user3",
@@ -102,7 +152,7 @@ describe("timeout worker (sorted set scanning)", () => {
       };
 
       mockGetRequest.mockResolvedValue(mockRequest);
-      mockUpdateRequestStatus.mockResolvedValue(undefined);
+      mockAtomicUpdateRequestStatus.mockResolvedValue(true); // Atomic update succeeds
       mockDequeue.mockResolvedValue(undefined);
       mockPublishEvent.mockResolvedValue(undefined);
 
@@ -114,12 +164,12 @@ describe("timeout worker (sorted set scanning)", () => {
 
   describe("scanExpiredTimeouts", () => {
     it("returns 0 when no expired timeouts", async () => {
-      mockGetExpiredTimeouts.mockResolvedValue([]);
+      mockPopExpiredTimeouts.mockResolvedValue([]);
 
       const count = await scanExpiredTimeouts();
 
       expect(count).toBe(0);
-      expect(mockGetExpiredTimeouts).toHaveBeenCalled();
+      expect(mockPopExpiredTimeouts).toHaveBeenCalled();
     });
 
     it("processes multiple expired timeouts", async () => {
@@ -128,7 +178,7 @@ describe("timeout worker (sorted set scanning)", () => {
         { reqId: "req-2", difficulty: "hard" as Difficulty },
       ];
 
-      mockGetExpiredTimeouts.mockResolvedValue(expired);
+      mockPopExpiredTimeouts.mockResolvedValue(expired);
       mockGetRequest.mockResolvedValue({
         userId: "user1",
         difficulty: "easy" as Difficulty,
@@ -137,15 +187,13 @@ describe("timeout worker (sorted set scanning)", () => {
         status: "queued" as const,
         createdAt: Date.now(),
       });
-      mockUpdateRequestStatus.mockResolvedValue(undefined);
+      mockAtomicUpdateRequestStatus.mockResolvedValue(true); // Atomic update succeeds
       mockDequeue.mockResolvedValue(undefined);
       mockPublishEvent.mockResolvedValue(undefined);
-      mockRemoveExpiredTimeouts.mockResolvedValue(2);
 
       const count = await scanExpiredTimeouts();
 
       expect(count).toBe(2);
-      expect(mockRemoveExpiredTimeouts).toHaveBeenCalled();
     });
   });
 });

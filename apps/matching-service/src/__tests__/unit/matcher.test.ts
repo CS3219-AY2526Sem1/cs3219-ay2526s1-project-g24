@@ -1,7 +1,3 @@
-/**
- * Unit tests for matcher worker logic
- */
-
 import { describe, it, expect, beforeEach, jest } from '@jest/globals';
 import { createMockRedis, createMockRequest, createMockFetch } from "../utils/test-helpers.js";
 import type { StoredMatchRequest } from "../../types.js";
@@ -277,5 +273,112 @@ describe('Matcher Worker Logic', () => {
       const queueLength = await mockRedis.zcard(`queue:${difficulty}`);
       expect(queueLength).toBe(1);
     });
+  });
+});
+
+describe('Matcher Race Handling', () => {
+  it('requeues remaining queued request when counterpart is missing', async () => {
+    jest.resetModules();
+    jest.clearAllMocks();
+
+    const enqueueMock = jest.fn(async () => undefined);
+    const popFromQueueMock = jest
+      .fn<() => Promise<Array<{ reqId: string; score: number }>>>()
+      .mockResolvedValue([
+        { reqId: 'req-missing', score: 1000 },
+        { reqId: 'req-queued', score: 1001 },
+      ]);
+
+    const getRequestMock = jest
+      .fn<(reqId: string) => Promise<StoredMatchRequest | null>>()
+      .mockImplementation(async (reqId: string) => {
+        if (reqId === 'req-missing') {
+          return {
+            userId: 'user-a',
+            difficulty: 'easy',
+            topics: 'arrays',
+            languages: 'python',
+            status: 'cancelled',
+            createdAt: Date.now(),
+          };
+        }
+
+        if (reqId === 'req-queued') {
+          return {
+            userId: 'user-b',
+            difficulty: 'easy',
+            topics: 'arrays',
+            languages: 'python',
+            status: 'queued',
+            createdAt: Date.now(),
+          };
+        }
+
+        return null;
+      });
+
+    const redisOpsMock = {
+      popFromQueue: popFromQueueMock,
+      getRequest: getRequestMock,
+      enqueue: enqueueMock,
+      atomicUpdateRequestStatus: jest.fn(),
+      addTimeout: jest.fn(),
+      removeTimeout: jest.fn(),
+      removeUserActiveRequest: jest.fn(),
+      publishEvent: jest.fn(),
+    } as any;
+
+    jest.unstable_mockModule('../../services/redis.js', () => ({
+      redisOps: redisOpsMock,
+      redis: {
+        duplicate: () => ({
+          subscribe: jest.fn(),
+          on: jest.fn(),
+        }),
+      },
+    }));
+
+    jest.unstable_mockModule('../../observability/logger.js', () => ({
+      logger: {
+        info: jest.fn(),
+        warn: jest.fn(),
+        debug: jest.fn(),
+        error: jest.fn(),
+      },
+    }));
+
+    jest.unstable_mockModule('../../observability/metrics.js', () => ({
+      metrics: {
+        recordMatch: jest.fn(),
+        recordError: jest.fn(),
+        recordCollaborationServiceCall: jest.fn(),
+        incrementSseConnections: jest.fn(),
+        decrementSseConnections: jest.fn(),
+        setQueueLength: jest.fn(),
+      },
+    }));
+
+    jest.unstable_mockModule('../../observability/tracing.js', () => ({
+      withSpan: (_name: string, _attrs: Record<string, unknown>, fn: any) =>
+        fn({ setAttribute: jest.fn() }),
+    }));
+
+    jest.unstable_mockModule('../../services/collaboration.js', () => ({
+      createSession: jest.fn(),
+      deleteSession: jest.fn(),
+    }));
+
+    const matcherModule = await import('../../workers/matcher.js');
+    const { attemptMatch } = matcherModule.__testExports;
+
+    await attemptMatch('easy');
+
+    expect(enqueueMock).toHaveBeenCalledTimes(1);
+    expect(enqueueMock).toHaveBeenCalledWith('req-queued', 'easy', 1001);
+    expect(enqueueMock).not.toHaveBeenCalledWith(
+      'req-missing',
+      expect.any(String),
+      expect.any(Number),
+    );
   });
 });
