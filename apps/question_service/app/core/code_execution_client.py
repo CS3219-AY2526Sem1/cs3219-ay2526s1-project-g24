@@ -5,14 +5,15 @@ from typing import Any, Dict, List, Optional
 
 import httpx
 
+from app.core.config import settings
 from app.questions import schemas
 
 
 class CodeExecutionClient:
     """Client for code execution service"""
 
-    def __init__(self, base_url: str = "http://code-execution-service:3010"):
-        self.base_url = base_url
+    def __init__(self, base_url: Optional[str] = None):
+        self.base_url = base_url or settings.CODE_EXECUTOR_URL
 
     async def execute_code(
         self,
@@ -50,7 +51,7 @@ class CodeExecutionClient:
         
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.post(
-                f"{self.base_url}/api/execution/execute",
+                f"{self.base_url}/api/v1/execution/execute",
                 json=payload,
             )
             response.raise_for_status()

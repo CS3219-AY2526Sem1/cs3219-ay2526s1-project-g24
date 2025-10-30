@@ -3,7 +3,7 @@ import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { AuthContext } from "../auth/types.js";
 import { logger } from "../observability/logger.js";
 
-const DEFAULT_JWKS_URI = "http://localhost:8001/.well-known/jwks.json";
+const DEFAULT_JWKS_URI = "http://localhost:8001/api/v1/.well-known/jwks.json";
 
 let jwksUri = process.env.AUTH_JWKS_URI || DEFAULT_JWKS_URI;
 let jwks = createRemoteJWKSet(new URL(jwksUri));

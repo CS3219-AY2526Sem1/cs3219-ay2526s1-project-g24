@@ -53,7 +53,7 @@ services:
       DATABASE_URL: postgresql://questionuser:${QUESTION_DB_PASSWORD:-questionpass123}@question-db:5432/questiondb
       ENV: development
       USER_SERVICE_URL: http://user-service:8000
-      CODE_EXECUTOR_URL: http://code-execution:8003
+      CODE_EXECUTOR_URL: http://code-execution-service:3010
     depends_on:
       question-db:
         condition: service_healthy
@@ -157,7 +157,7 @@ services:
       MATCH_TIMEOUT_SECONDS: 30
       REQUEST_TTL_SECONDS: 60
       LOG_LEVEL: info
-      AUTH_JWKS_URI: http://user-service:8000/.well-known/jwks.json
+      AUTH_JWKS_URI: http://user-service:8000/api/v1/.well-known/jwks.json
       # CORS configuration - allow web service and localhost for development
       CORS_ORIGIN: http://web:3000,http://localhost:3000
     depends_on:
