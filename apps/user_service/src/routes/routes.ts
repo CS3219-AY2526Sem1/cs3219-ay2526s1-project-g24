@@ -93,7 +93,7 @@ export function RegisterRoutes(app: Router) {
         const argsUsersController_getCurrentUser: Record<string, TsoaRoute.ParameterSchema> = {
                 req: {"in":"request","name":"req","required":true,"dataType":"object"},
         };
-        app.get('/v1/users/me',
+        app.get('/api/v1/users/me',
             authenticateMiddleware([{"jwt":[]}]),
             ...(fetchMiddlewares<RequestHandler>(UsersController)),
             ...(fetchMiddlewares<RequestHandler>(UsersController.prototype.getCurrentUser)),
@@ -128,8 +128,9 @@ export function RegisterRoutes(app: Router) {
                 description: {"in":"body-prop","name":"description","dataType":"string"},
                 programming_proficiency: {"in":"body-prop","name":"programming_proficiency","dataType":"union","subSchemas":[{"dataType":"enum","enums":["beginner"]},{"dataType":"enum","enums":["intermediate"]},{"dataType":"enum","enums":["advanced"]}]},
                 preferred_language: {"in":"body-prop","name":"preferred_language","dataType":"union","subSchemas":[{"dataType":"enum","enums":["cpp"]},{"dataType":"enum","enums":["java"]},{"dataType":"enum","enums":["python"]},{"dataType":"enum","enums":["javascript"]}]},
+                avatar_url: {"in":"body-prop","name":"avatar_url","dataType":"string"},
         };
-        app.patch('/v1/users/me',
+        app.patch('/api/v1/users/me',
             authenticateMiddleware([{"jwt":[]}]),
             ...(fetchMiddlewares<RequestHandler>(UsersController)),
             ...(fetchMiddlewares<RequestHandler>(UsersController.prototype.updateCurrentUser)),
@@ -160,7 +161,7 @@ export function RegisterRoutes(app: Router) {
         const argsUsersController_deleteCurrentUser: Record<string, TsoaRoute.ParameterSchema> = {
                 req: {"in":"request","name":"req","required":true,"dataType":"object"},
         };
-        app.delete('/v1/users/me',
+        app.delete('/api/v1/users/me',
             authenticateMiddleware([{"jwt":[]}]),
             ...(fetchMiddlewares<RequestHandler>(UsersController)),
             ...(fetchMiddlewares<RequestHandler>(UsersController.prototype.deleteCurrentUser)),
@@ -191,7 +192,7 @@ export function RegisterRoutes(app: Router) {
         const argsUsersController_getUser: Record<string, TsoaRoute.ParameterSchema> = {
                 userId: {"in":"path","name":"userId","required":true,"dataType":"string"},
         };
-        app.get('/v1/users/:userId',
+        app.get('/api/v1/users/:userId',
             authenticateMiddleware([{"jwt":["users:read"]}]),
             ...(fetchMiddlewares<RequestHandler>(UsersController)),
             ...(fetchMiddlewares<RequestHandler>(UsersController.prototype.getUser)),
@@ -227,7 +228,7 @@ export function RegisterRoutes(app: Router) {
                 programming_proficiency: {"in":"body-prop","name":"programming_proficiency","dataType":"union","subSchemas":[{"dataType":"enum","enums":["beginner"]},{"dataType":"enum","enums":["intermediate"]},{"dataType":"enum","enums":["advanced"]},{"dataType":"enum","enums":[null]}]},
                 preferred_language: {"in":"body-prop","name":"preferred_language","dataType":"union","subSchemas":[{"dataType":"enum","enums":["cpp"]},{"dataType":"enum","enums":["java"]},{"dataType":"enum","enums":["python"]},{"dataType":"enum","enums":["javascript"]},{"dataType":"enum","enums":[null]}]},
         };
-        app.patch('/v1/users/:userId',
+        app.patch('/api/v1/users/:userId',
             authenticateMiddleware([{"jwt":["admin:users:edit"]}]),
             ...(fetchMiddlewares<RequestHandler>(UsersController)),
             ...(fetchMiddlewares<RequestHandler>(UsersController.prototype.updateUserById)),
@@ -258,7 +259,7 @@ export function RegisterRoutes(app: Router) {
         const argsUsersController_deleteUserById: Record<string, TsoaRoute.ParameterSchema> = {
                 userId: {"in":"path","name":"userId","required":true,"dataType":"string"},
         };
-        app.delete('/v1/users/:userId',
+        app.delete('/api/v1/users/:userId',
             authenticateMiddleware([{"jwt":["admin:users:delete"]}]),
             ...(fetchMiddlewares<RequestHandler>(UsersController)),
             ...(fetchMiddlewares<RequestHandler>(UsersController.prototype.deleteUserById)),
@@ -288,7 +289,7 @@ export function RegisterRoutes(app: Router) {
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsJwksController_getJwks: Record<string, TsoaRoute.ParameterSchema> = {
         };
-        app.get('/.well-known/jwks.json',
+        app.get('/api/v1/.well-known/jwks.json',
             ...(fetchMiddlewares<RequestHandler>(JwksController)),
             ...(fetchMiddlewares<RequestHandler>(JwksController.prototype.getJwks)),
 
@@ -317,7 +318,7 @@ export function RegisterRoutes(app: Router) {
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsHealthController_getHealth: Record<string, TsoaRoute.ParameterSchema> = {
         };
-        app.get('/health',
+        app.get('/api/v1/health',
             ...(fetchMiddlewares<RequestHandler>(HealthController)),
             ...(fetchMiddlewares<RequestHandler>(HealthController.prototype.getHealth)),
 
@@ -346,7 +347,7 @@ export function RegisterRoutes(app: Router) {
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsReadyController_getReady: Record<string, TsoaRoute.ParameterSchema> = {
         };
-        app.get('/ready',
+        app.get('/api/v1/ready',
             ...(fetchMiddlewares<RequestHandler>(ReadyController)),
             ...(fetchMiddlewares<RequestHandler>(ReadyController.prototype.getReady)),
 
@@ -375,7 +376,7 @@ export function RegisterRoutes(app: Router) {
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsMetricsController_getMetrics: Record<string, TsoaRoute.ParameterSchema> = {
         };
-        app.get('/metrics',
+        app.get('/api/v1/metrics',
             ...(fetchMiddlewares<RequestHandler>(MetricsController)),
             ...(fetchMiddlewares<RequestHandler>(MetricsController.prototype.getMetrics)),
 
@@ -404,7 +405,7 @@ export function RegisterRoutes(app: Router) {
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsAuthController_getGoogleAuthUrl: Record<string, TsoaRoute.ParameterSchema> = {
         };
-        app.get('/v1/auth/google/url',
+        app.get('/api/v1/auth/google/url',
             ...(fetchMiddlewares<RequestHandler>(AuthController)),
             ...(fetchMiddlewares<RequestHandler>(AuthController.prototype.getGoogleAuthUrl)),
 
@@ -435,7 +436,7 @@ export function RegisterRoutes(app: Router) {
                 code: {"in":"query","name":"code","required":true,"dataType":"string"},
                 res: {"in":"res","name":"302","required":true,"dataType":"void"},
         };
-        app.get('/v1/auth/google/callback',
+        app.get('/api/v1/auth/google/callback',
             ...(fetchMiddlewares<RequestHandler>(AuthController)),
             ...(fetchMiddlewares<RequestHandler>(AuthController.prototype.handleGoogleCallback)),
 
@@ -466,7 +467,7 @@ export function RegisterRoutes(app: Router) {
                 req: {"in":"request","name":"req","required":true,"dataType":"object"},
                 res: {"in":"res","name":"200","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"message":{"dataType":"string","required":true}}},
         };
-        app.post('/v1/auth/logout',
+        app.post('/api/v1/auth/logout',
             ...(fetchMiddlewares<RequestHandler>(AuthController)),
             ...(fetchMiddlewares<RequestHandler>(AuthController.prototype.logout)),
 
@@ -497,7 +498,7 @@ export function RegisterRoutes(app: Router) {
                 req: {"in":"request","name":"req","required":true,"dataType":"object"},
                 res: {"in":"res","name":"200","required":true,"ref":"AuthResponse"},
         };
-        app.post('/v1/auth/refresh',
+        app.post('/api/v1/auth/refresh',
             ...(fetchMiddlewares<RequestHandler>(AuthController)),
             ...(fetchMiddlewares<RequestHandler>(AuthController.prototype.refresh)),
 
@@ -527,7 +528,7 @@ export function RegisterRoutes(app: Router) {
         const argsAuthController_getSession: Record<string, TsoaRoute.ParameterSchema> = {
                 req: {"in":"request","name":"req","required":true,"dataType":"object"},
         };
-        app.get('/v1/auth/session',
+        app.get('/api/v1/auth/session',
             authenticateMiddleware([{"jwt":[]}]),
             ...(fetchMiddlewares<RequestHandler>(AuthController)),
             ...(fetchMiddlewares<RequestHandler>(AuthController.prototype.getSession)),
@@ -557,7 +558,7 @@ export function RegisterRoutes(app: Router) {
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsAdminController_getAllUsers: Record<string, TsoaRoute.ParameterSchema> = {
         };
-        app.get('/v1/admin/users',
+        app.get('/api/v1/admin/users',
             authenticateMiddleware([{"jwt":["admin:users:read"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.getAllUsers)),
@@ -588,7 +589,7 @@ export function RegisterRoutes(app: Router) {
         const argsAdminController_createRole: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"name":{"dataType":"string","required":true}}},
         };
-        app.post('/v1/admin/roles',
+        app.post('/api/v1/admin/roles',
             authenticateMiddleware([{"jwt":["admin:roles:create"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.createRole)),
@@ -618,7 +619,7 @@ export function RegisterRoutes(app: Router) {
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsAdminController_getAllRoles: Record<string, TsoaRoute.ParameterSchema> = {
         };
-        app.get('/v1/admin/roles',
+        app.get('/api/v1/admin/roles',
             authenticateMiddleware([{"jwt":["admin:roles:read"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.getAllRoles)),
@@ -649,7 +650,7 @@ export function RegisterRoutes(app: Router) {
         const argsAdminController_createPermission: Record<string, TsoaRoute.ParameterSchema> = {
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"name":{"dataType":"string","required":true}}},
         };
-        app.post('/v1/admin/permissions',
+        app.post('/api/v1/admin/permissions',
             authenticateMiddleware([{"jwt":["admin:permissions:create"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.createPermission)),
@@ -679,7 +680,7 @@ export function RegisterRoutes(app: Router) {
         // WARNING: This file was auto-generated with tsoa. Please do not modify it. Re-run tsoa to re-generate this file: https://github.com/lukeautry/tsoa
         const argsAdminController_getAllPermissions: Record<string, TsoaRoute.ParameterSchema> = {
         };
-        app.get('/v1/admin/permissions',
+        app.get('/api/v1/admin/permissions',
             authenticateMiddleware([{"jwt":["admin:permissions:read"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.getAllPermissions)),
@@ -711,7 +712,7 @@ export function RegisterRoutes(app: Router) {
                 userId: {"in":"path","name":"userId","required":true,"dataType":"string"},
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"roleId":{"dataType":"double","required":true}}},
         };
-        app.post('/v1/admin/users/:userId/roles',
+        app.post('/api/v1/admin/users/:userId/roles',
             authenticateMiddleware([{"jwt":["admin:users:edit"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.assignRoleToUser)),
@@ -743,7 +744,7 @@ export function RegisterRoutes(app: Router) {
                 userId: {"in":"path","name":"userId","required":true,"dataType":"string"},
                 roleId: {"in":"path","name":"roleId","required":true,"dataType":"double"},
         };
-        app.delete('/v1/admin/users/:userId/roles/:roleId',
+        app.delete('/api/v1/admin/users/:userId/roles/:roleId',
             authenticateMiddleware([{"jwt":["admin:users:edit"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.removeRoleFromUser)),
@@ -775,7 +776,7 @@ export function RegisterRoutes(app: Router) {
                 roleId: {"in":"path","name":"roleId","required":true,"dataType":"double"},
                 body: {"in":"body","name":"body","required":true,"dataType":"nestedObjectLiteral","nestedProperties":{"permissionId":{"dataType":"double","required":true}}},
         };
-        app.post('/v1/admin/roles/:roleId/permissions',
+        app.post('/api/v1/admin/roles/:roleId/permissions',
             authenticateMiddleware([{"jwt":["admin:roles:edit"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.grantPermissionToRole)),
@@ -807,7 +808,7 @@ export function RegisterRoutes(app: Router) {
                 roleId: {"in":"path","name":"roleId","required":true,"dataType":"double"},
                 permissionId: {"in":"path","name":"permissionId","required":true,"dataType":"double"},
         };
-        app.delete('/v1/admin/roles/:roleId/permissions/:permissionId',
+        app.delete('/api/v1/admin/roles/:roleId/permissions/:permissionId',
             authenticateMiddleware([{"jwt":["admin:roles:edit"]}]),
             ...(fetchMiddlewares<RequestHandler>(AdminController)),
             ...(fetchMiddlewares<RequestHandler>(AdminController.prototype.revokePermissionFromRole)),

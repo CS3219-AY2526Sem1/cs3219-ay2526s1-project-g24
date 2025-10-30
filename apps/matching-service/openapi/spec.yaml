@@ -52,7 +52,7 @@ tags:
     description: Health checks and metrics
 
 paths:
-  /v1/match/requests:
+  /api/v1/match/requests:
     post:
       tags:
         - Matching
@@ -61,10 +61,10 @@ paths:
         Creates a new match request and begins searching for a compatible partner.
         The request will remain in queue until matched or until the SSE connection is closed.
 
-        **Important:** You must open an SSE connection at `/v1/match/requests/{reqId}/events` 
+  **Important:** You must open an SSE connection at `/api/v1/match/requests/{reqId}/events` 
         and keep it open. Closing the SSE connection will automatically cancel the match request.
 
-        Use Server-Sent Events at `/v1/match/requests/{reqId}/events` to receive real-time updates.
+  Use Server-Sent Events at `/api/v1/match/requests/{reqId}/events` to receive real-time updates.
       operationId: createMatchRequest
       security:
         - bearerAuth: []
@@ -130,7 +130,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /v1/match/requests/{reqId}:
+  /api/v1/match/requests/{reqId}:
     get:
       tags:
         - Matching
@@ -235,7 +235,7 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /v1/match/requests/{reqId}/events:
+  /api/v1/match/requests/{reqId}/events:
     get:
       tags:
         - Matching
@@ -257,7 +257,7 @@ paths:
 
         ## Usage Example
         ```javascript
-        const eventSource = new EventSource(`/v1/match/requests/${reqId}/events`, {
+  const eventSource = new EventSource(`/api/v1/match/requests/${reqId}/events`, {
           withCredentials: true,
         });
 

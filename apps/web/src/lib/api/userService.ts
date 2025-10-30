@@ -1,6 +1,7 @@
+import { API_CONFIG } from "../apiConfig";
 import { Session, User, Role, Permission } from "@/lib/types";
 
-const API_URL = "http://localhost:8001/v1";
+const API_URL = `${API_CONFIG.USER_SERVICE}/api/v1`;
 
 const normalizePermission = (permission: any): Permission => ({
   id: Number(permission.id),

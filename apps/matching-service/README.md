@@ -131,10 +131,10 @@ Two users are compatible if they have:
 
 | Method | Path | Description |
 |--------|------|-------------|
-| POST | `/v1/match/requests` | Submit a match request |
-| GET | `/v1/match/requests/:reqId/events` | Open SSE connection for real-time updates |
-| GET | `/v1/match/requests/:reqId` | Get request status |
-| DELETE | `/v1/match/requests/:reqId` | Cancel a pending request |
+| POST | `/api/v1/match/requests` | Submit a match request |
+| GET | `/api/v1/match/requests/:reqId/events` | Open SSE connection for real-time updates |
+| GET | `/api/v1/match/requests/:reqId` | Get request status |
+| DELETE | `/api/v1/match/requests/:reqId` | Cancel a pending request |
 
 ### Operational Endpoints
 
@@ -148,7 +148,7 @@ Two users are compatible if they have:
 
 **Submit Match Request:**
 ```bash
-POST /v1/match/requests
+POST /api/v1/match/requests
 {
   "userId": "user123",
   "difficulty": "medium",
@@ -165,7 +165,7 @@ Response: { "reqId": "abc123" }
 
 **Open SSE Connection:**
 ```javascript
-GET /v1/match/requests/abc123/events
+GET /api/v1/match/requests/abc123/events
 
 // Error: Duplicate SSE connection
 409 Conflict
@@ -175,7 +175,7 @@ data: {"error":"Another SSE connection already exists for this request"}
 
 **SSE Event Stream:**
 ```javascript
-GET /v1/match/requests/abc123/events
+GET /api/v1/match/requests/abc123/events
 
 // Stream of events:
 data: {"status":"queued","timestamp":1697385600000,"elapsed":0}
@@ -189,7 +189,7 @@ data: {"status":"matched","timestamp":1697385645000,"sessionId":"session456"}
 
 ```javascript
 // 1. Submit match request
-const response = await fetch('/v1/match/requests', {
+const response = await fetch('/api/v1/match/requests', {
   method: 'POST',
   headers: {
     'Content-Type': 'application/json',
@@ -205,7 +205,7 @@ const response = await fetch('/v1/match/requests', {
 const { reqId } = await response.json();
 
 // 2. Open SSE connection
-const eventSource = new EventSource(`/v1/match/requests/${reqId}/events`, {
+const eventSource = new EventSource(`/api/v1/match/requests/${reqId}/events`, {
   withCredentials: true,
 });
 
@@ -223,7 +223,7 @@ eventSource.onmessage = (event) => {
 
 // 3. Cancel manually (optional)
 async function cancel() {
-  await fetch(`/v1/match/requests/${reqId}`, {
+  await fetch(`/api/v1/match/requests/${reqId}`, {
     method: 'DELETE',
     headers: { 'Authorization': 'Bearer <access-token>' },
     credentials: 'include',
@@ -302,7 +302,7 @@ You can also manually test specific scenarios:
 ```bash
 # Test concurrent cancellations
 # Requires either AUTH_DISABLED=true or a valid bearer token exported as $TOKEN
-REQ_ID=$(curl -s -X POST http://localhost:3000/v1/match/requests \
+REQ_ID=$(curl -s -X POST http://localhost:3000/api/v1/match/requests \
   -H "Content-Type: application/json" \
   -H "Authorization: Bearer ${TOKEN:-test-token}" \
   -d '{"userId":"user1","difficulty":"easy","topics":["arrays"],"languages":["python"]}' \
@@ -310,13 +310,13 @@ REQ_ID=$(curl -s -X POST http://localhost:3000/v1/match/requests \
 
 # Fire 5 cancellations simultaneously
 for i in {1..5}; do
-  curl -X DELETE "http://localhost:3000/v1/match/requests/$REQ_ID" \
+  curl -X DELETE "http://localhost:3000/api/v1/match/requests/$REQ_ID" \
     -H "Authorization: Bearer ${TOKEN:-test-token}" &
 done
 wait
 
 # Check which one succeeded
-curl http://localhost:3000/v1/match/requests/$REQ_ID
+curl http://localhost:3000/api/v1/match/requests/$REQ_ID
 ```
 
 

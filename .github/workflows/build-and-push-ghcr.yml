@@ -48,6 +48,8 @@ jobs:
           context: .
           file: ./apps/web/Dockerfile
           push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:latest
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:${{ github.sha }}
@@ -58,6 +60,8 @@ jobs:
           context: .
           file: ./apps/api/Dockerfile
           push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:latest
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:${{ github.sha }}
@@ -68,6 +72,8 @@ jobs:
           context: ./apps/question_service
           file: ./apps/question_service/dockerfile
           push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:latest
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:${{ github.sha }}
@@ -78,6 +84,8 @@ jobs:
           context: .
           file: ./apps/user_service/Dockerfile
           push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:latest
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:${{ github.sha }}
@@ -88,9 +96,35 @@ jobs:
           context: .
           file: ./apps/matching-service/Dockerfile
           push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
           tags: |
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:latest
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:${{ github.sha }}
+
+      - name: Build and push collab-service
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          file: ./apps/collab-service/Dockerfile
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-collab-service:latest
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-collab-service:${{ github.sha }}
+
+      - name: Build and push code-execution-service
+        uses: docker/build-push-action@v4
+        with:
+          context: ./apps/code_execution_service
+          file: ./apps/code_execution_service/Dockerfile
+          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-code-execution-service:latest
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-code-execution-service:${{ github.sha }}
 
       - name: Output image tags
         run: |
@@ -99,3 +133,5 @@ jobs:
           echo "QUESTION=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
           echo "USER=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
           echo "MATCHING=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "COLLAB=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-collab-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "CODE_EXEC=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-code-execution-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT

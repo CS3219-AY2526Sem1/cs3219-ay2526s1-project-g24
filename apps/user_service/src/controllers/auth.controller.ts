@@ -23,7 +23,7 @@ import prisma from "../prisma";
 import { isProduction } from "../utils/flags";
 import logger from "../logger";
 
-@Route("v1/auth")
+@Route("auth")
 @Tags("Authentication")
 export class AuthController extends Controller {
   @Get("google/url")

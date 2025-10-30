@@ -28,7 +28,7 @@ spec:
             port:
               number: 3000
       
-      # API Gateway
+      # API Gateway (optional)
       - path: /api
         pathType: Prefix
         backend:
@@ -38,7 +38,29 @@ spec:
               number: 3001
       
       # Question Service
-      - path: /questions
+      - path: /api/v1/questions
+        pathType: Prefix
+        backend:
+          service:
+            name: question-service
+            port:
+              number: 8000
+      - path: /api/v1/topics
+        pathType: Prefix
+        backend:
+          service:
+            name: question-service
+            port:
+              number: 8000
+      - path: /api/v1/companies
+        pathType: Prefix
+        backend:
+          service:
+            name: question-service
+            port:
+              number: 8000
+      # Question Service - user progress endpoints
+      - path: /api/v1/users/me
         pathType: Prefix
         backend:
           service:
@@ -47,16 +69,22 @@ spec:
               number: 8000
       
       # User Service
-      - path: /users
+      - path: /api/v1/users
         pathType: Prefix
         backend:
           service:
             name: user-service
             port:
               number: 8000
-      
-      # Auth endpoints (User Service)
-      - path: /auth
+      # Auth and admin endpoints (User Service)
+      - path: /api/v1/auth
+        pathType: Prefix
+        backend:
+          service:
+            name: user-service
+            port:
+              number: 8000
+      - path: /api/v1/admin
         pathType: Prefix
         backend:
           service:
@@ -65,10 +93,35 @@ spec:
               number: 8000
       
       # Matching Service
-      - path: /match
+      - path: /api/v1/match
         pathType: Prefix
         backend:
           service:
             name: matching-service
             port:
               number: 3000
+
+      # Collaboration Service (REST and WebSocket)
+      - path: /api/v1/sessions
+        pathType: Prefix
+        backend:
+          service:
+            name: collab-service
+            port:
+              number: 3003
+      - path: /api/v1/ws
+        pathType: Prefix
+        backend:
+          service:
+            name: collab-service
+            port:
+              number: 3003
+
+      # Code Execution Service
+      - path: /api/v1/execution
+        pathType: Prefix
+        backend:
+          service:
+            name: code-execution-service
+            port:
+              number: 3010

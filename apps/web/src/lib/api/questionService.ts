@@ -89,7 +89,7 @@ export interface QuestionListResponse {
 
 /**
  * Fetch all questions with pagination and filters
- * Endpoint: GET /api/questions/
+ * Endpoint: GET /api/v1/questions/
  */
 export async function getQuestions(params?: {
     difficulties?: string; // Comma-separated: "easy,medium,hard"
@@ -123,7 +123,7 @@ export async function getQuestions(params?: {
     if (params?.user_id) queryParams.append('user_id', params.user_id);
     if (params?.include_deleted !== undefined) queryParams.append('include_deleted', params.include_deleted.toString());
 
-    const url = `${QUESTION_SERVICE_URL}/api/questions/?${queryParams.toString()}`;
+    const url = `${QUESTION_SERVICE_URL}/api/v1/questions/?${queryParams.toString()}`;
 
     const response = await fetch(url, {
         method: 'GET',
@@ -142,14 +142,14 @@ export async function getQuestions(params?: {
 
 /**
  * Fetch a single question by ID with full details
- * Endpoint: GET /api/questions/{question_id}
+ * Endpoint: GET /api/v1/questions/{question_id}
  */
 export async function getQuestionById(id: number, userId?: string, includeDeleted?: boolean): Promise<QuestionDetail> {
     const queryParams = new URLSearchParams();
     if (userId) queryParams.append('user_id', userId);
     if (includeDeleted !== undefined) queryParams.append('include_deleted', includeDeleted.toString());
 
-    const url = `${QUESTION_SERVICE_URL}/api/questions/${id}${queryParams.toString() ? `?${queryParams}` : ''}`;
+    const url = `${QUESTION_SERVICE_URL}/api/v1/questions/${id}${queryParams.toString() ? `?${queryParams}` : ''}`;
 
     const response = await fetch(url, {
         method: 'GET',
@@ -171,7 +171,7 @@ export async function getQuestionById(id: number, userId?: string, includeDelete
 
 /**
  * Get a random question with optional filters
- * Endpoint: GET /api/questions/random
+ * Endpoint: GET /api/v1/questions/random
  */
 export async function getRandomQuestion(params?: {
     difficulties?: string;
@@ -186,7 +186,7 @@ export async function getRandomQuestion(params?: {
     if (params?.company_ids) queryParams.append('company_ids', params.company_ids);
     if (params?.user_id) queryParams.append('user_id', params.user_id);
 
-    const url = `${QUESTION_SERVICE_URL}/api/questions/random${queryParams.toString() ? `?${queryParams}` : ''}`;
+    const url = `${QUESTION_SERVICE_URL}/api/v1/questions/random${queryParams.toString() ? `?${queryParams}` : ''}`;
 
     const response = await fetch(url, {
         method: 'GET',
@@ -208,13 +208,13 @@ export async function getRandomQuestion(params?: {
 
 /**
  * Get the daily challenge question
- * Endpoint: GET /api/questions/daily
+ * Endpoint: GET /api/v1/questions/daily
  */
 export async function getDailyQuestion(userId?: string): Promise<QuestionDetail> {
     const queryParams = new URLSearchParams();
     if (userId) queryParams.append('user_id', userId);
 
-    const url = `${QUESTION_SERVICE_URL}/api/questions/daily${queryParams.toString() ? `?${queryParams}` : ''}`;
+    const url = `${QUESTION_SERVICE_URL}/api/v1/questions/daily${queryParams.toString() ? `?${queryParams}` : ''}`;
 
     const response = await fetch(url, {
         method: 'GET',
@@ -266,10 +266,10 @@ export interface CodeExecutionRequest {
 
 /**
  * Run code against sample/selected test cases
- * Endpoint: POST /api/questions/{question_id}/run
+ * Endpoint: POST /api/v1/questions/{question_id}/run
  */
 export async function runCode(questionId: number, request: CodeExecutionRequest): Promise<CodeExecutionResponse> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}/run`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/questions/${questionId}/run`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -306,10 +306,10 @@ export interface SubmissionRequest {
 
 /**
  * Submit solution (runs all test cases)
- * Endpoint: POST /api/questions/{question_id}/submit
+ * Endpoint: POST /api/v1/questions/{question_id}/submit
  */
 export async function submitSolution(questionId: number, request: SubmissionRequest): Promise<SubmissionResponse> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}/submit`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/questions/${questionId}/submit`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -328,10 +328,10 @@ export async function submitSolution(questionId: number, request: SubmissionRequ
 
 /**
  * Fetch all topics from the question service
- * Endpoint: GET /api/topics
+ * Endpoint: GET /api/v1/topics
  */
 export async function getTopics(): Promise<TopicResponse[]> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/topics`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/topics`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -348,10 +348,10 @@ export async function getTopics(): Promise<TopicResponse[]> {
 
 /**
  * Fetch all companies from the question service
- * Endpoint: GET /api/companies
+ * Endpoint: GET /api/v1/companies
  */
 export async function getCompanies(): Promise<CompanyResponse[]> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/companies`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/companies`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -415,7 +415,7 @@ export async function updateQuestion(
     questionId: number,
     updates: QuestionUpdateRequest
 ): Promise<QuestionDetail> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/questions/${questionId}`, {
         method: 'PUT',
         headers: {
             'Content-Type': 'application/json',
@@ -433,7 +433,7 @@ export async function updateQuestion(
 }
 
 export async function createQuestion(question: QuestionCreateRequest): Promise<QuestionDetail> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/questions/`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
@@ -452,10 +452,10 @@ export async function createQuestion(question: QuestionCreateRequest): Promise<Q
 
 /**
  * Get similar questions based on topics and difficulty
- * Endpoint: GET /api/questions/{question_id}/similar
+ * Endpoint: GET /api/v1/questions/{question_id}/similar
  */
 export async function getSimilarQuestions(questionId: number, limit: number = 5): Promise<QuestionListItem[]> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}/similar?limit=${limit}`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/questions/${questionId}/similar?limit=${limit}`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -496,10 +496,10 @@ export interface SubmissionSummary {
 
 /**
  * Get question statistics
- * Endpoint: GET /api/questions/{question_id}/stats
+ * Endpoint: GET /api/v1/questions/{question_id}/stats
  */
 export async function getQuestionStats(questionId: number): Promise<QuestionStats> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}/stats`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/questions/${questionId}/stats`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -516,10 +516,10 @@ export async function getQuestionStats(questionId: number): Promise<QuestionStat
 
 /**
  * Get recent submissions for a question
- * Endpoint: GET /api/questions/{question_id}/submissions
+ * Endpoint: GET /api/v1/questions/{question_id}/submissions
  */
 export async function getQuestionSubmissions(questionId: number, limit: number = 20): Promise<SubmissionSummary[]> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}/submissions?limit=${limit}`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/questions/${questionId}/submissions?limit=${limit}`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -573,10 +573,10 @@ export interface UserAttemptResponse {
 
 /**
  * Get current user's statistics
- * Endpoint: GET /api/users/me/stats
+ * Endpoint: GET /api/v1/users/me/stats
  */
 export async function getUserStats(): Promise<UserStats> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/users/me/stats`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/users/me/stats`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -604,13 +604,13 @@ export async function getQuestionCounts(): Promise<{
     try {
         // Fetch counts for each difficulty in parallel
         const [easyRes, mediumRes, hardRes] = await Promise.all([
-            fetch(`${QUESTION_SERVICE_URL}/api/questions?difficulties=easy&page_size=1`, {
+            fetch(`${QUESTION_SERVICE_URL}/api/v1/questions?difficulties=easy&page_size=1`, {
                 credentials: 'include',
             }),
-            fetch(`${QUESTION_SERVICE_URL}/api/questions?difficulties=medium&page_size=1`, {
+            fetch(`${QUESTION_SERVICE_URL}/api/v1/questions?difficulties=medium&page_size=1`, {
                 credentials: 'include',
             }),
-            fetch(`${QUESTION_SERVICE_URL}/api/questions?difficulties=hard&page_size=1`, {
+            fetch(`${QUESTION_SERVICE_URL}/api/v1/questions?difficulties=hard&page_size=1`, {
                 credentials: 'include',
             })
         ]);
@@ -640,10 +640,10 @@ export async function getQuestionCounts(): Promise<{
 
 /**
  * Get current user's solved questions
- * Endpoint: GET /api/users/me/solved
+ * Endpoint: GET /api/v1/users/me/solved
  */
 export async function getUserSolvedQuestions(): Promise<UserSolvedQuestion[]> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/users/me/solved`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/users/me/solved`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -660,10 +660,10 @@ export async function getUserSolvedQuestions(): Promise<UserSolvedQuestion[]> {
 
 /**
  * Get current user's attempt history
- * Endpoint: GET /api/users/me/attempts
+ * Endpoint: GET /api/v1/users/me/attempts
  */
 export async function getUserAttempts(skip: number = 0, limit: number = 50): Promise<UserAttemptResponse[]> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/users/me/attempts?skip=${skip}&limit=${limit}`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/users/me/attempts?skip=${skip}&limit=${limit}`, {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -682,7 +682,7 @@ export async function deleteQuestion(questionId: number, permanent: boolean = fa
     const queryParams = new URLSearchParams();
     if (permanent) queryParams.append('permanent', 'true');
     
-    const url = `${QUESTION_SERVICE_URL}/api/questions/${questionId}${queryParams.toString() ? `?${queryParams}` : ''}`;
+    const url = `${QUESTION_SERVICE_URL}/api/v1/questions/${questionId}${queryParams.toString() ? `?${queryParams}` : ''}`;
     
     const response = await fetch(url, {
         method: 'DELETE',
@@ -699,7 +699,7 @@ export async function deleteQuestion(questionId: number, permanent: boolean = fa
 }
 
 export async function restoreQuestion(questionId: number): Promise<QuestionDetail> {
-    const response = await fetch(`${QUESTION_SERVICE_URL}/api/questions/${questionId}/restore`, {
+    const response = await fetch(`${QUESTION_SERVICE_URL}/api/v1/questions/${questionId}/restore`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
