@@ -1,5 +1,5 @@
 import * as jose from "jose";
-import { jwtConfig } from "../config";
+import { jwtConfig, oauthConfig, webConfig } from "../config";
 import {
   Controller,
   Get,
@@ -114,6 +114,11 @@ export class AuthController extends Controller {
         },
       });
 
+      // Determine the redirect URL based on environment
+      const redirectUrl = isProduction()
+        ? webConfig.callbackUrl
+        : webConfig.callbackUrl;
+
       // Set cookies and include Location header for client-side redirect
       res(
         302,
@@ -123,7 +128,7 @@ export class AuthController extends Controller {
             `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
             `refresh_token=${refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
           ],
-          "Location": "http://localhost:3000/auth/callback"
+          "Location": redirectUrl
         },
       );
       return;
@@ -133,7 +138,8 @@ export class AuthController extends Controller {
         error.response?.data || error.message,
       );
       this.setStatus(500);
-  return;
+      res(302, undefined, { "Location": webConfig.errorUrl });
+      return;
     }
   }
 

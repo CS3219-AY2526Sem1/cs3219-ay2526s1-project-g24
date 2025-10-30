@@ -93,11 +93,21 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: google-client-secret
-        - name: GOOGLE_CALLBACK_URL
+        - name: GOOGLE_REDIRECT_URI
           valueFrom:
             secretKeyRef:
               name: app-secrets
-              key: google-callback-url
+              key: google-redirect-uri
+        - name: WEB_CALLBACK_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: web-callback-url
+        - name: WEB_ERROR_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: web-error-url
         - name: NODE_ENV
           valueFrom:
             configMapKeyRef:

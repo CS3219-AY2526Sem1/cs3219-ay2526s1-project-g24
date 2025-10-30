@@ -15,6 +15,11 @@ export const oauthConfig = {
   redirectUri: process.env.GOOGLE_REDIRECT_URI || "",
 };
 
+export const webConfig = {
+  callbackUrl: process.env.WEB_CALLBACK_URL || "http://localhost:3000/auth/callback",
+  errorUrl: process.env.WEB_ERROR_URL || "http://localhost:3000/auth/error",
+};
+
 export const userRbacConfig = {
   defaultRole: USER,
   roles: [USER, ADMIN],
