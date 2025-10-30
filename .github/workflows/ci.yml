@@ -2,7 +2,7 @@ name: CI
 
 on:
   pull_request:
-    branches: ["master", "main"]
+    branches: ["master", "main", "dev"]
     types: [opened, synchronize, reopened, ready_for_review]
     paths-ignore:
       - '**/*.md'
