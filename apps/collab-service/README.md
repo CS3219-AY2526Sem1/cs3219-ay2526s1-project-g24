@@ -9,7 +9,7 @@ Real-time collaborative coding service for PeerPrep using WebSockets and Yjs CRD
 - 💾 Periodic snapshots every 2 minutes for data persistence
 - 🔌 Reconnection support with 2-minute grace period
 - 📡 Redis Pub/Sub for horizontal scaling across replicas
-- 🔐 JWT authentication for WebSocket connections
+- 🔐 JWT authentication with JWKS (RS256) for WebSocket connections
 - 📊 Prometheus metrics for observability
 
 ## Tech Stack

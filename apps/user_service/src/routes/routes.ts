@@ -128,7 +128,6 @@ export function RegisterRoutes(app: Router) {
                 description: {"in":"body-prop","name":"description","dataType":"string"},
                 programming_proficiency: {"in":"body-prop","name":"programming_proficiency","dataType":"union","subSchemas":[{"dataType":"enum","enums":["beginner"]},{"dataType":"enum","enums":["intermediate"]},{"dataType":"enum","enums":["advanced"]}]},
                 preferred_language: {"in":"body-prop","name":"preferred_language","dataType":"union","subSchemas":[{"dataType":"enum","enums":["cpp"]},{"dataType":"enum","enums":["java"]},{"dataType":"enum","enums":["python"]},{"dataType":"enum","enums":["javascript"]}]},
-                avatar_url: {"in":"body-prop","name":"avatar_url","dataType":"string"},
         };
         app.patch('/api/v1/users/me',
             authenticateMiddleware([{"jwt":[]}]),

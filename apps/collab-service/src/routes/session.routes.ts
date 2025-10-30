@@ -1,10 +1,10 @@
 import { Router, Request, Response, NextFunction } from 'express';
-import { authenticate } from '../middleware/auth';
-import { SessionService } from '../services/session.service';
-import { YjsService } from '../services/yjs.service';
-import { CreateSessionRequest, AppError } from '../types';
+import { authenticate } from '../middleware/auth.js';
+import { SessionService } from '../services/session.service.js';
+import { YjsService } from '../services/yjs.service.js';
+import { CreateSessionRequest, AppError } from '../types/index.js';
 import { z } from 'zod';
-import { getRedisClient } from '../utils/redis';
+import { getRedisClient } from '../utils/redis.js';
 import * as Y from 'yjs';
 
 const router: Router = Router();
@@ -29,16 +29,27 @@ const createSessionSchema = z.object({
 // Create a new collaboration session
 router.post('/sessions', authenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
+        console.log('[POST /sessions] Creating new session, body:', JSON.stringify(req.body, null, 2));
+
         const validatedData = createSessionSchema.parse(req.body);
         const authReq = req as AuthenticatedRequest;
 
+        console.log('[POST /sessions] Validated data:', validatedData);
+        console.log('[POST /sessions] Authenticated user:', authReq.user?.userId);
+
         // Ensure the requesting user is one of the participants
         if (authReq.user.userId !== validatedData.user1Id && authReq.user.userId !== validatedData.user2Id) {
+            console.warn('[POST /sessions] ⚠️  Unauthorized: user is not a participant', {
+                userId: authReq.user.userId,
+                user1Id: validatedData.user1Id,
+                user2Id: validatedData.user2Id,
+            });
             throw new AppError('Unauthorized: You must be a participant in the session', 403);
         }
 
         // Generate a unique session ID
         const sessionId = `session_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+        console.log('[POST /sessions] Generated sessionId:', sessionId);
 
         const session = await SessionService.createSession({
             sessionId,
@@ -50,11 +61,17 @@ router.post('/sessions', authenticate, async (req: Request, res: Response, next:
             language: validatedData.language,
         } as CreateSessionRequest);
 
+        console.log('[POST /sessions] ✓ Session created successfully:', sessionId);
+
         res.status(201).json({
             message: 'Session created successfully',
             data: session,
         });
     } catch (error) {
+        console.error('[POST /sessions] ❌ Error:', {
+            error: error instanceof Error ? error.message : String(error),
+            body: req.body,
+        });
         next(error);
     }
 });
@@ -65,22 +82,38 @@ router.get('/sessions/:sessionId', authenticate, async (req: Request, res: Respo
         const { sessionId } = req.params;
         const authReq = req as AuthenticatedRequest;
 
+        console.log('[GET /sessions/:sessionId] Request:', {
+            sessionId,
+            userId: authReq.user?.userId,
+        });
+
         const session = await SessionService.getSession(sessionId);
         if (!session) {
+            console.warn('[GET /sessions/:sessionId] ⚠️  Session not found:', sessionId);
             throw new AppError('Session not found', 404);
         }
 
         // Verify user is a participant
         const isParticipant = await SessionService.isParticipant(sessionId, authReq.user.userId);
         if (!isParticipant) {
+            console.warn('[GET /sessions/:sessionId] ⚠️  Unauthorized access attempt:', {
+                sessionId,
+                userId: authReq.user.userId,
+            });
             throw new AppError('Unauthorized: You are not a participant in this session', 403);
         }
+
+        console.log('[GET /sessions/:sessionId] ✓ Session retrieved:', sessionId);
 
         res.status(200).json({
             message: 'Session retrieved successfully',
             data: session,
         });
     } catch (error) {
+        console.error('[GET /sessions/:sessionId] ❌ Error:', {
+            error: error instanceof Error ? error.message : String(error),
+            sessionId: req.params.sessionId,
+        });
         next(error);
     }
 });

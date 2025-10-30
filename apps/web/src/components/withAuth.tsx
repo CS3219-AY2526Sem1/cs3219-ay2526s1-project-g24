@@ -1,4 +1,4 @@
-"use client";
+'use client';
 
 import { useAuth } from '../hooks/useAuth';
 import { useRouter } from 'next/navigation';
@@ -12,7 +12,7 @@ export function withAdminAuth<P extends object>(WrappedComponent: React.Componen
 
     useEffect(() => {
       if (!loading && (!user || !isAdmin)) {
-        router.replace("/signin");
+        router.replace('/signin');
       }
     }, [user, loading, isAdmin, router]);
 
@@ -24,9 +24,7 @@ export function withAdminAuth<P extends object>(WrappedComponent: React.Componen
   return WithAdminAuth;
 }
 
-export default function withAuth<P extends object>(
-  WrappedComponent: React.ComponentType<P>
-) {
+export default function withAuth<P extends object>(WrappedComponent: React.ComponentType<P>) {
   function WithAuth(props: P) {
     const { user, loading } = useAuth();
     const router = useRouter();

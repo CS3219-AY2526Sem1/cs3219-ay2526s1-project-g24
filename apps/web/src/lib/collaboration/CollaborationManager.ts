@@ -37,6 +37,21 @@ export interface UserPresence {
 }
 
 /**
+ * Custom message types for collaboration
+ */
+export type CollaborationMessageType = 'code-execution-start' | 'code-execution-result';
+
+/**
+ * Custom message structure
+ */
+export interface CollaborationMessage {
+    type: CollaborationMessageType;
+    data: any;
+    sender: number;
+    timestamp: number;
+}
+
+/**
  * Generate a random user color
  */
 const USER_COLORS = [
@@ -73,6 +88,7 @@ export class CollaborationManager {
     private awareness: any = null;
     private onPresenceChange: ((users: UserPresence[]) => void) | null = null;
     private onError: ErrorCallback | null = null;
+    private onCustomMessage: ((message: CollaborationMessage) => void) | null = null;
     private localClientId: number | null = null;
     private userName: string;
     private userColor: string;
@@ -90,13 +106,11 @@ export class CollaborationManager {
      * @param sessionId - The collaboration session ID
      * @param editor - Monaco editor instance
      * @param onStatusChange - Callback for connection status changes
-     * @param userId - Optional user ID for authentication (defaults to TEST_TOKEN)
      */
     async connect(
         sessionId: string,
         editor: editor.IStandaloneCodeEditor,
-        onStatusChange: (status: ConnectionStatus) => void,
-        userId?: string
+        onStatusChange: (status: ConnectionStatus) => void
     ): Promise<void> {
         // Preserve callbacks before disconnect
         const savedPresenceCallback = this.onPresenceChange;
@@ -116,11 +130,8 @@ export class CollaborationManager {
             // Create Yjs document
             this.ydoc = new Y.Doc();
 
-            // Use provided userId or fall back to TEST_TOKEN
-            const token = userId || COLLABORATION_CONFIG.TEST_TOKEN;
-
             // Create WebSocket provider
-            const wsUrl = `${COLLABORATION_CONFIG.WS_URL}/api/v1/ws/sessions/${sessionId}?token=${token}`;
+            const wsUrl = `${COLLABORATION_CONFIG.WS_URL}/api/v1/ws/sessions/${sessionId}`;
             this.provider = new WebsocketProvider(wsUrl, sessionId, this.ydoc, {
                 connect: true,
                 awareness: undefined,
@@ -216,6 +227,16 @@ export class CollaborationManager {
                 if (this.cursorManager && this.localClientId !== null) {
                     this.cursorManager.updateCursors(this.awareness.getStates(), this.localClientId);
                 }
+
+                // Handle custom messages
+                changes.updated.forEach((clientId: number) => {
+                    if (clientId !== this.localClientId) {
+                        const state = this.awareness.getStates().get(clientId);
+                        if (state?.message) {
+                            this.handleCustomMessage(state.message);
+                        }
+                    }
+                });
             });
 
             // Trigger initial presence update
@@ -441,5 +462,51 @@ export class CollaborationManager {
             color: this.userColor,
             clientId: this.localClientId,
         };
+    }
+
+    /**
+     * Send a custom message to all users in the session
+     */
+    sendMessage(type: CollaborationMessageType, data: any): void {
+        if (!this.awareness || this.localClientId === null) {
+            console.warn('[Collaboration] Cannot send message: not connected');
+            return;
+        }
+
+        const message: CollaborationMessage = {
+            type,
+            data,
+            sender: this.localClientId,
+            timestamp: Date.now(),
+        };
+
+        console.log('[Collaboration] Sending message:', message);
+
+        // Broadcast message through awareness
+        this.awareness.setLocalStateField('message', message);
+
+        // Clear message after a short delay (awareness is state-based, not event-based)
+        setTimeout(() => {
+            if (this.awareness) {
+                this.awareness.setLocalStateField('message', null);
+            }
+        }, 100);
+    }
+
+    /**
+     * Handle custom messages from other users
+     */
+    private handleCustomMessage(message: CollaborationMessage): void {
+        console.log('[Collaboration] Received message:', message);
+        if (this.onCustomMessage) {
+            this.onCustomMessage(message);
+        }
+    }
+
+    /**
+     * Set callback for custom messages
+     */
+    onMessage(callback: (message: CollaborationMessage) => void): void {
+        this.onCustomMessage = callback;
     }
 }
