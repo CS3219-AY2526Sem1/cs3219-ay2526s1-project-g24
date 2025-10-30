@@ -1,10 +1,10 @@
-import { createServer, startServer } from './server';
-import { connectDatabase, disconnectDatabase } from './utils/prisma';
-import { connectRedis, disconnectRedis, getRedisPubClient, getRedisSubClient } from './utils/redis';
-import { WebSocketHandler } from './websocket/handler';
-import { YjsService } from './services/yjs.service';
-import { SnapshotService } from './services/snapshot.service';
-import { config } from './config';
+import { createServer, startServer } from './server.js';
+import { connectDatabase, disconnectDatabase } from './utils/prisma.js';
+import { connectRedis, disconnectRedis, getRedisPubClient, getRedisSubClient } from './utils/redis.js';
+import { WebSocketHandler } from './websocket/handler.js';
+import { YjsService } from './services/yjs.service.js';
+import { SnapshotService } from './services/snapshot.service.js';
+import { config } from './config/index.js';
 
 async function main() {
     try {

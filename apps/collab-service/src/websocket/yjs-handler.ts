@@ -3,9 +3,9 @@ import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';
 import * as syncProtocol from 'y-protocols/sync';
 import * as awarenessProtocol from 'y-protocols/awareness';
-import { YjsService } from '../services/yjs.service';
-import { SessionService } from '../services/session.service';
-import { AuthenticatedWebSocket } from '../types';
+import { YjsService } from '../services/yjs.service.js';
+import { SessionService } from '../services/session.service.js';
+import { AuthenticatedWebSocket } from '../types/index.js';
 
 /**
  * Yjs Protocol Message Types

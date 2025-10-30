@@ -66,33 +66,34 @@ export type MatchingDifficulty = "easy" | "medium" | "hard";
 export type MatchStatus = 'queued' | 'matched' | 'cancelled' | 'timeout';
 
 export interface MatchRequest {
-  userId: string;
-  difficulty: MatchingDifficulty;
-  topics: string[];
-  languages: string[];
+    userId: string;
+    difficulty: MatchingDifficulty;
+    topics: string[];
+    languages: string[];
 }
 
 export interface MatchRequestResponse {
-  reqId: string;
-  alreadyQueued?: boolean;
+    reqId: string;
+    alreadyQueued?: boolean;
 }
 
 export interface MatchRequestStatus {
-  reqId: string;
-  userId: string;
-  difficulty: MatchingDifficulty;
-  topics: string[];
-  languages: string[];
-  status: MatchStatus;
-  createdAt: number;
-  sessionId?: string;
+    reqId: string;
+    userId: string;
+    difficulty: MatchingDifficulty;
+    topics: string[];
+    languages: string[];
+    status: MatchStatus;
+    createdAt: number;
+    sessionId?: string;
 }
 
 export interface MatchEvent {
-  status: MatchStatus;
-  sessionId?: string;
-  timestamp: number;
-  elapsed?: number;
+    status: MatchStatus;
+    sessionId?: string;
+    questionId?: string;
+    timestamp: number;
+    elapsed?: number;
 }
 
 // ========== QUESTION TYPES ==========
