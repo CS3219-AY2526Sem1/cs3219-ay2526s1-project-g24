@@ -31,10 +31,6 @@ jobs:
     concurrency:
       group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
       cancel-in-progress: true
-    # To use Remote Caching, uncomment the next lines and follow the steps below.
-    # env:
-    #  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-    #  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
  
     steps:
       - name: Check out code
@@ -44,7 +40,7 @@ jobs:
  
       - uses: pnpm/action-setup@v3
         with:
-          version: 8
+          version: 9
  
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
@@ -53,7 +49,7 @@ jobs:
           cache: 'pnpm'
  
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
  
       - name: Build
         run: pnpm build

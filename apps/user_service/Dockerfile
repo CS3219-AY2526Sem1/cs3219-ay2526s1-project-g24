@@ -24,7 +24,7 @@ WORKDIR /app
 # ----  Dependencies ----
 COPY --from=builder /app/out/json/ .
 # Use pnpm to install dependencies
-RUN pnpm install --no-frozen-lockfile
+RUN pnpm install --frozen-lockfile
 
 #############################################
 # ----  App ----
