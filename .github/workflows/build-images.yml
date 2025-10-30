@@ -43,7 +43,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-web:${{ github.sha }}
 
       - name: Build api (no push)
         uses: docker/build-push-action@v6
@@ -56,7 +56,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-api:${{ github.sha }}
 
       - name: Build question-service (no push)
         uses: docker/build-push-action@v6
@@ -69,7 +69,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-question-service:${{ github.sha }}
 
       - name: Build user-service (no push)
         uses: docker/build-push-action@v6
@@ -82,7 +82,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-user-service:${{ github.sha }}
 
       - name: Build matching-service (no push)
         uses: docker/build-push-action@v6
@@ -95,7 +95,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-matching-service:${{ github.sha }}
 
       - name: Build collab-service (no push)
         uses: docker/build-push-action@v6
@@ -108,7 +108,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-collab-service:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-collab-service:${{ github.sha }}
 
       - name: Build code-execution-service (no push)
         uses: docker/build-push-action@v6
@@ -121,14 +121,14 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-code-execution-service:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-code-execution-service:${{ github.sha }}
 
       - name: Output image tags (for logs)
         run: |
-          echo "WEB=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:${GITHUB_SHA}"
-          echo "API=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:${GITHUB_SHA}"
-          echo "QUESTION=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:${GITHUB_SHA}"
-          echo "USER=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:${GITHUB_SHA}"
-          echo "MATCHING=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:${GITHUB_SHA}"
-          echo "COLLAB=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-collab-service:${GITHUB_SHA}"
-          echo "CODE_EXEC=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-code-execution-service:${GITHUB_SHA}"
+          echo "WEB=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-web:${GITHUB_SHA}"
+          echo "API=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-api:${GITHUB_SHA}"
+          echo "QUESTION=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-question-service:${GITHUB_SHA}"
+          echo "USER=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-user-service:${GITHUB_SHA}"
+          echo "MATCHING=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-matching-service:${GITHUB_SHA}"
+          echo "COLLAB=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-collab-service:${GITHUB_SHA}"
+          echo "CODE_EXEC=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-code-execution-service:${GITHUB_SHA}"

@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: collab-service
-        image: ghcr.io/CS3219-AY2526Sem1/g24/collab-service:latest
+        image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-collab-service:latest
         ports:
         - containerPort: 3003
           name: http

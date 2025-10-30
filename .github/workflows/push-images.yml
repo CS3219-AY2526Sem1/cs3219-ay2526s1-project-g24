@@ -60,8 +60,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:${{ steps.git.outputs.sha }}
-            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-web:latest', steps.repo.outputs.owner_lc) || '' }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-web:${{ steps.git.outputs.sha }}
+            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-g24-web:latest', steps.repo.outputs.owner_lc) || '' }}
 
       - name: Push api image
         uses: docker/build-push-action@v6
@@ -72,8 +72,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:${{ steps.git.outputs.sha }}
-            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-api:latest', steps.repo.outputs.owner_lc) || '' }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-api:${{ steps.git.outputs.sha }}
+            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-g24-api:latest', steps.repo.outputs.owner_lc) || '' }}
 
       - name: Push question-service image
         uses: docker/build-push-action@v6
@@ -84,8 +84,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:${{ steps.git.outputs.sha }}
-            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-question-service:latest', steps.repo.outputs.owner_lc) || '' }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-question-service:${{ steps.git.outputs.sha }}
+            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-g24-question-service:latest', steps.repo.outputs.owner_lc) || '' }}
 
       - name: Push user-service image
         uses: docker/build-push-action@v6
@@ -96,8 +96,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:${{ steps.git.outputs.sha }}
-            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-user-service:latest', steps.repo.outputs.owner_lc) || '' }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-user-service:${{ steps.git.outputs.sha }}
+            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-g24-user-service:latest', steps.repo.outputs.owner_lc) || '' }}
 
       - name: Push matching-service image
         uses: docker/build-push-action@v6
@@ -108,8 +108,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:${{ steps.git.outputs.sha }}
-            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-matching-service:latest', steps.repo.outputs.owner_lc) || '' }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-matching-service:${{ steps.git.outputs.sha }}
+            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-g24-matching-service:latest', steps.repo.outputs.owner_lc) || '' }}
 
       - name: Push collab-service image
         uses: docker/build-push-action@v6
@@ -120,8 +120,8 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-collab-service:${{ steps.git.outputs.sha }}
-            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-collab-service:latest', steps.repo.outputs.owner_lc) || '' }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-collab-service:${{ steps.git.outputs.sha }}
+            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-g24-collab-service:latest', steps.repo.outputs.owner_lc) || '' }}
 
       - name: Push code-execution-service image
         uses: docker/build-push-action@v6
@@ -132,5 +132,5 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-code-execution-service:${{ steps.git.outputs.sha }}
-            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-code-execution-service:latest', steps.repo.outputs.owner_lc) || '' }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-code-execution-service:${{ steps.git.outputs.sha }}
+            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-g24-code-execution-service:latest', steps.repo.outputs.owner_lc) || '' }}

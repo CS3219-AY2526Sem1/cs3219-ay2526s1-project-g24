@@ -54,7 +54,7 @@ aws ecr get-login-password --region ap-southeast-1 | \
   docker login --username AWS --password-stdin ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com
 
 # Create repositories
-for service in web api question-service user-service matching-service; do
+for service in web api question-service user-service matching-service code-execution-service; do
   aws ecr create-repository --repository-name $service --region ap-southeast-1 || true
 done
 
@@ -76,6 +76,10 @@ docker push ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/user-service:latest
 docker build -t ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/matching-service:latest \
   -f apps/matching-service/Dockerfile .
 docker push ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/matching-service:latest
+
+docker build -t ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/code-execution-service:latest \
+  -f apps/code_execution_service/Dockerfile apps/code_execution_service
+docker push ACCOUNT_ID.dkr.ecr.ap-southeast-1.amazonaws.com/code-execution-service:latest
 ```
 
 **Note:** If using GHCR (Option A above), skip the "Update Image References" step.
@@ -92,6 +96,7 @@ sed -i '' "s|REPLACE_WITH_ECR_USER_SERVICE_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}
 sed -i '' "s|REPLACE_WITH_ECR_MATCHING_SERVICE_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/matching-service:latest|g" infra/k8s/matching-service.yaml
 sed -i '' "s|REPLACE_WITH_ECR_WEB_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/web:latest|g" infra/k8s/web.yaml
 sed -i '' "s|REPLACE_WITH_ECR_API_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/api:latest|g" infra/k8s/api.yaml
+sed -i '' "s|REPLACE_WITH_ECR_CODE_EXECUTION_SERVICE_IMAGE|${ACCOUNT_ID}.dkr.ecr.${REGION}.amazonaws.com/code-execution-service:latest|g" infra/k8s/code-execution-service.yaml
 ```
 
 **5. Deploy via GitHub Actions (5-10 min)**
@@ -116,6 +121,7 @@ Your app is live at: `http://<alb-dns-name>`
 namespace.yaml              - cs3219 namespace
 secrets.yaml                - Secret templates (NO real values)
 configmap.yaml              - Non-sensitive config
+  - Set `JUDGE0_URL` if your Judge0 endpoint differs (optional)
 resource-quota.yaml         - CPU/memory limits
 network-policy.yaml         - Pod security rules
 postgres-question.yaml      - Question DB (5Gi)
@@ -124,6 +130,7 @@ redis.yaml                  - Redis cache (2Gi)
 question-service.yaml       - Python/FastAPI service (1 replica)
 user-service.yaml           - Node.js/Prisma service (1 replica)
 matching-service.yaml       - Node.js matching service (1 replica)
+code-execution-service.yaml - FastAPI code execution service (1 replica)
 api.yaml                    - API gateway (1 replica)
 web.yaml                    - Next.js frontend (1 replica)
 hpa.yaml                    - Auto-scaling (1→2 replicas on demand)
@@ -145,7 +152,8 @@ Internet → ALB (Ingress) → Services → Databases
                             ├─ API Gateway :3001
                             ├─ Question Service :8000 → PostgreSQL :5432
                             ├─ User Service :8000 → PostgreSQL :5432
-                            └─ Matching Service :3000 → Redis :6379
+                            ├─ Matching Service :3000 → Redis :6379
+                            └─ Code Execution Service :3010 → Judge0 API
 ```
 
 **All resources in single `cs3219` namespace with NetworkPolicies for security.**
@@ -189,6 +197,11 @@ aws ssm put-parameter --name /cs3219/google-client-id \
 
 aws ssm put-parameter --name /cs3219/google-client-secret \
   --value "YOUR_GOOGLE_CLIENT_SECRET" --type SecureString \
+  --tags Key=Project,Value=cs3219
+
+# Judge0 (optional if your Judge0 is public or unauthenticated)
+aws ssm put-parameter --name /cs3219/judge0-auth-token \
+  --value "YOUR_JUDGE0_TOKEN" --type SecureString \
   --tags Key=Project,Value=cs3219
 ```
 
@@ -342,12 +355,14 @@ What you need to configure:
 - **Performs health checks** on all pods
 - Reports deployment status and ALB URL
 
-3. Image naming convention used by the workflows:
-  - `ghcr.io/<owner>/cs3219-web:<sha>`
-  - `ghcr.io/<owner>/cs3219-api:<sha>`
-  - `ghcr.io/<owner>/cs3219-question-service:<sha>`
-  - `ghcr.io/<owner>/cs3219-user-service:<sha>`
-  - `ghcr.io/<owner>/cs3219-matching-service:<sha>`
+3. Image naming convention used by the workflows (group-scoped):
+  - `ghcr.io/<owner>/cs3219-g24-web:<sha>`
+  - `ghcr.io/<owner>/cs3219-g24-api:<sha>`
+  - `ghcr.io/<owner>/cs3219-g24-question-service:<sha>`
+  - `ghcr.io/<owner>/cs3219-g24-user-service:<sha>`
+  - `ghcr.io/<owner>/cs3219-g24-matching-service:<sha>`
+  - `ghcr.io/<owner>/cs3219-g24-collab-service:<sha>`
+  - `ghcr.io/<owner>/cs3219-g24-code-execution-service:<sha>`
 
 4. If you prefer GHCR images in your manifests (instead of `kubectl set image`), update the `image:` fields in the deployment YAMLs to point to the GHCR tags (use placeholder `${IMAGE_TAG}` or commit after replacing with your account/sha).
 
@@ -439,7 +454,8 @@ kubectl create secret generic app-secrets -n cs3219 \
   --from-literal=jwt-secret=$(aws ssm get-parameter --name /cs3219/jwt-secret --with-decryption --query 'Parameter.Value' --output text) \
   --from-literal=google-client-id=$(aws ssm get-parameter --name /cs3219/google-client-id --query 'Parameter.Value' --output text) \
   --from-literal=google-client-secret=$(aws ssm get-parameter --name /cs3219/google-client-secret --with-decryption --query 'Parameter.Value' --output text) \
-  --from-literal=google-callback-url=https://your-domain.com/auth/google/callback
+  --from-literal=google-callback-url=https://your-domain.com/auth/google/callback \
+  --from-literal=judge0-auth-token=$(aws ssm get-parameter --name /cs3219/judge0-auth-token --with-decryption --query 'Parameter.Value' --output text 2>/dev/null || echo "")
 
 # 3. Apply config and policies
 kubectl apply -f configmap.yaml
@@ -460,6 +476,7 @@ kubectl wait --for=condition=ready pod -l app=matching-redis -n cs3219 --timeout
 kubectl apply -f question-service.yaml
 kubectl apply -f user-service.yaml
 kubectl apply -f matching-service.yaml
+kubectl apply -f code-execution-service.yaml
 kubectl apply -f api.yaml
 kubectl apply -f web.yaml
 
