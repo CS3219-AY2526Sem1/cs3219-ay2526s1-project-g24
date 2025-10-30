@@ -16,49 +16,30 @@ import PresenceIndicator from '@/components/PresenceIndicator';
 import ToastNotification, { Toast } from '@/components/ToastNotification';
 
 import withAuth from '@/components/withAuth';
-
-const questions = [
-  {
-    title: 'Divide Two Integers',
-    difficulty: 'MEDIUM',
-    topics: ['Bit Manipulation', 'Math'],
-    description: `Given two integers dividend and divisor, divide two integers without using multiplication, division, and mod operator.
-
-The integer division should truncate toward zero, which means losing its fractional part. For example, 8.345 would be truncated to 8, and -2.7335 would be truncated to -2.
-
-Return the quotient after dividing dividend by divisor.`,
-    note: `Assume we are dealing with an environment that could only store integers within the 32-bit signed integer range: [-2³¹, 2³¹ − 1]. For this problem, if the quotient is strictly greater than 2³¹ - 1, then return 2³¹ - 1, and if the quotient is strictly less than -2³¹, then return -2³¹.`,
-    examples: [
-      {
-        input: 'dividend = 10, divisor = 3',
-        output: '3',
-        explanation: '10/3 = 3.33333.. which is truncated to 3',
-      },
-      {
-        input: 'dividend = 7, divisor = -3',
-        output: '-2',
-        explanation: '7/-3 = -2.33333.. which is truncated to -2.',
-      },
-    ],
-    constraints: ['-2³¹ <= dividend, divisor <= 2³¹ - 1', 'divisor != 0'],
-  },
-];
+import {
+  getQuestionById,
+  runCode,
+  submitSolution,
+  type QuestionDetail,
+  type TestCaseResult,
+} from '@/lib/api/questionService';
 
 function CollaborativeCodingPage() {
   const router = useRouter();
-  const [currentQuestion] = useState(0);
+
+  // layout
   const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
   const [codeHeight, setCodeHeight] = useState<number>(LAYOUT_DEFAULTS.CODE_HEIGHT_PERCENT);
   const [isDraggingVertical, setIsDraggingVertical] = useState(false);
   const [isDraggingHorizontal, setIsDraggingHorizontal] = useState(false);
   const [activeTab, setActiveTab] = useState<'testResults' | 'customInput'>('testResults');
-  const [selectedTestCase, setSelectedTestCase] = useState(1);
-  const [selectedLanguage, setSelectedLanguage] = useState<'python' | 'javascript' | 'java' | 'cpp'>('python');
-  const [code, setCode] = useState(
-    '# Write your solution here\n\nclass Solution:\n    def divide(self, dividend: int, divisor: int) -> int:\n        pass'
-  );
+  const [selectedTestCase, setSelectedTestCase] = useState(0);
 
-  // Collaboration state
+  // language/code
+  const [selectedLanguage, setSelectedLanguage] = useState<'python' | 'javascript' | 'java' | 'cpp'>('python');
+  const [code, setCode] = useState('');
+
+  // collab
   const [sessionId, setSessionId] = useState('');
   const [sessionInputValue, setSessionInputValue] = useState('');
   const [isConnected, setIsConnected] = useState(false);
@@ -68,30 +49,22 @@ function CollaborativeCodingPage() {
   const [isFromMatchFlow, setIsFromMatchFlow] = useState(false);
   const [isEditorReady, setIsEditorReady] = useState(false);
 
-  // Collaboration manager and editor ref
+  // question + run/submit state
+  const [question, setQuestion] = useState<QuestionDetail | null>(null);
+  const [isLoadingQuestion, setIsLoadingQuestion] = useState(false);
+  const [questionError, setQuestionError] = useState<string | null>(null);
+
+  const [testResults, setTestResults] = useState<TestCaseResult[]>([]);
+  const [executionError, setExecutionError] = useState<string | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+
+  // refs
   const collaborationManagerRef = useRef<CollaborationManager | null>(null);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
-
   const containerRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
 
-  const question = questions[currentQuestion];
-
-  // Toast notification helpers
-  const addToast = (message: string, type: Toast['type'] = 'info', duration?: number) => {
-    const id = `toast-${Date.now()}-${Math.random()}`;
-    setToasts((prev) => [...prev, { id, message, type, duration }]);
-  };
-
-  const dismissToast = (id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  };
-
-  const handleCollaborationError = (error: CollaborationErrorInfo) => {
-    console.error('[Collaboration Error]', error);
-    addToast(error.message, 'error', error.recoverable ? 5000 : 10000);
-  };
-
+  // fallback language templates (when question has no template for that lang)
   const languageConfig = {
     python: {
       language: 'python',
@@ -115,7 +88,46 @@ function CollaborativeCodingPage() {
     },
   };
 
-  // Connect to collaboration session
+  // toast helpers
+  const addToast = (message: string, type: Toast['type'] = 'info', duration?: number) => {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    setToasts((prev) => [...prev, { id, message, type, duration }]);
+  };
+
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  };
+
+  const handleCollaborationError = (error: CollaborationErrorInfo) => {
+    console.error('[Collaboration Error]', error);
+    addToast(error.message, 'error', error.recoverable ? 5000 : 10000);
+  };
+
+  // -------------- QUESTION FETCH + SEED --------------
+  const fetchAndSetQuestion = async (qid: number, lang: 'python' | 'javascript' | 'java' | 'cpp') => {
+    try {
+      setIsLoadingQuestion(true);
+      setQuestionError(null);
+      const data = await getQuestionById(qid);
+      setQuestion(data);
+
+      // seed editor if empty
+      const template = data.code_templates?.[lang];
+      if (template && editorRef.current) {
+        const currentVal = editorRef.current.getValue();
+        if (!currentVal || currentVal.trim() === '') {
+          editorRef.current.setValue(template);
+          setCode(template);
+        }
+      }
+    } catch (err) {
+      setQuestionError(err instanceof Error ? err.message : 'Failed to load question');
+    } finally {
+      setIsLoadingQuestion(false);
+    }
+  };
+
+  // -------------- CONNECT TO SESSION --------------
   const connectToSession = async (autoSessionId?: string) => {
     const targetSessionId = autoSessionId || sessionInputValue.trim();
 
@@ -137,23 +149,33 @@ function CollaborativeCodingPage() {
         collaborationManagerRef.current = new CollaborationManager();
       }
 
-      // Set up presence update callback
       collaborationManagerRef.current.onPresenceUpdate((users) => {
         setConnectedUsers(users);
       });
 
-      // Set up error notification callback
       collaborationManagerRef.current.onErrorNotification(handleCollaborationError);
 
-      // Connect to session - auth token will be sent via HttpOnly cookie automatically
-      await collaborationManagerRef.current.connect(targetSessionId, editorRef.current, (status) => {
-        setConnectionStatus(status);
-        setIsConnected(status === 'connected');
+      // connect
+      await collaborationManagerRef.current.connect(
+        targetSessionId,
+        editorRef.current,
+        async (status /*, meta?: any */) => {
+          setConnectionStatus(status);
+          setIsConnected(status === 'connected');
 
-        if (status === 'connected') {
-          addToast('Successfully connected to session', 'success', 3000);
+          if (status === 'connected') {
+            addToast('Successfully connected to session', 'success', 3000);
+
+            // try to get questionId from somewhere
+            // 1) from sessionStorage (simple)
+            const storedQid = sessionStorage.getItem('questionId');
+            if (storedQid) {
+              await fetchAndSetQuestion(Number(storedQid), selectedLanguage);
+            }
+            // 2) if your collab server returns metadata, use meta.questionId here
+          }
         }
-      });
+      );
     } catch (error) {
       console.error('[CollaborativeCoding] Failed to connect:', error);
       setConnectionStatus('error');
@@ -162,25 +184,21 @@ function CollaborativeCodingPage() {
     }
   };
 
-  // Disconnect from collaboration session
+  // -------------- DISCONNECT --------------
   const disconnectFromSession = () => {
-    console.log('[CollaborativeCoding] Disconnect clicked');
-
-    // Show confirmation dialog
     const confirmed = window.confirm(
       'Are you sure you want to disconnect from this session? Your partner will continue to be in the session.'
     );
-
-    if (!confirmed) {
-      console.log('[CollaborativeCoding] Disconnect cancelled by user');
-      return;
-    }
-
-    console.log('[CollaborativeCoding] Disconnecting from session');
+    if (!confirmed) return;
 
     if (collaborationManagerRef.current) {
-      collaborationManagerRef.current.disconnect();
-      collaborationManagerRef.current = null;
+      try {
+        collaborationManagerRef.current.disconnect();
+      } catch (e) {
+        console.warn('[Collaboration] error destroying provider', e);
+      } finally {
+        collaborationManagerRef.current = null;
+      }
     }
 
     setSessionId('');
@@ -190,25 +208,25 @@ function CollaborativeCodingPage() {
     setConnectedUsers([]);
     setIsFromMatchFlow(false);
 
-    // Reset code to default
+    // reset editor to a local template
     if (editorRef.current) {
-      editorRef.current.setValue(languageConfig[selectedLanguage].defaultCode);
+      const fallback = languageConfig[selectedLanguage].defaultCode;
+      editorRef.current.setValue(fallback);
+      setCode(fallback);
     }
 
     addToast('Disconnected from session', 'info', 3000);
-    console.log('[CollaborativeCoding] Disconnected successfully');
   };
 
-  // Handle editor mount
-  const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor) => {
-    editorRef.current = editor;
+  // -------------- EDITOR MOUNT --------------
+  const handleEditorDidMount = (editorInstance: editor.IStandaloneCodeEditor) => {
+    editorRef.current = editorInstance;
     setIsEditorReady(true);
   };
 
-  // Cleanup on component unmount
+  // cleanup on unmount
   useEffect(() => {
     return () => {
-      console.log('[CollaborativeCoding] Component unmounting, disconnecting...');
       if (collaborationManagerRef.current) {
         collaborationManagerRef.current.disconnect();
         collaborationManagerRef.current = null;
@@ -216,53 +234,54 @@ function CollaborativeCodingPage() {
     };
   }, []);
 
-  // Handle page exit/refresh - ensure disconnection
+  // unload / visibility
+  // cleanup on unmount + gentle unload
   useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      console.log('[CollaborativeCoding] Page unloading, disconnecting...');
-      if (collaborationManagerRef.current && isConnected) {
-        // Synchronously disconnect
-        collaborationManagerRef.current.disconnect();
-        collaborationManagerRef.current = null;
-      }
-    };
-
-    const handleVisibilityChange = () => {
-      if (document.hidden && collaborationManagerRef.current && isConnected) {
-        console.log('[CollaborativeCoding] Page hidden, disconnecting...');
-        collaborationManagerRef.current.disconnect();
-        collaborationManagerRef.current = null;
-        setIsConnected(false);
-        setConnectionStatus('disconnected');
+    const handleBeforeUnload = () => {
+      // only try to disconnect if we actually have a manager and we are connected
+      if (collaborationManagerRef.current) {
+        try {
+          collaborationManagerRef.current.disconnect();
+        } catch (e) {
+          console.warn('[Collaboration] error during beforeunload disconnect', e);
+        } finally {
+          collaborationManagerRef.current = null;
+        }
       }
     };
 
     window.addEventListener('beforeunload', handleBeforeUnload);
-    document.addEventListener('visibilitychange', handleVisibilityChange);
 
     return () => {
+      // React unmount
+      if (collaborationManagerRef.current) {
+        try {
+          collaborationManagerRef.current.disconnect();
+        } catch (e) {
+          console.warn('[Collaboration] error during unmount disconnect', e);
+        } finally {
+          collaborationManagerRef.current = null;
+        }
+      }
       window.removeEventListener('beforeunload', handleBeforeUnload);
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, [isConnected]);
+  }, []);
 
-  // Auto-connect to session from match flow
+  // auto-connect from match flow
   useEffect(() => {
     const storedSessionId = sessionStorage.getItem('sessionId');
     if (storedSessionId && isEditorReady) {
-      console.log('[CollaborativeCoding] Auto-connecting to session from match flow:', storedSessionId);
       setIsFromMatchFlow(true);
       connectToSession(storedSessionId);
-      // Clear the session ID from storage after using it
       sessionStorage.removeItem('sessionId');
     } else if (storedSessionId && !isEditorReady) {
-      // Editor not ready yet, set flag to show we came from match flow
       setIsFromMatchFlow(true);
       setSessionInputValue(storedSessionId);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isEditorReady]); // Only re-run when editor becomes ready
+  }, [isEditorReady]);
 
+  // -------------- DRAG HANDLERS --------------
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDraggingVertical && containerRef.current) {
@@ -308,30 +327,78 @@ function CollaborativeCodingPage() {
     }
   }, [isDraggingVertical, isDraggingHorizontal]);
 
-  const handleTerminate = () => {
-    console.log('[CollaborativeCoding] Terminate clicked');
+  // -------------- RUN / SUBMIT --------------
+  const handleRunCode = async () => {
+    if (!question || !editorRef.current) return;
 
-    // If connected, show confirmation dialog
+    setIsRunning(true);
+    setExecutionError(null);
+    setActiveTab('testResults');
+
+    try {
+      const codeToRun = editorRef.current.getValue();
+      const resp = await runCode(question.id, {
+        language: selectedLanguage,
+        code: codeToRun,
+      });
+      setTestResults(resp.results);
+    } catch (err) {
+      setExecutionError(err instanceof Error ? err.message : 'Failed to run code');
+      setTestResults([]);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  const handleSubmitCode = async () => {
+    if (!question || !editorRef.current) return;
+
+    setIsRunning(true);
+    setExecutionError(null);
+    setActiveTab('testResults');
+
+    try {
+      const codeToSubmit = editorRef.current.getValue();
+      const resp = await submitSolution(question.id, {
+        language: selectedLanguage,
+        code: codeToSubmit,
+      });
+
+      if (resp.status === 'accepted') {
+        addToast(`✅ All ${resp.total_test_cases} test cases passed!`, 'success', 4000);
+        setTestResults([]);
+        setExecutionError(null);
+      } else {
+        addToast(
+          `❌ ${resp.passed_test_cases}/${resp.total_test_cases} test cases passed\nStatus: ${resp.status}`,
+          'warning',
+          6000
+        );
+        setTestResults([]);
+        setExecutionError(`Status: ${resp.status}`);
+      }
+    } catch (err) {
+      setExecutionError(err instanceof Error ? err.message : 'Failed to submit code');
+      setTestResults([]);
+    } finally {
+      setIsRunning(false);
+    }
+  };
+
+  // -------------- TERMINATE --------------
+  const handleTerminate = () => {
     if (isConnected) {
       const confirmed = window.confirm(
         'Are you sure you want to terminate this session? You will be disconnected from the collaborative coding session.'
       );
-
-      if (!confirmed) {
-        console.log('[CollaborativeCoding] Terminate cancelled by user');
-        return;
-      }
+      if (!confirmed) return;
     }
 
-    console.log('[CollaborativeCoding] Terminating session, disconnecting...');
-
-    // Disconnect from collaboration session
     if (collaborationManagerRef.current) {
       collaborationManagerRef.current.disconnect();
       collaborationManagerRef.current = null;
     }
 
-    // Clear session state
     setSessionId('');
     setSessionInputValue('');
     setIsConnected(false);
@@ -339,18 +406,18 @@ function CollaborativeCodingPage() {
     setConnectedUsers([]);
     setIsFromMatchFlow(false);
 
-    // Navigate to home
     router.push('/home');
   };
 
   return (
     <div className='h-screen bg-[#1e1e1e] flex flex-col font-montserrat'>
+      {/* HEADER */}
       <header className='bg-[#2e2e2e] px-6 py-2.5 flex items-center justify-between border-b border-[#3e3e3e]'>
         <div className='flex items-center gap-6'>
           <h1 className='font-mclaren text-xl text-white'>PeerPrep</h1>
-          <span className='text-gray-400 text-sm'>ID 22031001</span>
+          <span className='text-gray-400 text-sm'>Collaborative Coding</span>
 
-          {/* Session Connection UI */}
+          {/* Session controls */}
           <div className='flex items-center gap-2'>
             {!sessionId ? (
               <>
@@ -397,7 +464,7 @@ function CollaborativeCodingPage() {
                   <span className='text-xs text-gray-400'>{connectionStatus}</span>
                 </div>
 
-                {/* Presence Indicator */}
+                {/* presence */}
                 {isConnected && (
                   <PresenceIndicator
                     users={connectedUsers}
@@ -416,7 +483,6 @@ function CollaborativeCodingPage() {
           </div>
         </div>
 
-        {/* Terminate Session Button */}
         <button
           onClick={handleTerminate}
           className='px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors rounded'
@@ -425,7 +491,9 @@ function CollaborativeCodingPage() {
         </button>
       </header>
 
+      {/* MAIN */}
       <div ref={containerRef} className='flex-1 flex overflow-hidden'>
+        {/* LEFT: QUESTION */}
         <div
           className='bg-[#252525] overflow-y-auto'
           style={{
@@ -434,64 +502,65 @@ function CollaborativeCodingPage() {
           }}
         >
           <div className='p-6'>
-            <div className='mb-6'>
-              <div className='flex items-center gap-3 mb-3'>
-                <h2 className='text-2xl font-semibold text-white'>{question.title}</h2>
-                <span className='text-xs px-3 py-1 rounded bg-[#854d0e] text-[#fbbf24] font-medium uppercase'>
-                  {question.difficulty}
-                </span>
+            {isLoadingQuestion ? (
+              <div className='flex items-center justify-center py-12'>
+                <div className='text-white'>Loading question...</div>
               </div>
-              <div className='flex gap-2'>
-                {question.topics.map((topic) => (
-                  <span key={topic} className='text-sm text-gray-400'>
-                    {topic}
-                  </span>
-                ))}
+            ) : questionError ? (
+              <div className='flex items-center justify-center py-12'>
+                <div className='text-red-500'>{questionError}</div>
               </div>
-            </div>
-
-            <div className='space-y-4 text-gray-300 text-sm leading-relaxed'>
-              <p className='whitespace-pre-line'>{question.description}</p>
-
-              {question.note && (
-                <div>
-                  <p className='font-semibold text-white mb-2'>Note:</p>
-                  <p className='text-gray-400'>{question.note}</p>
-                </div>
-              )}
-
-              {question.examples.map((example, idx) => (
-                <div key={idx} className='bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]'>
-                  <p className='font-semibold text-white mb-2'>Example {idx + 1}:</p>
-                  <div className='font-mono text-xs space-y-1'>
-                    <p>
-                      <span className='text-gray-500'>Input:</span>{' '}
-                      <span className='text-gray-300'>{example.input}</span>
-                    </p>
-                    <p>
-                      <span className='text-gray-500'>Output:</span>{' '}
-                      <span className='text-gray-300'>{example.output}</span>
-                    </p>
-                    <p>
-                      <span className='text-gray-500'>Explanation:</span>{' '}
-                      <span className='text-gray-400'>{example.explanation}</span>
-                    </p>
+            ) : question ? (
+              <>
+                <div className='mb-6'>
+                  <div className='flex items-center gap-3 mb-3'>
+                    <h2 className='text-2xl font-semibold text-white'>{question.title}</h2>
+                    <span className='text-xs px-3 py-1 rounded bg-[#854d0e] text-[#fbbf24] font-medium uppercase'>
+                      {question.difficulty}
+                    </span>
+                  </div>
+                  <div className='flex gap-2 flex-wrap'>
+                    {question.topics.map((topic) => (
+                      <span key={topic.id ?? topic.name} className='text-sm text-gray-400'>
+                        {topic.name ?? topic}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              ))}
 
-              <div>
-                <p className='font-semibold text-white mb-2'>Constraints:</p>
-                <ul className='list-disc list-inside text-gray-400 space-y-1 text-xs'>
-                  {question.constraints.map((constraint, idx) => (
-                    <li key={idx}>{constraint}</li>
+                <div className='space-y-4 text-gray-300 text-sm leading-relaxed'>
+                  <p className='whitespace-pre-line'>{question.description}</p>
+
+                  {question.sample_test_cases?.map((ex, idx) => (
+                    <div key={idx} className='bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]'>
+                      <p className='font-semibold text-white mb-2'>Example {idx + 1}:</p>
+                      <div className='font-mono text-xs space-y-1'>
+                        <p>
+                          <span className='text-gray-500'>Input:</span>{' '}
+                          <span className='text-gray-300'>{JSON.stringify(ex.input_data)}</span>
+                        </p>
+                        <p>
+                          <span className='text-gray-500'>Output:</span>{' '}
+                          <span className='text-gray-300'>{JSON.stringify(ex.expected_output)}</span>
+                        </p>
+                        {ex.explanation && (
+                          <p>
+                            <span className='text-gray-500'>Explanation:</span>{' '}
+                            <span className='text-gray-400'>{ex.explanation}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   ))}
-                </ul>
-              </div>
-            </div>
+                </div>
+              </>
+            ) : (
+              <div className='text-gray-400 text-sm'>Connect to a session that provides a question.</div>
+            )}
           </div>
         </div>
 
+        {/* VERTICAL RESIZER */}
         <div
           className='w-1 bg-[#3e3e3e] hover:bg-[#5e5e5e] cursor-col-resize transition-colors relative z-50'
           onMouseDown={(e) => {
@@ -502,6 +571,7 @@ function CollaborativeCodingPage() {
           }}
         />
 
+        {/* RIGHT: EDITOR + TESTS */}
         <div
           ref={rightPanelRef}
           className='flex-1 flex flex-col bg-[#1e1e1e]'
@@ -509,8 +579,10 @@ function CollaborativeCodingPage() {
             pointerEvents: isDraggingVertical || isDraggingHorizontal ? 'none' : 'auto',
           }}
         >
+          {/* EDITOR */}
           <div className='bg-[#1e1e1e] overflow-hidden' style={{ height: `${codeHeight}%` }}>
             <div className='h-full flex flex-col'>
+              {/* editor header */}
               <div className='bg-[#2e2e2e] px-4 py-2.5 flex items-center justify-between border-b border-[#3e3e3e]'>
                 <div className='flex items-center gap-3'>
                   <div className='relative'>
@@ -519,7 +591,23 @@ function CollaborativeCodingPage() {
                       onChange={(e) => {
                         const newLang = e.target.value as 'python' | 'javascript' | 'java' | 'cpp';
                         setSelectedLanguage(newLang);
-                        setCode(languageConfig[newLang].defaultCode);
+
+                        // prefer question template
+                        if (question && question.code_templates && question.code_templates[newLang]) {
+                          const tmpl = question.code_templates[newLang];
+                          setCode(tmpl);
+
+                          // only force-set when not shared OR doc empty
+                          if (editorRef.current && (!sessionId || editorRef.current.getValue().trim() === '')) {
+                            editorRef.current.setValue(tmpl);
+                          }
+                        } else {
+                          const fallback = languageConfig[newLang].defaultCode;
+                          setCode(fallback);
+                          if (editorRef.current && (!sessionId || editorRef.current.getValue().trim() === '')) {
+                            editorRef.current.setValue(fallback);
+                          }
+                        }
                       }}
                       className='bg-transparent border-2 border-white/20 rounded-full pl-4 pr-10 py-1.5 font-montserrat font-medium text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors'
                     >
@@ -550,25 +638,39 @@ function CollaborativeCodingPage() {
                   </div>
                 </div>
                 <div className='flex gap-2'>
-                  <button className='px-4 py-1.5 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors'>
-                    Run Code
+                  <button
+                    onClick={handleRunCode}
+                    disabled={isRunning || !question}
+                    className='px-4 py-1.5 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+                  >
+                    {isRunning ? 'Running...' : 'Run Code'}
                   </button>
-                  <button className='px-4 py-1.5 bg-profile-avatar hover:bg-profile-avatar-hover text-black text-sm font-medium transition-colors'>
-                    Run Test
+                  <button
+                    onClick={handleSubmitCode}
+                    disabled={isRunning || !question}
+                    className='px-4 py-1.5 bg-profile-avatar hover:bg-profile-avatar-hover text-black text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+                  >
+                    {isRunning ? 'Submitting...' : 'Submit'}
                   </button>
                 </div>
               </div>
 
+              {/* editor body */}
               <div className='flex-1 bg-[#1e1e1e] overflow-hidden'>
                 <Editor
                   height='100%'
-                  language={languageConfig[selectedLanguage].language}
+                  language={
+                    question && question.code_templates && question.code_templates[selectedLanguage]
+                      ? selectedLanguage
+                      : languageConfig[selectedLanguage].language
+                  }
                   value={code}
                   onChange={(value) => {
-                    // Only update state if not connected (local editing)
+                    // if not connected, local edit
                     if (!sessionId) {
                       setCode(value || '');
                     }
+                    // if connected, collab manager will push changes
                   }}
                   onMount={handleEditorDidMount}
                   theme='vs-dark'
@@ -588,13 +690,13 @@ function CollaborativeCodingPage() {
                     bracketPairColorization: {
                       enabled: true,
                     },
-                    readOnly: false,
                   }}
                 />
               </div>
             </div>
           </div>
 
+          {/* HORIZONTAL RESIZER */}
           <div
             className='h-1 bg-[#3e3e3e] hover:bg-[#5e5e5e] cursor-row-resize transition-colors relative z-50'
             onMouseDown={(e) => {
@@ -605,7 +707,9 @@ function CollaborativeCodingPage() {
             }}
           />
 
+          {/* BOTTOM PANEL */}
           <div className='flex-1 bg-[#252525] overflow-hidden flex flex-col'>
+            {/* tabs */}
             <div className='bg-[#2e2e2e] px-4 flex items-center gap-1 border-b border-[#3e3e3e]'>
               <button
                 onClick={() => setActiveTab('testResults')}
@@ -614,7 +718,7 @@ function CollaborativeCodingPage() {
                 }`}
               >
                 Test Results
-                {activeTab === 'testResults' && <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-white'></div>}
+                {activeTab === 'testResults' && <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-white' />}
               </button>
               <button
                 onClick={() => setActiveTab('customInput')}
@@ -623,55 +727,117 @@ function CollaborativeCodingPage() {
                 }`}
               >
                 Custom Input
-                {activeTab === 'customInput' && <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-white'></div>}
+                {activeTab === 'customInput' && <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-white' />}
               </button>
             </div>
 
+            {/* tab content */}
             <div className='flex-1 overflow-y-auto p-4'>
               {activeTab === 'testResults' ? (
                 <div>
-                  <div className='flex items-center gap-2 mb-4'>
-                    <button
-                      onClick={() => setSelectedTestCase(1)}
-                      className={`flex items-center gap-1 ${selectedTestCase === 1 ? '' : 'opacity-50'}`}
-                    >
-                      <span className='w-5 h-5 flex items-center justify-center rounded-full bg-profile-avatar text-black text-xs font-bold'>
-                        ✓
-                      </span>
-                      <span className='text-white text-sm font-medium ml-1'>Test 1</span>
-                    </button>
-                    <button
-                      onClick={() => setSelectedTestCase(2)}
-                      className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${
-                        selectedTestCase === 2
-                          ? 'bg-[#3e3e3e] text-white'
-                          : 'text-gray-400 hover:text-white hover:bg-[#2e2e2e]'
-                      }`}
-                    >
-                      2
-                    </button>
-                  </div>
+                  {executionError && (
+                    <div className='mb-4 p-3 bg-red-900/20 border border-red-500 rounded text-red-300 text-sm'>
+                      {executionError}
+                    </div>
+                  )}
 
-                  <div className='space-y-4'>
-                    <div>
-                      <label className='text-white block mb-2 text-sm font-medium'>Input (stdin)</label>
-                      <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
-                        {selectedTestCase === 1 ? '2' : '10\n3'}
+                  {testResults.length === 0 ? (
+                    <div className='text-gray-400 text-center py-8'>Run your code to see test results</div>
+                  ) : (
+                    <>
+                      <div className='flex items-center gap-2 mb-4 flex-wrap'>
+                        {testResults.map((result, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setSelectedTestCase(idx)}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded transition-colors ${
+                              selectedTestCase === idx ? 'bg-[#3e3e3e]' : 'bg-[#2e2e2e] hover:bg-[#3a3a3a]'
+                            }`}
+                          >
+                            <span
+                              className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${
+                                result.passed ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
+                              }`}
+                            >
+                              {result.passed ? '✓' : '✗'}
+                            </span>
+                            <span className='text-white text-sm font-medium ml-1'>Test {idx + 1}</span>
+                          </button>
+                        ))}
                       </div>
-                    </div>
-                    <div>
-                      <label className='text-white block mb-2 text-sm font-medium'>Your Output (stdout)</label>
-                      <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
-                        {selectedTestCase === 1 ? '1' : '3'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className='text-white block mb-2 text-sm font-medium'>Expected Output</label>
-                      <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
-                        {selectedTestCase === 1 ? '1' : '3'}
-                      </div>
-                    </div>
-                  </div>
+
+                      {testResults[selectedTestCase] && (
+                        <div className='space-y-4'>
+                          <div>
+                            <label className='text-white block mb-2 text-sm font-medium'>Result</label>
+                            <div
+                              className={`p-3 rounded font-medium text-sm ${
+                                testResults[selectedTestCase].passed
+                                  ? 'bg-green-900/20 border border-green-500 text-green-300'
+                                  : 'bg-red-900/20 border border-red-500 text-red-300'
+                              }`}
+                            >
+                              {testResults[selectedTestCase].passed ? '✓ Passed' : '✗ Failed'}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className='text-white block mb-2 text-sm font-medium'>Input</label>
+                            <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                              {JSON.stringify(testResults[selectedTestCase].input_data, null, 2)}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className='text-white block mb-2 text-sm font-medium'>Your Output</label>
+                            <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                              {testResults[selectedTestCase].actual_output !== null
+                                ? JSON.stringify(testResults[selectedTestCase].actual_output, null, 2)
+                                : 'No output'}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className='text-white block mb-2 text-sm font-medium'>Expected Output</label>
+                            <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                              {JSON.stringify(testResults[selectedTestCase].expected_output, null, 2)}
+                            </div>
+                          </div>
+
+                          {testResults[selectedTestCase].error && (
+                            <div>
+                              <label className='text-white block mb-2 text-sm font-medium'>Error</label>
+                              <div className='bg-[#1e1e1e] border border-red-500 p-3 rounded font-mono text-sm text-red-300'>
+                                {testResults[selectedTestCase].error}
+                              </div>
+                            </div>
+                          )}
+
+                          {(testResults[selectedTestCase].runtime_ms !== null ||
+                            testResults[selectedTestCase].memory_mb !== null) && (
+                            <div className='grid grid-cols-2 gap-4'>
+                              {testResults[selectedTestCase].runtime_ms !== null && (
+                                <div>
+                                  <label className='text-white block mb-2 text-sm font-medium'>Runtime</label>
+                                  <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                                    {testResults[selectedTestCase].runtime_ms?.toFixed(2)} ms
+                                  </div>
+                                </div>
+                              )}
+                              {testResults[selectedTestCase].memory_mb !== null && (
+                                <div>
+                                  <label className='text-white block mb-2 text-sm font-medium'>Memory</label>
+                                  <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                                    {testResults[selectedTestCase].memory_mb?.toFixed(2)} MB
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className='space-y-4'>
@@ -701,7 +867,7 @@ function CollaborativeCodingPage() {
         </div>
       </div>
 
-      {/* Toast Notifications */}
+      {/* TOASTS */}
       <ToastNotification toasts={toasts} onDismiss={dismissToast} />
     </div>
   );
