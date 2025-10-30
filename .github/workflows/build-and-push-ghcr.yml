@@ -1,137 +1,15 @@
-name: Build and Push to GHCR
+name: DEPRECATED: Build and Push to GHCR (disabled)
 
 on:
-  push:
-    branches:
-      - main
-      - master
-      - dev
-  pull_request:
-    branches:
-      - main
-      - master
-      - dev
   workflow_dispatch: {}
 
 permissions:
   contents: read
-  packages: write
-  id-token: write
 
 jobs:
-  build:
+  noop:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set lowercase repository owner
-        id: repo
-        run: echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v2
-
-      - name: Login to GHCR
-        uses: docker/login-action@v2
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build and push web
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./apps/web/Dockerfile
-          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:latest
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:${{ github.sha }}
-
-      - name: Build and push api
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./apps/api/Dockerfile
-          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:latest
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:${{ github.sha }}
-
-      - name: Build and push question-service
-        uses: docker/build-push-action@v4
-        with:
-          context: ./apps/question_service
-          file: ./apps/question_service/dockerfile
-          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:latest
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:${{ github.sha }}
-
-      - name: Build and push user-service
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./apps/user_service/Dockerfile
-          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:latest
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:${{ github.sha }}
-
-      - name: Build and push matching-service
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./apps/matching-service/Dockerfile
-          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:latest
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:${{ github.sha }}
-
-      - name: Build and push collab-service
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          file: ./apps/collab-service/Dockerfile
-          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-collab-service:latest
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-collab-service:${{ github.sha }}
-
-      - name: Build and push code-execution-service
-        uses: docker/build-push-action@v4
-        with:
-          context: ./apps/code_execution_service
-          file: ./apps/code_execution_service/Dockerfile
-          push: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-code-execution-service:latest
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-code-execution-service:${{ github.sha }}
-
-      - name: Output image tags
+      - name: Deprecated notice
         run: |
-          echo "WEB=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-web:${GITHUB_SHA}" >> $GITHUB_OUTPUT
-          echo "API=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-api:${GITHUB_SHA}" >> $GITHUB_OUTPUT
-          echo "QUESTION=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-question-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
-          echo "USER=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-user-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
-          echo "MATCHING=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-matching-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
-          echo "COLLAB=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-collab-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
-          echo "CODE_EXEC=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-code-execution-service:${GITHUB_SHA}" >> $GITHUB_OUTPUT
+          echo "This workflow is deprecated. Use 'Build Images (no push)' for CI and 'Push Images to GHCR (manual)' to publish images."
