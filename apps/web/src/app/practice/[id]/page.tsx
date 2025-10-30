@@ -1,18 +1,19 @@
 'use client';
-
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { getDifficultyStyles } from '@/lib/difficulty';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
-import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult } from '@/lib/api/questionService';
+import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult, getSimilarQuestions, QuestionListItem } from '@/lib/api/questionService';
 import { ProgrammingLanguage } from '@/lib/types';
+import { useAuth } from '@/hooks/useAuth';
 
 
 export default function PracticePage() {
     const router = useRouter();
     const params = useParams();
     const questionId = Number(params.id);
+    const { user } = useAuth();
 
     const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
     const [codeHeight, setCodeHeight] = useState<number>(LAYOUT_DEFAULTS.CODE_HEIGHT_PERCENT);
@@ -28,10 +29,20 @@ export default function PracticePage() {
     const [isLoadingQuestion, setIsLoadingQuestion] = useState(true);
     const [questionError, setQuestionError] = useState<string | null>(null);
 
+    // Similar questions state
+    const [similarQuestions, setSimilarQuestions] = useState<QuestionListItem[]>([]);
+    const [isLoadingSimilar, setIsLoadingSimilar] = useState(true);
+
     // Test execution state
     const [testResults, setTestResults] = useState<TestCaseResult[]>([]);
     const [isRunning, setIsRunning] = useState(false);
     const [executionError, setExecutionError] = useState<string | null>(null);
+
+    // Custom input state
+    const [customInput, setCustomInput] = useState('');
+    const [customOutput, setCustomOutput] = useState<string | null>(null);
+    const [customError, setCustomError] = useState<string | null>(null);
+    const [isRunningCustom, setIsRunningCustom] = useState(false);
 
     const containerRef = useRef<HTMLDivElement>(null);
     const rightPanelRef = useRef<HTMLDivElement>(null);
@@ -72,6 +83,23 @@ export default function PracticePage() {
         fetchQuestion();
     }, [questionId]);
 
+    // Fetch similar questions on mount
+    useEffect(() => {
+        const fetchSimilar = async () => {
+            setIsLoadingSimilar(true);
+            try {
+                const similar = await getSimilarQuestions(questionId, 5);
+                setSimilarQuestions(similar);
+            } catch (err) {
+                console.error('Failed to load similar questions:', err);
+            } finally {
+                setIsLoadingSimilar(false);
+            }
+        };
+
+        fetchSimilar();
+    }, [questionId]);
+
     // Update code when language changes
     useEffect(() => {
         if (question) {
@@ -96,6 +124,13 @@ export default function PracticePage() {
             localStorage.setItem(getCodeStorageKey(questionId, selectedLanguage), code);
         }
     }, [code, questionId, selectedLanguage, question]);
+
+    // Initialize custom input with example when switching to that tab
+    useEffect(() => {
+        if (activeTab === 'customInput' && !customInput && question && question.sample_test_cases.length > 0) {
+            setCustomInput(getExampleInput());
+        }
+    }, [activeTab, question]);
 
     // Handle Run Code button
     const handleRunCode = async () => {
@@ -137,20 +172,29 @@ export default function PracticePage() {
                 code: code,
             });
             
-            // Note: Submit returns different format, need to adapt
-            if (response.status === 'accepted') {
-                alert(`✅ All ${response.total_test_cases} test cases passed!`);
-            } else {
-                alert(`❌ ${response.passed_test_cases}/${response.total_test_cases} test cases passed\nStatus: ${response.status}`);
-            }
+            // Prepare submission result data to pass to results page
+            const submissionData = {
+                submission_id: response.submission_id,
+                question_id: questionId,
+                question_title: question.title,
+                difficulty: question.difficulty,
+                status: response.status,
+                passed_test_cases: response.passed_test_cases,
+                total_test_cases: response.total_test_cases,
+                runtime_ms: response.runtime_ms,
+                memory_mb: response.memory_mb,
+                runtime_percentile: response.runtime_percentile,
+                memory_percentile: response.memory_percentile,
+                timestamp: new Date().toISOString(),
+                language: selectedLanguage,
+            };
             
-            // For submission, we don't get individual test results, so clear the results
-            setTestResults([]);
-            setExecutionError(response.status !== 'accepted' ? `Status: ${response.status}` : null);
+            // Redirect to submission results page with data
+            const dataParam = encodeURIComponent(JSON.stringify(submissionData));
+            router.push(`/practice/${questionId}/submission?data=${dataParam}`);
         } catch (err) {
             setExecutionError(err instanceof Error ? err.message : 'Failed to submit code');
             setTestResults([]);
-        } finally {
             setIsRunning(false);
         }
     };
@@ -194,15 +238,96 @@ export default function PracticePage() {
         router.push('/questions');
     };
 
+    // Handle Run Custom Input
+    const handleRunCustomInput = async () => {
+        if (!question || !code || !customInput.trim()) {
+            setCustomError('Please enter custom input');
+            return;
+        }
+
+        setIsRunningCustom(true);
+        setCustomError(null);
+        setCustomOutput(null);
+
+        try {
+            // Parse the custom input JSON
+            let inputData: Record<string, any>;
+            try {
+                inputData = JSON.parse(customInput);
+            } catch (parseError) {
+                throw new Error('Invalid JSON format. Please check your input.');
+            }
+
+            // Call the question service's run endpoint with custom_input
+            const response = await runCode(questionId, {
+                language: selectedLanguage,
+                code: code,
+                custom_input: inputData,
+            });
+
+            // Format the output from the first (and only) result
+            if (response.results.length > 0) {
+                const result = response.results[0];
+                let outputText = '';
+                
+                if (result.error) {
+                    outputText = `❌ Error:\n${result.error}`;
+                    setCustomError(result.error);
+                } else {
+                    outputText = `✅ Execution successful!\n\n`;
+                    outputText += `Output: ${JSON.stringify(result.actual_output, null, 2)}\n\n`;
+                    
+                    if (result.runtime_ms !== null && result.runtime_ms !== undefined) {
+                        outputText += `Runtime: ${result.runtime_ms.toFixed(2)} ms\n`;
+                    }
+                    if (result.memory_mb !== null && result.memory_mb !== undefined) {
+                        outputText += `Memory: ${result.memory_mb.toFixed(2)} MB\n`;
+                    }
+                }
+                
+                setCustomOutput(outputText);
+            } else {
+                throw new Error('No results returned from execution');
+            }
+            
+        } catch (err) {
+            setCustomError(err instanceof Error ? err.message : 'Failed to run custom input');
+            setCustomOutput(null);
+        } finally {
+            setIsRunningCustom(false);
+        }
+    };
+
+    // Generate example input based on first sample test case
+    const getExampleInput = () => {
+        if (!question || !question.sample_test_cases || question.sample_test_cases.length === 0) {
+            return '{}';
+        }
+        return JSON.stringify(question.sample_test_cases[0].input_data, null, 2);
+    };
+
+    // Get parameter names from function signature
+    const getParameterNames = () => {
+        if (!question || !question.function_signature) {
+            return [];
+        }
+        return question.function_signature.arguments.map((arg: any) => arg.name);
+    };
+
     return (
         <div className="h-screen bg-[#1e1e1e] flex flex-col font-montserrat">
             {/* Header */}
             <header className="bg-[#2e2e2e] px-6 py-2.5 flex items-center justify-between border-b border-[#3e3e3e]">
                 <div className="flex items-center gap-6">
-                    <h1 className="font-mclaren text-xl text-white">PeerPrep</h1>
+                    <h1 
+                        className="font-mclaren text-xl text-white cursor-pointer hover:opacity-80 transition-opacity"
+                        onClick={() => router.push('/home')}
+                    >
+                        PeerPrep
+                    </h1>
                     <span className="text-gray-400 text-sm">Solo Practice</span>
                 </div>
-                <span className="text-white text-sm">Cliff Hänger</span>
+                <span className="text-white text-sm">{user?.display_name || 'User'}</span>
                 <button
                     onClick={handleExit}
                     className="px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors"
@@ -232,13 +357,34 @@ export default function PracticePage() {
                             </div>
                         ) : question ? (
                             <>
+                                {/* Back Button */}
+                                <button 
+                                    onClick={() => router.push('/questions')}
+                                    className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-4 group"
+                                >
+                                    <svg 
+                                        className="w-4 h-4 transition-transform group-hover:-translate-x-1" 
+                                        fill="none" 
+                                        stroke="currentColor" 
+                                        viewBox="0 0 24 24"
+                                    >
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+                                    </svg>
+                                    <span className="text-sm font-medium">Back to Questions</span>
+                                </button>
+
                                 {/* Question Header */}
                                 <div className="mb-6">
                                     <div className="flex items-center gap-3 mb-3">
                                         <h2 className="text-2xl font-semibold text-white">{question.title}</h2>
-                                        <span className={`text-xs px-3 py-1 rounded font-medium uppercase ${getDifficultyStyles(question.difficulty)}`}>
+                                        <span className={`text-xs px-3 py-1 rounded-md font-medium uppercase ${getDifficultyStyles(question.difficulty)}`}>
                                             {question.difficulty}
                                         </span>
+                                        {question.deleted_at && (
+                                            <span className="px-3 py-1 bg-red-900/30 text-red-400 text-xs rounded-md font-medium border border-red-700/30">
+                                                Question Removed
+                                            </span>
+                                        )}
                                     </div>
                                     <div className="flex gap-2">
                                         {question.topics.map((topic) => (
@@ -265,6 +411,34 @@ export default function PracticePage() {
                                         </div>
                                     ))}
                                 </div>
+
+                                {/* Similar Questions Section */}
+                                {!isLoadingSimilar && similarQuestions.length > 0 && (
+                                    <div className="mt-6 pt-6 border-t border-[#3e3e3e]">
+                                        <h3 className="text-white font-semibold mb-4 text-sm">Similar Questions</h3>
+                                        <div className="space-y-2">
+                                            {similarQuestions.map((similar) => (
+                                                <div
+                                                    key={similar.id}
+                                                    onClick={() => router.push(`/practice/${similar.id}`)}
+                                                    className="bg-[#1e1e1e] border border-[#3e3e3e] hover:border-[#5e5e5e] rounded-lg p-3 cursor-pointer transition-all hover:bg-[#252525] group"
+                                                >
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <span className="text-white text-sm transition-colors">{similar.title}</span>
+                                                        <span className={`text-xs px-2 py-0.5 rounded-md font-medium uppercase ${getDifficultyStyles(similar.difficulty)}`}>
+                                                            {similar.difficulty}
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex gap-2">
+                                                        {similar.topics.slice(0, 3).map((topic) => (
+                                                            <span key={topic.id} className="text-xs text-gray-500">{topic.name}</span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
                             </>
                         ) : null}
                     </div>
@@ -408,9 +582,28 @@ export default function PracticePage() {
                         </div>
 
                         {/* Tab Content */}
-                        <div className="flex-1 overflow-y-auto p-4">
+                        <div className="flex-1 overflow-y-auto p-4 relative">
                             {activeTab === 'testResults' ? (
                                 <div>
+                                    {/* Loading Overlay */}
+                                    {isRunning && (
+                                        <div className="absolute inset-0 bg-[#252525]/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+                                            <div className="flex flex-col items-center gap-4">
+                                                {/* Animated spinner */}
+                                                <div className="relative">
+                                                    <div className="w-16 h-16 border-4 border-gray-700 rounded-full"></div>
+                                                    <div className="w-16 h-16 border-4 border-profile-avatar rounded-full border-t-transparent animate-spin absolute top-0"></div>
+                                                </div>
+                                                
+                                                {/* Status message */}
+                                                <div className="text-center">
+                                                    <p className="text-white font-semibold text-lg mb-1">Running Code...</p>
+                                                    <p className="text-gray-400 text-sm">Executing test cases</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
                                     {executionError && (
                                         <div className="mb-4 p-3 bg-red-900/20 border border-red-500 rounded text-red-300 text-sm">
                                             {executionError}
@@ -521,24 +714,96 @@ export default function PracticePage() {
                                     )}
                                 </div>
                             ) : (
-                                <div className="space-y-4">
+                                <div className="space-y-4 relative">
+                                    {/* Loading Overlay for Custom Input */}
+                                    {isRunningCustom && (
+                                        <div className="absolute inset-0 bg-[#252525]/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center">
+                                            <div className="flex flex-col items-center gap-4">
+                                                <div className="relative">
+                                                    <div className="w-16 h-16 border-4 border-gray-700 rounded-full"></div>
+                                                    <div className="w-16 h-16 border-4 border-profile-avatar rounded-full border-t-transparent animate-spin absolute top-0"></div>
+                                                </div>
+                                                <div className="text-center">
+                                                    <p className="text-white font-semibold text-lg mb-1">Running Code...</p>
+                                                    <p className="text-gray-400 text-sm">Executing with custom input</p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                    
+                                    {/* Help text */}
+                                    <div className="bg-[#2e2e2e] border border-[#3e3e3e] p-3 rounded">
+                                        <p className="text-gray-400 text-xs mb-2">
+                                            💡 <span className="font-semibold">How to use:</span> Enter input as JSON with parameter names as keys
+                                        </p>
+                                        {question && question.function_signature && (
+                                            <div className="text-xs text-gray-500 font-mono">
+                                                Parameters: {question.function_signature.arguments.map((arg: any) => arg.name).join(', ')}
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Custom Input */}
                                     <div>
-                                        <label className="text-white block mb-2 text-sm font-medium">Custom Input</label>
+                                        <div className="flex items-center justify-between mb-2">
+                                            <label className="text-white text-sm font-medium">Custom Input</label>
+                                            {question && question.sample_test_cases && question.sample_test_cases.length > 0 && (
+                                                <button
+                                                    onClick={() => setCustomInput(getExampleInput())}
+                                                    className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                                                >
+                                                    Load Example
+                                                </button>
+                                            )}
+                                        </div>
                                         <textarea
+                                            value={customInput}
+                                            onChange={(e) => setCustomInput(e.target.value)}
                                             className="w-full bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300 resize-none focus:outline-none focus:border-[#5e5e5e] transition-colors"
-                                            rows={6}
-                                            placeholder="Enter your custom test input here..."
+                                            rows={8}
+                                            placeholder={`Example format:\n${getExampleInput()}`}
                                         />
                                     </div>
+
+                                    {/* Run Button */}
                                     <div className="flex gap-2">
-                                        <button className="px-4 py-2 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors">
-                                            Run with Custom Input
+                                        <button 
+                                            onClick={handleRunCustomInput}
+                                            disabled={isRunningCustom || !question || !customInput.trim()}
+                                            className="px-4 py-2 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        >
+                                            {isRunningCustom ? 'Running...' : 'Run with Custom Input'}
                                         </button>
+                                        {customInput && (
+                                            <button
+                                                onClick={() => {
+                                                    setCustomInput('');
+                                                    setCustomOutput(null);
+                                                    setCustomError(null);
+                                                }}
+                                                className="px-4 py-2 bg-transparent border border-[#3e3e3e] hover:border-[#5e5e5e] text-gray-400 hover:text-white text-sm font-medium transition-colors"
+                                            >
+                                                Clear
+                                            </button>
+                                        )}
                                     </div>
+
+                                    {/* Error Display */}
+                                    {customError && (
+                                        <div className="p-3 bg-red-900/20 border border-red-500 rounded text-red-300 text-sm">
+                                            {customError}
+                                        </div>
+                                    )}
+
+                                    {/* Output */}
                                     <div>
                                         <label className="text-white block mb-2 text-sm font-medium">Output</label>
-                                        <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-500 min-h-[100px]">
-                                            Output will appear here after running...
+                                        <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm min-h-[150px]">
+                                            {customOutput ? (
+                                                <pre className="text-gray-300 whitespace-pre-wrap">{customOutput}</pre>
+                                            ) : (
+                                                <span className="text-gray-500">Output will appear here after running...</span>
+                                            )}
                                         </div>
                                     </div>
                                 </div>

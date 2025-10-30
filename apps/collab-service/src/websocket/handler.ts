@@ -33,7 +33,7 @@ export class WebSocketHandler {
                 const url = new URL(request.url || '', `http://${request.headers.host}`);
                 const pathParts = url.pathname.split('/');
 
-                // Expected path: /v1/ws/sessions/:sessionId
+                // Expected path: /api/v1/ws/sessions/:sessionId
                 const sessionId = pathParts[pathParts.length - 1];
 
                 // Try to get token from query parameter first, then from cookies

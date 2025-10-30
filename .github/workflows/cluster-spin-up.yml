@@ -1,0 +1,273 @@
+name: Cluster Spin Up
+
+on:
+  workflow_dispatch:  # Manual trigger from GitHub UI
+  # Optional: Uncomment to schedule automatic spin-up
+  # schedule:
+  #   - cron: '0 8 * * 1-5'  # 8 AM weekdays (Mon-Fri)
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  spin-up:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/cs3219-eks-gha-deployer
+          role-session-name: gha-${{ github.run_id }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+          audience: sts.amazonaws.com
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init
+        working-directory: infra/terraform/eks
+        run: terraform init
+
+      - name: Terraform Apply
+        working-directory: infra/terraform/eks
+        run: terraform apply -auto-approve
+
+      - name: Configure kubectl
+        run: |
+          aws eks update-kubeconfig --name cs3219-eks --region ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+
+      - name: Install EBS CSI Driver
+        run: |
+          echo "📦 Installing EBS CSI Driver..."
+          kubectl apply -k "github.com/kubernetes-sigs/aws-ebs-csi-driver/deploy/kubernetes/overlays/stable/?ref=release-1.25"
+          
+          # Wait for CSI driver to be ready
+          kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=aws-ebs-csi-driver -n kube-system --timeout=300s || true
+
+      - name: Create gp3 StorageClass
+        run: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: storage.k8s.io/v1
+          kind: StorageClass
+          metadata:
+            name: gp3
+          provisioner: ebs.csi.aws.com
+          parameters:
+            type: gp3
+            encrypted: "true"
+          allowVolumeExpansion: true
+          volumeBindingMode: WaitForFirstConsumer
+          EOF
+          
+          # Make it default
+          kubectl patch storageclass gp3 -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"true"}}}' || true
+
+      - name: Install AWS Load Balancer Controller
+        run: |
+          echo "📦 Installing AWS Load Balancer Controller..."
+          
+          # Download IAM policy
+          curl -o /tmp/iam-policy.json https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/main/docs/install/iam_policy.json
+          
+          # Create IAM policy (ignore if exists)
+          aws iam create-policy \
+            --policy-name AWSLoadBalancerControllerIAMPolicy \
+            --policy-document file:///tmp/iam-policy.json 2>/dev/null || echo "Policy already exists"
+          
+          # Install eksctl
+          echo "📦 Installing eksctl..."
+          curl --silent --location "https://github.com/weaveworks/eksctl/releases/latest/download/eksctl_$(uname -s)_amd64.tar.gz" | tar xz -C /tmp
+          sudo mv /tmp/eksctl /usr/local/bin
+          eksctl version
+          
+          # Create service account with IRSA
+          eksctl create iamserviceaccount \
+            --cluster=cs3219-eks \
+            --namespace=kube-system \
+            --name=aws-load-balancer-controller \
+            --attach-policy-arn=arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:policy/AWSLoadBalancerControllerIAMPolicy \
+            --override-existing-serviceaccounts \
+            --region ${{ secrets.AWS_REGION || 'ap-southeast-1' }} \
+            --approve || echo "Service account already exists"
+          
+          # Add Helm repo and install
+          helm repo add eks https://aws.github.io/eks-charts
+          helm repo update
+          
+          helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller \
+            -n kube-system \
+            --set clusterName=cs3219-eks \
+            --set serviceAccount.create=false \
+            --set serviceAccount.name=aws-load-balancer-controller \
+            --wait
+          
+          echo "✅ AWS Load Balancer Controller installed"
+
+      - name: Apply Karpenter NodeClass and NodePool
+        run: |
+          echo "📦 Applying Karpenter NodeClass and NodePool..."
+          kubectl apply -f infra/terraform/eks/karpenter.yaml
+          echo "✅ Karpenter configuration applied"
+
+      - name: Deploy Kubernetes Resources
+        run: |
+          # Create namespace
+          kubectl apply -f infra/k8s/namespace.yaml
+          
+          # Create secrets from Parameter Store securely
+          echo "🔐 Creating secrets from AWS Parameter Store..."
+          
+          # Fetch secrets without echoing
+          QUESTION_DB_PASS=$(aws ssm get-parameter --name /cs3219/db/question-password --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)
+          USER_DB_PASS=$(aws ssm get-parameter --name /cs3219/db/user-password --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)
+          JWT_SECRET=$(aws ssm get-parameter --name /cs3219/jwt-secret --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)
+          GOOGLE_CLIENT_ID=$(aws ssm get-parameter --name /cs3219/google-client-id --query 'Parameter.Value' --output text 2>/dev/null)
+          GOOGLE_CLIENT_SECRET=$(aws ssm get-parameter --name /cs3219/google-client-secret --with-decryption --query 'Parameter.Value' --output text 2>/dev/null)
+          
+          # Create secrets
+          kubectl create secret generic db-secrets -n cs3219 \
+            --from-literal=question-db-user=questionuser \
+            --from-literal=question-db-password="${QUESTION_DB_PASS}" \
+            --from-literal=question-db-name=questiondb \
+            --from-literal=user-db-user=user \
+            --from-literal=user-db-password="${USER_DB_PASS}" \
+            --from-literal=user-db-name=userdb \
+            --from-literal=redis-password="" \
+            --dry-run=client -o yaml | kubectl apply -f - > /dev/null
+          
+          kubectl create secret generic app-secrets -n cs3219 \
+            --from-literal=jwt-secret="${JWT_SECRET}" \
+            --from-literal=google-client-id="${GOOGLE_CLIENT_ID}" \
+            --from-literal=google-client-secret="${GOOGLE_CLIENT_SECRET}" \
+            --from-literal=google-callback-url=https://your-domain.com/auth/google/callback \
+            --dry-run=client -o yaml | kubectl apply -f - > /dev/null
+          
+          echo "✅ Secrets created"
+          
+          # Deploy config and policies
+          kubectl apply -f infra/k8s/configmap.yaml
+          kubectl apply -f infra/k8s/resource-quota.yaml
+          kubectl apply -f infra/k8s/network-policy.yaml
+          
+          # Deploy databases
+          kubectl apply -f infra/k8s/postgres-question.yaml
+          kubectl apply -f infra/k8s/postgres-user.yaml
+          kubectl apply -f infra/k8s/redis.yaml
+          
+          # Wait for databases
+          echo "⏳ Waiting for databases to be ready..."
+          kubectl wait --for=condition=ready pod -l app=question-db -n cs3219 --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=user-db -n cs3219 --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=matching-redis -n cs3219 --timeout=300s
+          echo "✅ Databases ready"
+
+      - name: Restore Database Backups (if exist)
+        continue-on-error: true
+        run: |
+          # Check if S3 bucket exists
+          if aws s3 ls s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }} 2>/dev/null; then
+            echo "📥 Restoring database backups..."
+            
+            # Restore Question DB
+            aws s3 cp s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/question-db-latest.sql.gz /tmp/ || echo "No question DB backup found"
+            if [ -f /tmp/question-db-latest.sql.gz ]; then
+              gunzip /tmp/question-db-latest.sql.gz
+              kubectl exec -i -n cs3219 deployment/question-db -- psql -U questionuser questiondb < /tmp/question-db-latest.sql
+            fi
+            
+            # Restore User DB
+            aws s3 cp s3://cs3219-db-backups-${{ secrets.AWS_ACCOUNT_ID }}/user-db-latest.sql.gz /tmp/ || echo "No user DB backup found"
+            if [ -f /tmp/user-db-latest.sql.gz ]; then
+              gunzip /tmp/user-db-latest.sql.gz
+              kubectl exec -i -n cs3219 deployment/user-db -- psql -U user userdb < /tmp/user-db-latest.sql
+            fi
+            
+            echo "✅ Database restore complete"
+          else
+            echo "ℹ️ No backup bucket found, skipping restore"
+          fi
+
+      - name: Set lowercase repository owner
+        id: repo
+        run: echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Deploy Application Services
+        env:
+          SHA: latest
+          OWNER: ${{ steps.repo.outputs.owner_lc }}
+        run: |
+          echo "📦 Deploying application services..."
+          
+          # Apply service manifests
+          kubectl apply -f infra/k8s/question-service.yaml
+          kubectl apply -f infra/k8s/user-service.yaml
+          kubectl apply -f infra/k8s/matching-service.yaml
+          kubectl apply -f infra/k8s/api.yaml
+          kubectl apply -f infra/k8s/web.yaml
+          
+          # Update images to GHCR (use latest tag for initial deployment)
+          echo "🖼️  Updating to GHCR images..."
+          kubectl set image deployment/web web=ghcr.io/${OWNER}/cs3219-g24-web:${SHA} -n cs3219 || true
+          kubectl set image deployment/api api=ghcr.io/${OWNER}/cs3219-g24-api:${SHA} -n cs3219 || true
+          kubectl set image deployment/question-service question-service=ghcr.io/${OWNER}/cs3219-g24-question-service:${SHA} -n cs3219 || true
+          kubectl set image deployment/user-service user-service=ghcr.io/${OWNER}/cs3219-g24-user-service:${SHA} -n cs3219 || true
+          kubectl set image deployment/matching-service matching-service=ghcr.io/${OWNER}/cs3219-g24-matching-service:${SHA} -n cs3219 || true
+          kubectl set image deployment/collab-service collab-service=ghcr.io/${OWNER}/cs3219-g24-collab-service:${SHA} -n cs3219 || true
+          kubectl set image deployment/code-execution-service code-execution-service=ghcr.io/${OWNER}/cs3219-g24-code-execution-service:${SHA} -n cs3219 || true
+          
+          # Apply HPA and Ingress
+          kubectl apply -f infra/k8s/hpa.yaml
+          kubectl apply -f infra/k8s/ingress.yaml
+          
+          echo "✅ Services deployed"
+
+      - name: Verify Deployment Health
+        run: |
+          echo "🔍 Verifying deployment health..."
+          
+          # Wait for all pods to be ready
+          kubectl wait --for=condition=ready pod --all -n cs3219 --timeout=600s || true
+          
+          # Check for any failed pods
+          if kubectl get pods -n cs3219 | grep -E 'Error|CrashLoopBackOff|ImagePullBackOff'; then
+            echo "❌ Found failed pods"
+            kubectl describe pods -n cs3219
+            exit 1
+          fi
+          
+          echo "✅ All pods healthy"
+
+      - name: Get Cluster Status
+        run: |
+          echo "✅ Cluster is up and running!"
+          echo ""
+          echo "💰 Estimated costs:"
+          echo "  • EKS Control Plane: ~\$73/month"
+          echo "  • EC2 Nodes (t3.medium): ~\$30-50/month"
+          echo "  • ALB: ~\$16/month"
+          echo "  • Total: ~\$120-140/month or \$4-5/day"
+          echo ""
+          echo "📊 Pods:"
+          kubectl get pods -n cs3219
+          echo ""
+          echo "🌐 Services:"
+          kubectl get svc -n cs3219
+          echo ""
+          echo "🚪 Ingress:"
+          kubectl get ingress -n cs3219
+          echo ""
+          echo "🔗 ALB URL:"
+          kubectl get ingress cs3219-ingress -n cs3219 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+          echo ""
+          echo ""
+          echo "⏰ Remember to run 'Cluster Spin Down' when done to save costs!"

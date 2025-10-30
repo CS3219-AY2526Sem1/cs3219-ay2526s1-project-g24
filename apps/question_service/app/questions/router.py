@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.code_execution_client import code_execution_client
 from app.core.database import get_db
-from app.core.dependencies import get_current_user, get_current_user_optional
+from app.core.dependencies import get_current_user, get_current_user_optional, get_current_admin_user
 from app.questions import crud, models, schemas
 from app.questions.data_structure_utils import prepend_data_structure_comments
 
@@ -27,17 +27,18 @@ def list_questions(
     solved_only: bool = False,
     unsolved_only: bool = False,
     search: Optional[str] = None,
+    include_deleted: bool = Query(False, description="Include soft-deleted questions (admin only)"),
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=100),
     sort_by: str = "id",
     sort_order: str = "asc",
-    user: Optional[dict] = Depends(get_current_user_optional),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """List questions with filters and pagination"""
     
-    # Extract user_id from authenticated user if available
-    user_id = user["user_id"] if user else None
+    # Extract user_id from authenticated user
+    user_id = user["user_id"]
     
     # Parse comma-separated values
     difficulty_list = None
@@ -61,6 +62,7 @@ def list_questions(
         solved_only=solved_only,
         unsolved_only=unsolved_only,
         search=search,
+        include_deleted=include_deleted,
         page=page,
         page_size=page_size,
         sort_by=sort_by,
@@ -92,7 +94,8 @@ def list_questions(
             topics=[schemas.TopicResponse(id=t.id, name=t.name, description=t.description) for t in q.topics],
             companies=[schemas.CompanyResponse(id=c.id, name=c.name) for c in q.companies],
             is_attempted=is_attempted,
-            is_solved=is_solved
+            is_solved=is_solved,
+            deleted_at=q.deleted_at
         ))
     
     total_pages = math.ceil(total / page_size)
@@ -111,13 +114,13 @@ def get_random_question(
     difficulties: Optional[str] = Query(None),
     topic_ids: Optional[str] = Query(None),
     company_ids: Optional[str] = Query(None),
-    user: Optional[dict] = Depends(get_current_user_optional),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get a random question with optional filters"""
     
-    # Extract user_id from authenticated user if available
-    user_id = user["user_id"] if user else None
+    # Extract user_id from authenticated user
+    user_id = user["user_id"]
     
     # Parse filters similar to list_questions
     difficulty_list = None
@@ -150,11 +153,11 @@ def get_random_question(
 
 @router.get("/daily", response_model=schemas.QuestionDetail)
 def get_daily_question(
-    user: Optional[dict] = Depends(get_current_user_optional),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get the daily challenge question"""
-    user_id = user["user_id"] if user else None
+    user_id = user["user_id"]
     question = crud.get_daily_question(db)
     if not question:
         raise HTTPException(status_code=404, detail="No daily question available")
@@ -165,12 +168,26 @@ def get_daily_question(
 @router.get("/{question_id}", response_model=schemas.QuestionDetail)
 def get_question(
     question_id: int,
-    user: Optional[dict] = Depends(get_current_user_optional),
+    include_deleted: bool = Query(False, description="Include soft-deleted questions (admin only)"),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get question details"""
-    user_id = user["user_id"] if user else None
-    question = crud.get_question(db, question_id)
+    user_id = user["user_id"]
+    is_admin = "admin" in user.get("scopes", [])
+    
+    # Check if user has attempted this question
+    user_has_attempted = db.query(models.UserQuestionAttempt).filter(
+        models.UserQuestionAttempt.user_id == user_id,
+        models.UserQuestionAttempt.question_id == question_id
+    ).first() is not None
+    
+    # Allow viewing deleted questions if:
+    # 1. User is admin and explicitly requested it, OR
+    # 2. User has attempted the question (so they can see their history)
+    allow_deleted = (include_deleted and is_admin) or user_has_attempted
+    
+    question = crud.get_question(db, question_id, include_deleted=allow_deleted)
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
     
@@ -180,6 +197,7 @@ def get_question(
 @router.post("/", response_model=schemas.QuestionDetail, status_code=201)
 def create_question(
     question: schemas.QuestionCreate,
+    admin: dict = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     """Create a new question (admin only)"""
@@ -194,6 +212,7 @@ def create_question(
 def update_question(
     question_id: int,
     question: schemas.QuestionUpdate,
+    admin: dict = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     """Update a question (admin only)"""
@@ -207,23 +226,39 @@ def update_question(
 @router.delete("/{question_id}", status_code=204)
 def delete_question(
     question_id: int,
+    permanent: bool = Query(False, description="Permanent delete instead of soft delete"),
+    admin: dict = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
-    """Delete a question (admin only)"""
-    success = crud.delete_question(db, question_id)
+    """Delete a question (admin only) - soft delete by default, permanent if specified"""
+    success = crud.delete_question(db, question_id, permanent=permanent)
     if not success:
+        raise HTTPException(status_code=404, detail="Question not found or already deleted")
+
+
+@router.post("/{question_id}/restore", response_model=schemas.QuestionDetail)
+def restore_question(
+    question_id: int,
+    admin: dict = Depends(get_current_admin_user),
+    db: Session = Depends(get_db)
+):
+    """Restore a soft-deleted question (admin only)"""
+    db_question = crud.restore_question(db, question_id)
+    if not db_question:
         raise HTTPException(status_code=404, detail="Question not found")
+    
+    return _build_question_detail(db, db_question, None)
 
 
 @router.get("/{question_id}/similar", response_model=list[schemas.QuestionListItem])
 def get_similar_questions(
     question_id: int,
     limit: int = Query(5, ge=1, le=20),
-    user: Optional[dict] = Depends(get_current_user_optional),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get similar questions based on topics and difficulty"""
-    user_id = user["user_id"] if user else None
+    user_id = user["user_id"]
     similar = crud.get_similar_questions(db, question_id, limit)
     
     result = []
@@ -260,6 +295,7 @@ def get_similar_questions(
 @router.get("/{question_id}/test-cases", response_model=list[schemas.TestCasePublic])
 def get_test_cases(
     question_id: int,
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get sample/public test cases for a question"""
@@ -285,6 +321,7 @@ def get_test_cases(
 def create_test_case(
     question_id: int,
     test_case: schemas.TestCaseCreate,
+    admin: dict = Depends(get_current_admin_user),
     db: Session = Depends(get_db)
 ):
     """Add a test case to a question (admin only)"""
@@ -313,9 +350,10 @@ def create_test_case(
 async def run_code(
     question_id: int,
     request: schemas.CodeExecutionRequest,
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
-    """Run code against sample/selected test cases"""
+    """Run code against sample/selected test cases or custom input"""
     question = crud.get_question(db, question_id)
     if not question:
         raise HTTPException(status_code=404, detail="Question not found")
@@ -327,24 +365,37 @@ async def run_code(
             detail=f"Language {request.language} not supported for this question"
         )
     
-    # Get test cases
-    if request.test_case_ids:
+    # Handle custom input case
+    if request.custom_input is not None:
+        execution_test_cases = [{
+            "input_data": request.custom_input,
+            "expected_output": None,  # No expected output for custom runs
+            "order_index": 0,
+        }]
+    # Get test cases from database
+    elif request.test_case_ids:
         test_cases = [crud.get_test_case(db, tc_id) for tc_id in request.test_case_ids]
         test_cases = [tc for tc in test_cases if tc is not None]
+        if not test_cases:
+            raise HTTPException(status_code=400, detail="No test cases found")
+        execution_test_cases = []
+        for tc in test_cases:
+            execution_test_cases.append({
+                "input_data": tc.input_data,
+                "expected_output": tc.expected_output,
+                "order_index": tc.order_index,
+            })
     else:
         test_cases = crud.get_test_cases(db, question_id, public_only=True)
-    
-    if not test_cases:
-        raise HTTPException(status_code=400, detail="No test cases found")
-    
-    # Prepare test cases for execution service
-    execution_test_cases = []
-    for tc in test_cases:
-        execution_test_cases.append({
-            "input_data": tc.input_data,
-            "expected_output": tc.expected_output,
-            "order_index": tc.order_index,
-        })
+        if not test_cases:
+            raise HTTPException(status_code=400, detail="No test cases found")
+        execution_test_cases = []
+        for tc in test_cases:
+            execution_test_cases.append({
+                "input_data": tc.input_data,
+                "expected_output": tc.expected_output,
+                "order_index": tc.order_index,
+            })
     
     # Call code execution service with question-specific limits
     try:
@@ -371,18 +422,31 @@ async def run_code(
         # Map results back to our schema
         results = []
         for result in execution_result["results"]:
-            # Find the original test case ID
-            tc = test_cases[result["order_index"]]
-            results.append(schemas.TestCaseResult(
-                test_case_id=tc.id,
-                input_data=result["input_data"],
-                expected_output=result["expected_output"],
-                actual_output=result.get("actual_output"),
-                passed=result["passed"],
-                runtime_ms=result.get("runtime_ms"),
-                memory_mb=result.get("memory_kb", 0) / 1024 if result.get("memory_kb") else None,
-                error=result.get("error_message"),
-            ))
+            # For custom input, there's no test case ID
+            if request.custom_input is not None:
+                results.append(schemas.TestCaseResult(
+                    test_case_id=None,
+                    input_data=result["input_data"],
+                    expected_output=result["expected_output"],
+                    actual_output=result.get("actual_output"),
+                    passed=result.get("passed", True),  # Always "passed" for custom input (no expected output)
+                    runtime_ms=result.get("runtime_ms"),
+                    memory_mb=result.get("memory_kb", 0) / 1024 if result.get("memory_kb") else None,
+                    error=result.get("error_message"),
+                ))
+            else:
+                # Find the original test case ID
+                tc = test_cases[result["order_index"]]
+                results.append(schemas.TestCaseResult(
+                    test_case_id=tc.id,
+                    input_data=result["input_data"],
+                    expected_output=result["expected_output"],
+                    actual_output=result.get("actual_output"),
+                    passed=result["passed"],
+                    runtime_ms=result.get("runtime_ms"),
+                    memory_mb=result.get("memory_kb", 0) / 1024 if result.get("memory_kb") else None,
+                    error=result.get("error_message"),
+                ))
         
         return schemas.CodeExecutionResponse(
             question_id=question_id,
@@ -505,15 +569,24 @@ async def submit_solution(
         # Record user attempt
         attempt = schemas.UserAttemptCreate(
             question_id=question_id,
+            language=request.language,
             is_solved=is_solved,
             runtime_ms=int(avg_runtime) if avg_runtime else None,
             memory_mb=avg_memory_mb,
         )
         crud.create_user_attempt(db, user_id, attempt)
         
-        # Calculate percentiles (simplified - in production, would query historical data)
-        runtime_percentile = 75.5 if is_solved else None
-        memory_percentile = 80.2 if is_solved else None
+        # Calculate percentiles based on language-specific historical data
+        runtime_percentile = None
+        memory_percentile = None
+        if is_solved and avg_runtime and avg_memory_mb:
+            runtime_percentile, memory_percentile = crud.calculate_percentiles(
+                db=db,
+                question_id=question_id,
+                language=request.language,
+                runtime_ms=int(avg_runtime),
+                memory_mb=avg_memory_mb
+            )
         
         submission_id = str(uuid.uuid4())
         
@@ -543,6 +616,7 @@ async def submit_solution(
 @router.get("/{question_id}/stats", response_model=schemas.QuestionStats)
 def get_question_stats(
     question_id: int,
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get question statistics"""
@@ -557,6 +631,7 @@ def get_question_stats(
 def get_question_submissions(
     question_id: int,
     limit: int = Query(20, ge=1, le=100),
+    user: dict = Depends(get_current_user),
     db: Session = Depends(get_db)
 ):
     """Get recent anonymized submissions for a question"""

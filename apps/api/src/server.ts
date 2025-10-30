@@ -11,10 +11,14 @@ export const createServer = (): Express => {
     .use(urlencoded({ extended: true }))
     .use(json())
     .use(cors())
-    .get("/message/:name", (req, res) => {
+    // Simple health endpoint for k8s probes
+    .get("/health", (_req, res) => {
+      return res.status(200).json({ ok: true });
+    })
+    .get("/api/v1/message/:name", (req, res) => {
       return res.json({ message: `hello ${req.params.name}` });
     })
-    .get("/status", (_, res) => {
+    .get("/api/v1/status", (_, res) => {
       return res.json({ ok: true });
     });
 

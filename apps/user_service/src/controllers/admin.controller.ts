@@ -26,7 +26,7 @@ import { ADMIN_PERMISSIONS } from "../utils/constants";
  * @author Ryam - Added Security Decorators to AdminController methods.
  * We can only use String literals in the Security decorator due to tsoa limitations. Means we cannot use ADMIN_PERMISSIONS.ADMIN_USERS_READ directly, but have to use the string "admin:users:read" instead.
  */
-@Route("v1/admin")
+@Route("admin")
 @Tags("Admin")
 @Security("jwt")
 export class AdminController extends Controller {

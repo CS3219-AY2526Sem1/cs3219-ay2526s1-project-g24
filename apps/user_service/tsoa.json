@@ -5,6 +5,7 @@
   "spec": {
     "outputDirectory": "dist",
     "specVersion": 3,
+    "basePath": "/api/v1",
     "securityDefinitions": {
       "jwt": {
         "type": "apiKey",
@@ -15,6 +16,7 @@
   },
   "routes": {
     "routesDir": "src/routes",
-    "authenticationModule": "src/middlewares/auth.middleware.ts"
+    "authenticationModule": "src/middlewares/auth.middleware.ts",
+    "basePath": "/api/v1"
   }
 }

@@ -49,3 +49,9 @@ coverage
 # Cryptographic keys
 private.pem
 public.pem
+
+# Terraform
+.terraform
+*.tfstate
+*.tfstate.*
+.terraform.tfvars

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useRef, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   getUser,
@@ -13,6 +14,7 @@ import { User, ProficiencyLevel, ProgrammingLanguage } from "@/lib/types";
 
 function Profile() {
   const { logout } = useAuth();
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState("Profile");
   const [isEditing, setIsEditing] = useState(false);
@@ -62,12 +64,28 @@ function Profile() {
   const handleEditToggle = async () => {
     if (isEditing) {
       try {
-        const updatedUser = await updateUser(formData);
+        console.log('Attempting to update user with data:', formData);
+        
+        // Build update payload with only valid fields
+        const updatePayload: Partial<User> = {};
+        if (formData.username) updatePayload.username = formData.username;
+        if (formData.display_name) updatePayload.display_name = formData.display_name;
+        if (formData.description !== undefined) updatePayload.description = formData.description;
+        if (formData.programming_proficiency) updatePayload.programming_proficiency = formData.programming_proficiency;
+        if (formData.preferred_language) updatePayload.preferred_language = formData.preferred_language;
+        if (formData.avatar_url) updatePayload.avatar_url = formData.avatar_url;
+        
+        console.log('Update payload:', updatePayload);
+        
+        const updatedUser = await updateUser(updatePayload);
+        console.log('User updated successfully:', updatedUser);
         setUser(updatedUser);
+        // Update profile image from the saved user data
+        setProfileImage(updatedUser.avatar_url || "/bro_profile.png");
         setIsEditing(false);
       } catch (error) {
         console.error("Failed to update user", error);
-        // Handle error
+        alert(`Failed to save profile changes: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
     } else {
       setIsEditing(true);
@@ -75,20 +93,65 @@ function Profile() {
   };
 
   const handleImageClick = () => {
-    fileInputRef.current?.click();
+    if (isEditing) {
+      fileInputRef.current?.click();
+    }
   };
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        alert("Image size should be less than 5MB");
+        return;
+      }
+
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfileImage(reader.result as string);
-        // Immediately update the avatar_url in the form data
-        setFormData((prev) => ({
-          ...prev,
-          avatar_url: reader.result as string,
-        }));
+        const img = document.createElement('img');
+        img.onload = () => {
+          // Create canvas to resize image
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          
+          // Set max dimensions
+          const MAX_WIDTH = 400;
+          const MAX_HEIGHT = 400;
+          let width = img.width;
+          let height = img.height;
+
+          // Calculate new dimensions
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height = (height * MAX_WIDTH) / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width = (width * MAX_HEIGHT) / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          ctx?.drawImage(img, 0, 0, width, height);
+
+          // Convert to base64 with compression (0.8 quality)
+          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
+          
+          console.log('Original size:', file.size, 'bytes');
+          console.log('Compressed size:', Math.round(compressedBase64.length * 0.75), 'bytes');
+          
+          setProfileImage(compressedBase64);
+          // Update the avatar_url in the form data
+          setFormData((prev) => ({
+            ...prev,
+            avatar_url: compressedBase64,
+          }));
+        };
+        img.src = reader.result as string;
       };
       reader.readAsDataURL(file);
     }
@@ -96,6 +159,22 @@ function Profile() {
 
   const handleLogout = () => {
     logout();
+    router.push("/");
+  };
+
+  const handleCancelEdit = () => {
+    // Reset form data to original user data
+    if (user) {
+      setFormData({
+        username: user.username,
+        display_name: user.display_name,
+        description: user.description,
+        programming_proficiency: user.programming_proficiency,
+        preferred_language: user.preferred_language,
+      });
+      setProfileImage(user.avatar_url || "/bro_profile.png");
+    }
+    setIsEditing(false);
   };
 
   return (
@@ -138,7 +217,7 @@ function Profile() {
           {/* Profile Avatar and Name */}
           <div className="flex flex-col items-center mb-12">
             <div className="relative mb-8">
-              <div className="w-44 h-44 rounded-full bg-profile-avatar flex items-center justify-center overflow-hidden border-4 border-profile-avatar">
+              <div className={`w-44 h-44 rounded-full bg-profile-avatar flex items-center justify-center overflow-hidden border-4 ${isEditing ? 'border-blue-500' : 'border-profile-avatar'}`}>
                 <Image
                   src={profileImage}
                   alt="Profile"
@@ -148,22 +227,25 @@ function Profile() {
                   unoptimized
                 />
               </div>
-              <button
-                onClick={handleImageClick}
-                className="absolute bottom-2 right-2 w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-lg hover:bg-gray-100 transition-colors cursor-pointer"
-              >
-                <svg
-                  width="20"
-                  height="20"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
+              {isEditing && (
+                <button
+                  onClick={handleImageClick}
+                  className="absolute bottom-2 right-2 w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors cursor-pointer"
+                  title="Change profile picture"
                 >
-                  <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                  <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                </svg>
-              </button>
+                  <svg
+                    width="20"
+                    height="20"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
+                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
+                  </svg>
+                </button>
+              )}
               <input
                 ref={fileInputRef}
                 type="file"
@@ -172,6 +254,11 @@ function Profile() {
                 className="hidden"
               />
             </div>
+            {isEditing && (
+              <p className="text-sm text-blue-400 mb-4 text-center">
+                Click the edit icon to change your profile picture
+              </p>
+            )}
             <h2 className="font-montserrat text-6xl font-semibold text-white text-center">
               {formData.display_name}
             </h2>
@@ -330,11 +417,37 @@ function Profile() {
           {/* Action Buttons */}
           <div className="flex flex-col items-center gap-4">
             <button
-              onClick={handleEditToggle}
-              className="bg-white text-[#1e1e1e] hover:bg-gray-100 px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-colors"
+              onClick={() => router.push('/profile/stats')}
+              className="bg-gradient-to-r from-[#4ade80] to-[#22c55e] text-white hover:from-[#22c55e] hover:to-[#16a34a] px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-all hover:scale-105"
             >
-              {isEditing ? "Save" : "Edit"}
+              View My Stats
             </button>
+
+            <div className="flex gap-4">
+              {isEditing ? (
+                <>
+                  <button
+                    onClick={handleEditToggle}
+                    className="bg-green-500 text-white hover:bg-green-600 px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-colors"
+                  >
+                    Save Changes
+                  </button>
+                  <button
+                    onClick={handleCancelEdit}
+                    className="bg-gray-600 text-white hover:bg-gray-700 px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={handleEditToggle}
+                  className="bg-white text-[#1e1e1e] hover:bg-gray-100 px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-colors"
+                >
+                  Edit Profile
+                </button>
+              )}
+            </div>
 
             <button
               onClick={handleLogout}

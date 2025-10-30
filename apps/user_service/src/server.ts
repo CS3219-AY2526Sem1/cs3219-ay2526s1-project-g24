@@ -1,4 +1,4 @@
-import express, { type Express } from 'express';
+import express, { type Express, type RequestHandler } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -9,7 +9,9 @@ import swaggerDocument from '../dist/swagger.json';
 export const createServer = (): Express => {
   const app = express();
 
-  app.use(express.json());
+  // Increase payload size limit to handle base64 images (10MB)
+  app.use(express.json({ limit: '10mb' }));
+  app.use(express.urlencoded({ limit: '10mb', extended: true }));
 
   // Scalable CORS config
   const allowedOrigins = process.env.CORS_ORIGINS
@@ -28,7 +30,10 @@ export const createServer = (): Express => {
   }));
 
   app.use(cookieParser());
-  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  // Wrap swagger-ui-express handlers to satisfy Express types across versions
+  const swaggerServe = swaggerUi.serve as unknown as RequestHandler;
+  const swaggerSetup = swaggerUi.setup(swaggerDocument) as unknown as RequestHandler;
+  app.use('/docs', swaggerServe, swaggerSetup);
   RegisterRoutes(app);
   return app;
 };

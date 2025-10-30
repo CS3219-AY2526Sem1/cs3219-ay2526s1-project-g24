@@ -4,75 +4,29 @@
  */
 
 import { API_CONFIG } from '../apiConfig';
-
-export type Difficulty = 'easy' | 'medium' | 'hard';
-export type MatchStatus = 'queued' | 'matched' | 'cancelled' | 'timeout';
-
-/**
- * Get JWT token from cookies
- * The user service stores the token in 'access_token' cookie
- */
-function getAuthToken(): string | null {
-    if (typeof document === 'undefined') return null;
-
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-        const [name, value] = cookie.trim().split('=');
-        if (name === 'access_token') {
-            return value;
-        }
-    }
-    return null;
-}
-
-/**
- * Get headers with authentication
- */
-function getAuthHeaders(): HeadersInit {
-    const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-    };
-
-    const token = getAuthToken();
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    return headers;
-}
-
-export interface MatchRequest {
-    userId: string;
-    difficulty: Difficulty;
-    topics: string[];
-    languages: string[];
-}
-
-export interface MatchRequestResponse {
-    reqId: string;
-    alreadyQueued?: boolean;
-}
-
-export interface MatchRequestStatus {
-    reqId: string;
-    userId: string;
-    difficulty: Difficulty;
-    topics: string[];
-    languages: string[];
-    status: MatchStatus;
-    createdAt: number;
-    sessionId?: string;
-}
-
-export interface MatchEvent {
-    status: MatchStatus;
-    sessionId?: string;
-    timestamp: number;
-    elapsed?: number;
-}
+import { MatchEvent, MatchRequest, MatchRequestResponse, MatchRequestStatus } from '@/lib/types';
 
 class MatchingServiceClient {
-    private baseUrl: string;
+  private baseUrl: string;
+
+  constructor() {
+    this.baseUrl = API_CONFIG.MATCHING_SERVICE;
+  }
+
+  /**
+   * Create a new match request
+   */
+  async createMatchRequest(
+    request: MatchRequest,
+  ): Promise<MatchRequestResponse> {
+  const response = await fetch(`${this.baseUrl}/api/v1/match/requests`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+      body: JSON.stringify(request),
+    });
 
     constructor() {
         this.baseUrl = API_CONFIG.MATCHING_SERVICE;
@@ -97,41 +51,50 @@ class MatchingServiceClient {
             return response.json() as Promise<MatchRequestResponse>;
         }
 
-        let errorPayload: any = null;
-        try {
-            errorPayload = await response.json();
-        } catch {
-            // Ignore JSON parse failures for error payloads
-        }
+    throw new Error(
+      errorPayload?.error || 'Failed to create match request',
+    );
+  }
 
-        if (response.status === 409 && errorPayload?.reqId) {
-            return {
-                reqId: errorPayload.reqId,
-                alreadyQueued: true,
-            };
-        }
+  /**
+   * Get the status of a match request
+   */
+  async getMatchRequestStatus(reqId: string): Promise<MatchRequestStatus> {
+  const response = await fetch(`${this.baseUrl}/api/v1/match/requests/${reqId}`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
 
         throw new Error(
             errorPayload?.error || 'Failed to create match request',
         );
     }
 
-    /**
-     * Get the status of a match request
-     */
-    async getMatchRequestStatus(reqId: string): Promise<MatchRequestStatus> {
-        const response = await fetch(`${this.baseUrl}/v1/match/requests/${reqId}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'include',
-        });
+    return response.json();
+  }
 
-        if (!response.ok) {
-            const error = await response.json();
-            throw new Error(error.error || 'Failed to get match request status');
-        }
+  /**
+   * Cancel a match request
+   * @throws Error if cancellation fails (except for 409 Conflict - already matched)
+   * @returns Object indicating if request was cancelled or already matched
+   */
+  async cancelMatchRequest(
+    reqId: string,
+  ): Promise<{
+    cancelled: boolean;
+    alreadyMatched: boolean;
+    sessionId?: string;
+  }> {
+  const response = await fetch(`${this.baseUrl}/api/v1/match/requests/${reqId}`, {
+      method: 'DELETE',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      credentials: 'include',
+    });
 
         return response.json();
     }
@@ -177,8 +140,44 @@ class MatchingServiceClient {
                 console.error('Failed to parse 409 response:', err);
             }
 
-            // Fallback: Even if we can't parse the response, indicate it was matched
-            return { cancelled: false, alreadyMatched: true };
+    // Other errors
+    const error = await response
+      .json()
+      .catch(() => ({ error: 'Unknown error' }));
+    throw new Error(error.error || 'Failed to cancel match request');
+  }
+
+  /**
+   * Subscribe to real-time match updates via Server-Sent Events (SSE)
+   * @param reqId The request ID to subscribe to
+   * @param onEvent Callback for each event received
+   * @param onError Callback for errors
+   * @returns A function to close the connection
+   */
+  subscribeToMatchEvents(
+    reqId: string,
+    onEvent: (event: MatchEvent) => void,
+    onError?: (error: Error) => void,
+  ): () => void {
+    const eventSource = new EventSource(
+  `${this.baseUrl}/api/v1/match/requests/${reqId}/events`,
+      { withCredentials: true },
+    );
+
+    // Listen for application-level SSE error events sent by the server.
+    // The matching service emits a custom SSE event with name "error" and a JSON payload
+    // when rejecting duplicate connections (HTTP 409). If we can parse that payload and
+    // detect the duplicate message, surface a precise error instead of inferring.
+    eventSource.addEventListener('error', (evt) => {
+      try {
+        // Some browsers dispatch built-in network errors here without data so we guard accordingly.
+        const dataStr = (evt as MessageEvent).data as string | undefined;
+        if (!dataStr) return;
+        const payload = JSON.parse(dataStr);
+        
+        if (payload?.code === 'DUPLICATE_SSE') {
+          onError?.(new Error('Duplicate SSE connection'));
+          eventSource.close();
         }
 
         // Other errors

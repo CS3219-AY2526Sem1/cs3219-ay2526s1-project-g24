@@ -8,7 +8,7 @@ from app.questions import (
     user_router,
 )
 
-api_router = APIRouter(prefix="/api")
+api_router = APIRouter(prefix="/api/v1")
 
 # Include all routers
 api_router.include_router(router.router)

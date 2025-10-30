@@ -17,8 +17,22 @@ FROM node:20-alpine AS build
 WORKDIR /app
 RUN corepack enable
 
-COPY . .
+# Copy workspace configuration
+COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+
+# Copy all package.json files to resolve workspace dependencies
+COPY packages/typescript-config/package.json packages/typescript-config/
+COPY packages/logger/package.json packages/logger/
+COPY apps/matching-service/package.json apps/matching-service/
+
+# Install all dependencies
 RUN pnpm install --frozen-lockfile
+
+# Copy source code
+COPY packages/ packages/
+COPY apps/matching-service/ apps/matching-service/
+
+# Build the service
 RUN pnpm --filter matching-service build
 
 # ---------- production ----------

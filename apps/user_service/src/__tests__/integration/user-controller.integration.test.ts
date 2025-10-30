@@ -142,7 +142,7 @@ describe("User Controller Integration (Testcontainers)", () => {
 
   it("should get user1 /me (self-service endpoint)", async () => {
     const res = await request(server)
-      .get(`/v1/users/me`)
+      .get(`/api/v1/users/me`)
       .set("Authorization", `Bearer ${user1Token}`);
     expect(res.status).toBe(200);
     expect(res.body.id).toBe("public-user-id");
@@ -150,7 +150,7 @@ describe("User Controller Integration (Testcontainers)", () => {
 
   it("should get user1 (public endpoint)", async () => {
     const res = await request(server)
-      .get(`/v1/users/public-user-id`)
+  .get(`/api/v1/users/public-user-id`)
       .set("Authorization", `Bearer ${user1Token}`);
     expect(res.status).toBe(200);
     expect(res.body.id).toBe("public-user-id");
@@ -158,7 +158,7 @@ describe("User Controller Integration (Testcontainers)", () => {
 
   it("should allow admin1 to get user1 details", async () => {
     const res = await request(server)
-      .get(`/v1/users/public-user-id`)
+  .get(`/api/v1/users/public-user-id`)
       .set("Authorization", `Bearer ${admin1Token}`);
     expect(res.status).toBe(200);
     expect(res.body.id).toBe("public-user-id");
@@ -166,7 +166,7 @@ describe("User Controller Integration (Testcontainers)", () => {
 
   it("should allow admin1 to edit user1 details", async () => {
     const res = await request(server)
-      .patch(`/v1/users/public-user-id`)
+  .patch(`/api/v1/users/public-user-id`)
       .set("Authorization", `Bearer ${admin1Token}`)
       .send({
         email: "try to edit email",
@@ -187,7 +187,7 @@ describe("User Controller Integration (Testcontainers)", () => {
 
   it("should allow admin to see that there are 2 users in total", async () => {
     const res = await request(server)
-      .get(`/v1/admin/users`)
+  .get(`/api/v1/admin/users`)
       .set("Authorization", `Bearer ${admin1Token}`);
     expect(res.status).toBe(200);
     expect(res.body.length).toBe(2);
@@ -195,7 +195,7 @@ describe("User Controller Integration (Testcontainers)", () => {
 
   it("should allow admin to delete user1", async () => {
     const res = await request(server)
-      .delete(`/v1/users/public-user-id`)
+  .delete(`/api/v1/users/public-user-id`)
       .set("Authorization", `Bearer ${admin1Token}`);
     expect(res.status).toBe(200);
     expect(res.body.message).toBe("User deleted successfully");
@@ -210,7 +210,7 @@ describe("User Controller Integration (Testcontainers)", () => {
 
   it("should allow admin to edit himself via /me endpoint", async () => {
     const res = await request(server)
-      .patch(`/v1/users/me`)
+  .patch(`/api/v1/users/me`)
       .set("Authorization", `Bearer ${admin1Token}`)
       .send({
         display_name: "Updated Admin User",
@@ -229,7 +229,7 @@ describe("User Controller Integration (Testcontainers)", () => {
 
   it("should allow admin to delete himself via /me endpoint", async () => {
     const res = await request(server)
-      .delete(`/v1/users/me`)
+  .delete(`/api/v1/users/me`)
       .set("Authorization", `Bearer ${admin1Token}`);
     expect(res.status).toBe(200);
     expect(res.body.message).toBe("User deleted");

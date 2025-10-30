@@ -164,13 +164,7 @@ services:
       matching_redis:
         condition: service_healthy
     healthcheck:
-      test:
-        [
-          'CMD',
-          'node',
-          '-e',
-          "require('http').get('http://localhost:3000/-/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })",
-        ]
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })"]
       interval: 30s
       timeout: 10s
       retries: 3

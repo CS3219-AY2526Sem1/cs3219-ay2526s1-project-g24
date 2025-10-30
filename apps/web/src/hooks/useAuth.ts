@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
     getSession,
@@ -46,9 +46,15 @@ export const useAuth = () => {
         }
     };
 
-    useEffect(() => {
-        checkSession();
-    }, [checkSession]);
+  const isAdmin = useMemo(() => {
+    return (
+      user?.roles?.some((role) => role.name?.toLowerCase() === "admin") ?? false
+    );
+  }, [user]);
+
+  useEffect(() => {
+    checkSession();
+  }, [checkSession]);
 
     return { user, loading, isAdmin, login, logout, checkSession };
 };

@@ -597,8 +597,13 @@ function CollaborativeCodingPage() {
       {/* HEADER */}
       <header className='bg-[#2e2e2e] px-6 py-2.5 flex items-center justify-between border-b border-[#3e3e3e]'>
         <div className='flex items-center gap-6'>
-          <h1 className='font-mclaren text-xl text-white'>PeerPrep</h1>
-          <span className='text-gray-400 text-sm'>Collaborative Coding</span>
+          <h1 
+            className='font-mclaren text-xl text-white cursor-pointer hover:opacity-80 transition-opacity'
+            onClick={() => router.push('/home')}
+          >
+            PeerPrep
+          </h1>
+          <span className='text-gray-400 text-sm'>ID 22031001</span>
 
           {/* Session controls */}
           <div className='flex items-center gap-2'>
@@ -665,7 +670,7 @@ function CollaborativeCodingPage() {
             )}
           </div>
         </div>
-
+        <span className='text-white text-sm'>{user?.display_name || 'User'} (you){connectedUsers.length > 0 && ` x ${connectedUsers.map(u => u.name).join(', ')}`}</span>
         <button
           onClick={handleTerminate}
           className='px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors rounded'
