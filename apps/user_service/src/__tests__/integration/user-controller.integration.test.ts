@@ -35,8 +35,9 @@ describe("User Controller Integration (Testcontainers)", () => {
     const jose = await import("jose");
 
     // Generate keypair and set publicKey BEFORE creating the server
+    // Set extractable: true so we can export the keys
     const { publicKey: pubKey, privateKey: privKey } =
-      await jose.generateKeyPair("RS256");
+      await jose.generateKeyPair("RS256", { extractable: true });
     publicKey = pubKey;
     
     // Export the public key in SPKI format for the server to use
