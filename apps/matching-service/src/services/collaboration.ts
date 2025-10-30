@@ -36,6 +36,7 @@ export async function createSession(
         const fetchedQuestionId = await getMatchingQuestion(
             request.difficulty,
             request.topics,
+            userToken, // Pass the user token for authentication
         );
 
         // Use fetched question ID, or fall back to first topic as placeholder
@@ -87,7 +88,7 @@ export async function createSession(
             );
         }
 
-        const response = await fetch(`${COLLABORATION_SERVICE_URL}/v1/sessions`, {
+        const response = await fetch(`${COLLABORATION_SERVICE_URL}/api/v1/sessions`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -164,7 +165,15 @@ export async function createSession(
         metrics.recordError("collaboration_service_error", "create_session");
 
         logger.error(
-            { error, request, duration },
+            { 
+                error: error instanceof Error ? {
+                    message: error.message,
+                    name: error.name,
+                    stack: error.stack,
+                } : error,
+                request, 
+                duration 
+            },
             "Failed to create session in collaboration service",
         );
 
@@ -198,7 +207,7 @@ export async function deleteSession(sessionId: string): Promise<boolean> {
     logger.info({ sessionId }, "Deleting session from collaboration service");
 
     const response = await fetch(
-      `${COLLABORATION_SERVICE_URL}/api/sessions/${sessionId}`,
+      `${COLLABORATION_SERVICE_URL}/api/v1/sessions/${sessionId}`,
       {
         method: "DELETE",
         signal: AbortSignal.timeout(5000),

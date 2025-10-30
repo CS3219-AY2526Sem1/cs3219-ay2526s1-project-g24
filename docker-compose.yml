@@ -239,7 +239,13 @@ services:
         echo '⏳ waiting for db...' &&
         sleep 3 &&
         cd apps/collab-service &&
-        npx prisma migrate deploy &&
+        if [ -d prisma/migrations ] && [ \"\$(ls -A prisma/migrations)\" ]; then
+          echo '📦 Running migrations...' &&
+          npx prisma migrate deploy;
+        else
+          echo '🔨 No migrations found, using db push for development...' &&
+          npx prisma db push --accept-data-loss;
+        fi &&
         node dist/index.js
       "
     depends_on:

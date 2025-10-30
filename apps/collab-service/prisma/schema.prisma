@@ -5,7 +5,8 @@ generator client {
   provider      = "prisma-client-js"
   // Include multiple binary targets to support different OpenSSL versions on linux/arm64
   // "native" covers local/dev, explicit targets ensure runtime compatibility in containers/CI
-  binaryTargets = ["native", "linux-arm64-openssl-3.0.x", "linux-arm64-openssl-1.1.x"]
+  // Added linux-musl-arm64 targets for Alpine Linux (node:22-alpine)
+  binaryTargets = ["native", "linux-arm64-openssl-3.0.x", "linux-arm64-openssl-1.1.x", "linux-musl-arm64-openssl-3.0.x", "linux-musl-arm64-openssl-1.1.x"]
 }
 
 datasource db {

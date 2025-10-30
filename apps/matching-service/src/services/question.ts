@@ -20,11 +20,13 @@ interface Question {
  * Fetch a random question matching the given criteria
  * @param difficulty - Question difficulty
  * @param topics - Array of topic names
+ * @param authToken - Optional JWT token for authentication
  * @returns Question ID as a string, or null if no question found
  */
 export async function getMatchingQuestion(
     difficulty: Difficulty,
     topics: string[],
+    authToken?: string,
 ): Promise<string | null> {
     try {
         logger.info(
@@ -37,14 +39,22 @@ export async function getMatchingQuestion(
         params.append("difficulty", difficulty);
         topics.forEach((topic) => params.append("topics", topic));
 
+        // Prepare headers
+        const headers: Record<string, string> = {
+            "Content-Type": "application/json",
+        };
+        
+        // Add authorization header if token is provided
+        if (authToken) {
+            headers["Authorization"] = `Bearer ${authToken}`;
+        }
+
         // Use /random endpoint to get a single random question
         const response = await fetch(
-            `${QUESTION_SERVICE_URL}/api/questions/random?${params.toString()}`,
+            `${QUESTION_SERVICE_URL}/api/v1/questions/random?${params.toString()}`,
             {
                 method: "GET",
-                headers: {
-                    "Content-Type": "application/json",
-                },
+                headers,
                 signal: AbortSignal.timeout(3000), // 3 second timeout
             },
         );

@@ -24,7 +24,12 @@ RUN pnpm install --frozen-lockfile
 # 2) now copy the actual source
 COPY --from=builder /app/out/full/ .
 
-# 3) build only collab-service
+# 3) Generate Prisma Client before building
+WORKDIR /app/apps/collab-service
+RUN npx prisma generate
+WORKDIR /app
+
+# 4) build only collab-service
 # this will now find prisma because we just installed deps in this stage
 RUN npx turbo build --filter=collab-service
 
@@ -32,10 +37,14 @@ RUN npx turbo build --filter=collab-service
 FROM base AS runner
 WORKDIR /app
 
+# Install openssl for Prisma
+RUN apk add --no-cache openssl
+
 RUN addgroup --system --gid 1001 nodejs \
   && adduser --system --uid 1001 collab-service
-USER collab-service
 
-COPY --from=installer /app .
+COPY --from=installer --chown=collab-service:nodejs /app .
+
+USER collab-service
 
 CMD ["node", "apps/collab-service/dist/index.js"]
