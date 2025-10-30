@@ -115,9 +115,15 @@ export class AuthController extends Controller {
       });
 
       // Determine the redirect URL based on environment
-      const redirectUrl = isProduction()
-        ? webConfig.callbackUrl
-        : webConfig.callbackUrl;
+      const redirectUrl =  webConfig.callbackUrl
+
+      // Log the resolved redirect target for troubleshooting
+      logger.info({
+        msg: "OAuth callback redirect target",
+        redirectUrl,
+        envCallback: process.env.WEB_CALLBACK_URL,
+        isProduction: isProduction(),
+      });
 
       // Set cookies and include Location header for client-side redirect
       res(
