@@ -42,7 +42,7 @@ def get_jwks() -> Dict[str, Any]:
     Cached to avoid repeated network calls.
     """
     try:
-        jwks_url = f"{settings.USER_SERVICE_URL}/.well-known/jwks.json"
+        jwks_url = f"{settings.USER_SERVICE_URL}/api/v1/.well-known/jwks.json"
         response = requests.get(jwks_url, timeout=5)
         response.raise_for_status()
         return response.json()
