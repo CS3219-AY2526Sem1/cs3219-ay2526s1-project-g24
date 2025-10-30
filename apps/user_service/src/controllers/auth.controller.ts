@@ -162,8 +162,9 @@ export class AuthController extends Controller {
     const refreshToken = req.cookies.refresh_token;
     if (refreshToken) {
       try {
-        const JWKS = jose.createRemoteJWKSet(new URL(jwtConfig.jwksUri));
-        const { payload } = await jose.jwtVerify(refreshToken, JWKS, {
+        // Use the public key directly instead of remote JWKS to avoid network issues in K8s
+        const publicKey = await jose.importSPKI(jwtConfig.publicKey, "RS256");
+        const { payload } = await jose.jwtVerify(refreshToken, publicKey, {
           algorithms: ["RS256"],
         });
         const { familyId } = payload;
@@ -202,8 +203,9 @@ export class AuthController extends Controller {
     }
 
     try {
-      const JWKS = jose.createRemoteJWKSet(new URL(jwtConfig.jwksUri));
-      const { payload } = await jose.jwtVerify(refreshToken, JWKS, {
+      // Use the public key directly instead of remote JWKS to avoid network issues in K8s
+      const publicKey = await jose.importSPKI(jwtConfig.publicKey, "RS256");
+      const { payload } = await jose.jwtVerify(refreshToken, publicKey, {
         algorithms: ["RS256"],
       });
 
