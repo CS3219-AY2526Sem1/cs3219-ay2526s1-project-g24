@@ -4,73 +4,7 @@
  */
 
 import { API_CONFIG } from '../apiConfig';
-
-export type Difficulty = 'easy' | 'medium' | 'hard';
-export type MatchStatus = 'queued' | 'matched' | 'cancelled' | 'timeout';
-
-/**
- * Get JWT token from cookies
- * The user service stores the token in 'access_token' cookie
- */
-function getAuthToken(): string | null {
-    if (typeof document === 'undefined') return null;
-
-    const cookies = document.cookie.split(';');
-    for (const cookie of cookies) {
-        const [name, value] = cookie.trim().split('=');
-        if (name === 'access_token') {
-            return value;
-        }
-    }
-    return null;
-}
-
-/**
- * Get headers with authentication
- */
-function getAuthHeaders(): HeadersInit {
-    const headers: HeadersInit = {
-        'Content-Type': 'application/json',
-    };
-
-    const token = getAuthToken();
-    if (token) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-
-    return headers;
-}
-
-export interface MatchRequest {
-    userId: string;
-    difficulty: Difficulty;
-    topics: string[];
-    languages: string[];
-}
-
-export interface MatchRequestResponse {
-    reqId: string;
-    alreadyQueued?: boolean;
-}
-
-export interface MatchRequestStatus {
-    reqId: string;
-    userId: string;
-    difficulty: Difficulty;
-    topics: string[];
-    languages: string[];
-    status: MatchStatus;
-    createdAt: number;
-    sessionId?: string;
-}
-
-export interface MatchEvent {
-    status: MatchStatus;
-    sessionId?: string;
-    questionId?: string;
-    timestamp: number;
-    elapsed?: number;
-}
+import { MatchEvent, MatchRequest, MatchRequestResponse, MatchRequestStatus } from '@/lib/types';
 
 class MatchingServiceClient {
     private baseUrl: string;
@@ -85,7 +19,7 @@ class MatchingServiceClient {
     async createMatchRequest(
         request: MatchRequest,
     ): Promise<MatchRequestResponse> {
-        const response = await fetch(`${this.baseUrl}/v1/match/requests`, {
+        const response = await fetch(`${this.baseUrl}/api/v1/match/requests`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -121,7 +55,7 @@ class MatchingServiceClient {
      * Get the status of a match request
      */
     async getMatchRequestStatus(reqId: string): Promise<MatchRequestStatus> {
-        const response = await fetch(`${this.baseUrl}/v1/match/requests/${reqId}`, {
+        const response = await fetch(`${this.baseUrl}/api/v1/match/requests/${reqId}`, {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -149,7 +83,7 @@ class MatchingServiceClient {
         alreadyMatched: boolean;
         sessionId?: string;
     }> {
-        const response = await fetch(`${this.baseUrl}/v1/match/requests/${reqId}`, {
+        const response = await fetch(`${this.baseUrl}/api/v1/match/requests/${reqId}`, {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
@@ -202,7 +136,7 @@ class MatchingServiceClient {
         onError?: (error: Error) => void,
     ): () => void {
         const eventSource = new EventSource(
-            `${this.baseUrl}/v1/match/requests/${reqId}/events`,
+            `${this.baseUrl}/api/v1/match/requests/${reqId}/events`,
             { withCredentials: true },
         );
 

@@ -5,7 +5,7 @@ import { createServer } from "../server";
 describe("server", () => {
   it("status check returns 200", async () => {
     await supertest(createServer())
-      .get("/status")
+      .get("/api/v1/status")
       .expect(200)
       .then((res) => {
         expect(res.body.ok).toBe(true);
@@ -14,7 +14,7 @@ describe("server", () => {
 
   it("message endpoint says hello", async () => {
     await supertest(createServer())
-      .get("/message/jared")
+      .get("/api/v1/message/jared")
       .expect(200)
       .then((res) => {
         expect(res.body.message).toBe("hello jared");

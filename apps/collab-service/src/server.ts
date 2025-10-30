@@ -62,7 +62,7 @@ export function createServer(): { app: Express; wss: WebSocketServer } {
 
     // Routes
     app.use('/', observabilityRoutes);
-    app.use('/v1', sessionRoutes);
+    app.use('/api/v1', sessionRoutes);
 
     // Root endpoint
     app.get('/', (_req: Request, res: Response) => {
@@ -102,11 +102,11 @@ export function startServer(app: Express, wss: WebSocketServer): HTTPServer {
     `);
     });
 
-    // Handle WebSocket upgrade - only for /v1/ws paths
+    // Handle WebSocket upgrade - only for /api/v1/ws paths
     server.on('upgrade', (request, socket, head) => {
         const url = request.url || '';
 
-        if (url.startsWith('/v1/ws/')) {
+        if (url.startsWith('/api/v1/ws/')) {
             wss.handleUpgrade(request, socket, head, (ws) => {
                 wss.emit('connection', ws, request);
             });

@@ -1,0 +1,153 @@
+name: Deploy to EKS
+
+on:
+  workflow_dispatch: {}
+  workflow_run:
+    workflows: ["Push Images to GHCR (manual)"]
+    types:
+      - completed
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set lowercase repository owner
+        id: repo
+        run: echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/cs3219-eks-gha-deployer
+          role-session-name: gha-${{ github.run_id }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+          audience: sts.amazonaws.com
+
+      - name: Setup kubectl
+        run: |
+          aws eks update-kubeconfig --name cs3219-eks --region ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+
+      - name: Login to GHCR for image pull
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+
+      - name: Create imagePullSecret for GHCR in cluster
+        run: |
+          kubectl create secret docker-registry ghcr-pull-secret \
+            --docker-server=ghcr.io \
+            --docker-username=${{ github.actor }} \
+            --docker-password=${{ secrets.GITHUB_TOKEN }} \
+            --namespace=cs3219 \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy manifests (namespace, config, dbs, etc.)
+        run: |
+          kubectl apply -f infra/k8s/namespace.yaml
+          kubectl apply -f infra/k8s/configmap.yaml
+          kubectl apply -f infra/k8s/resource-quota.yaml
+          kubectl apply -f infra/k8s/network-policy.yaml
+          kubectl apply -f infra/k8s/postgres-question.yaml
+          kubectl apply -f infra/k8s/postgres-user.yaml
+          kubectl apply -f infra/k8s/redis.yaml
+
+      - name: Wait for databases to be ready
+        run: |
+          echo "⏳ Waiting for databases..."
+          kubectl wait --for=condition=ready pod -l app=question-db -n cs3219 --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=user-db -n cs3219 --timeout=300s
+          kubectl wait --for=condition=ready pod -l app=matching-redis -n cs3219 --timeout=300s
+          echo "✅ Databases ready"
+
+      - name: Update deployments to GHCR images
+        env:
+          SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          OWNER: ${{ steps.repo.outputs.owner_lc }}
+        run: |
+          echo "Updating deployments to images with SHA=${SHA}"
+          
+          # Update or create deployments
+          for service in web api question-service user-service matching-service collab-service code-execution-service; do
+            if kubectl get deployment ${service} -n cs3219 2>/dev/null; then
+              echo "Updating ${service} deployment..."
+              kubectl set image deployment/${service} ${service}=ghcr.io/${OWNER}/cs3219-g24-${service}:${SHA} -n cs3219
+            else
+              echo "Deployment ${service} not found, will be created in next step"
+            fi
+          done
+
+      - name: Apply service deployments
+        run: |
+          kubectl apply -f infra/k8s/question-service.yaml
+          kubectl apply -f infra/k8s/user-service.yaml
+          kubectl apply -f infra/k8s/matching-service.yaml
+          kubectl apply -f infra/k8s/collab-service.yaml
+          kubectl apply -f infra/k8s/code-execution-service.yaml
+          kubectl apply -f infra/k8s/api.yaml
+          kubectl apply -f infra/k8s/web.yaml
+
+      - name: Update deployments to GHCR images (post-apply)
+        env:
+          SHA: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.head_sha || github.sha }}
+          OWNER: ${{ steps.repo.outputs.owner_lc }}
+        run: |
+          echo "Updating deployments to images with SHA=${SHA} (post-apply)"
+          
+          # Update or create deployments
+          for service in web api question-service user-service matching-service collab-service code-execution-service; do
+            echo "Setting image for $service"
+            kubectl set image deployment/${service} ${service}=ghcr.io/${OWNER}/cs3219-g24-${service}:${SHA} -n cs3219 --record || true
+          done
+
+      - name: Apply HPA and ingress
+        run: |
+          kubectl apply -f infra/k8s/hpa.yaml
+          kubectl apply -f infra/k8s/ingress.yaml
+
+      - name: Verify all deployments
+        run: |
+          echo "🔍 Verifying deployments..."
+          for deployment in web api question-service user-service matching-service collab-service code-execution-service; do
+            echo "Checking ${deployment}..."
+            kubectl rollout status deployment/${deployment} -n cs3219 --timeout=300s
+          done
+          echo "✅ All deployments successful"
+
+      - name: Run health checks
+        run: |
+          # Wait for all pods to be ready
+          kubectl wait --for=condition=ready pod --all -n cs3219 --timeout=600s || true
+          
+          # Check for any failed pods
+          if kubectl get pods -n cs3219 | grep -E 'Error|CrashLoopBackOff|ImagePullBackOff'; then
+            echo "❌ Found failed pods"
+            kubectl describe pods -n cs3219
+            exit 1
+          fi
+          
+          echo "✅ All pods healthy"
+
+      - name: Print deployment status
+        run: |
+          echo "📊 Deployment Status:"
+          echo ""
+          kubectl get pods -n cs3219
+          echo ""
+          kubectl get svc -n cs3219
+          echo ""
+          kubectl get ingress -n cs3219
+          echo ""
+          echo "🔗 Application URL:"
+          kubectl get ingress cs3219-ingress -n cs3219 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+          echo ""

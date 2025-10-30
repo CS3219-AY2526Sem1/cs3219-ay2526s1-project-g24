@@ -1,10 +1,26 @@
 name: CI
- 
+
 on:
-  push:
-    branches: ["master", "dev"]
   pull_request:
-    types: [opened, synchronize]
+    branches: ["master", "main", "dev"]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.MD'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/CODEOWNERS'
+      - 'docs/**'
+      - 'infra/**'
+  push:
+    branches: ["master", "main"]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.MD'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/CODEOWNERS'
+      - 'docs/**'
+      - 'infra/**'
+  workflow_dispatch: {}
  
 jobs:
   # TODO: update to build/test based on FE/microservice to avoid excessively long CI
@@ -12,10 +28,9 @@ jobs:
     name: Build and Test
     timeout-minutes: 15
     runs-on: ubuntu-latest
-    # To use Remote Caching, uncomment the next lines and follow the steps below.
-    # env:
-    #  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
-    #  TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+      cancel-in-progress: true
  
     steps:
       - name: Check out code
@@ -25,7 +40,7 @@ jobs:
  
       - uses: pnpm/action-setup@v3
         with:
-          version: 8
+          version: 9
  
       - name: Setup Node.js environment
         uses: actions/setup-node@v4
@@ -34,7 +49,7 @@ jobs:
           cache: 'pnpm'
  
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
  
       - name: Build
         run: pnpm build

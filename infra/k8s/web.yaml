@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: cs3219
+  labels:
+    app: web
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      serviceAccountName: ghcr-pull
+      containers:
+      - name: web
+        image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-web:latest
+        ports:
+        - containerPort: 3000
+          name: http
+        env:
+        - name: NODE_ENV
+          value: "production"
+        - name: PORT
+          value: "3000"
+        # Backend service URLs for Next.js (browser-visible)
+        - name: NEXT_PUBLIC_QUESTION_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: QUESTION_SERVICE_URL
+        - name: NEXT_PUBLIC_MATCHING_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: MATCHING_SERVICE_URL
+        - name: NEXT_PUBLIC_USER_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: USER_SERVICE_URL
+        - name: NEXT_PUBLIC_CODE_EXECUTION_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: CODE_EXECUTION_SERVICE_URL
+        resources:
+          requests:
+            memory: "128Mi"
+            cpu: "75m"
+          limits:
+            memory: "256Mi"
+            cpu: "250m"
+        livenessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 3000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web
+  namespace: cs3219
+  labels:
+    app: web
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3000
+    targetPort: 3000
+    protocol: TCP
+    name: http
+  selector:
+    app: web

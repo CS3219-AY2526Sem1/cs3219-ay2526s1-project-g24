@@ -1,0 +1,127 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: question-service
+  namespace: cs3219
+  labels:
+    app: question-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: question-service
+  template:
+    metadata:
+      labels:
+        app: question-service
+    spec:
+      serviceAccountName: ghcr-pull
+      initContainers:
+      # Init container to run migrations
+      - name: migration
+        image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-question-service:latest
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: question-db-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: question-db-password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: question-db-name
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@question-db:5432/$(POSTGRES_DB)"
+        - name: ENV
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: QUESTION_SERVICE_ENV
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo '🔄 Waiting for database...'
+          sleep 5
+          echo '📦 Running migrations...'
+          /app/.venv/bin/alembic upgrade head
+          echo '✅ Migrations complete'
+      containers:
+      - name: question-service
+        image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-question-service:latest
+        ports:
+        - containerPort: 80
+          name: http
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: question-db-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: question-db-password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: question-db-name
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@question-db:5432/$(POSTGRES_DB)"
+        - name: ENV
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: QUESTION_SERVICE_ENV
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo '🚀 Starting FastAPI server...'
+          /app/.venv/bin/fastapi run app/main.py --port 80 --host 0.0.0.0
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 80
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: question-service
+  namespace: cs3219
+  labels:
+    app: question-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    app: question-service

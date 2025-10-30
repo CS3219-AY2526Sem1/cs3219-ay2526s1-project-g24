@@ -81,6 +81,10 @@ def get_questions(
         joinedload(models.Question.companies)
     )
     
+    # Filter out soft-deleted questions by default (unless include_deleted is True)
+    if not filters.include_deleted:
+        query = query.filter(models.Question.deleted_at.is_(None))
+    
     # Apply difficulty filter
     if filters.difficulties:
         difficulty_enums = [models.DifficultyEnum[d.value.upper()] for d in filters.difficulties]
@@ -151,13 +155,19 @@ def get_questions(
     return questions, total
 
 
-def get_question(db: Session, question_id: int):
+def get_question(db: Session, question_id: int, include_deleted: bool = False):
     """Get a single question by ID with all relationships"""
-    return db.query(models.Question).options(
+    query = db.query(models.Question).options(
         joinedload(models.Question.topics),
         joinedload(models.Question.companies),
         joinedload(models.Question.test_cases)
-    ).filter(models.Question.id == question_id).first()
+    ).filter(models.Question.id == question_id)
+    
+    # Filter out soft-deleted unless explicitly requested
+    if not include_deleted:
+        query = query.filter(models.Question.deleted_at.is_(None))
+    
+    return query.first()
 
 
 def update_question(db: Session, question_id: int, question_update: schemas.QuestionUpdate):
@@ -192,14 +202,38 @@ def update_question(db: Session, question_id: int, question_update: schemas.Ques
     return db_question
 
 
-def delete_question(db: Session, question_id: int):
-    """Delete a question"""
-    db_question = get_question(db, question_id)
-    if db_question:
+def delete_question(db: Session, question_id: int, permanent: bool = False):
+    """Soft delete a question (or permanent delete if specified)"""
+    db_question = get_question(db, question_id, include_deleted=True)
+    if not db_question:
+        return False
+    
+    if permanent:
+        # Permanent delete - actually remove from database
         db.delete(db_question)
-        db.commit()
-        return True
-    return False
+    else:
+        # Soft delete - set deleted_at timestamp
+        if db_question.deleted_at is not None:
+            return False  # Already deleted
+        db_question.deleted_at = datetime.utcnow()
+    
+    db.commit()
+    return True
+
+
+def restore_question(db: Session, question_id: int):
+    """Restore a soft-deleted question"""
+    db_question = get_question(db, question_id, include_deleted=True)
+    if not db_question:
+        return None
+    
+    if db_question.deleted_at is None:
+        return db_question  # Already active
+    
+    db_question.deleted_at = None
+    db.commit()
+    db.refresh(db_question)
+    return db_question
 
 
 def get_random_question(db: Session, filters: Optional[schemas.QuestionFilterParams] = None):
@@ -221,8 +255,10 @@ def get_daily_question(db: Session):
     date_string = today.isoformat()
     seed = int(hashlib.md5(date_string.encode()).hexdigest(), 16)
     
-    # Get total question count
-    total_questions = db.query(func.count(models.Question.id)).scalar()
+    # Get total question count (excluding deleted)
+    total_questions = db.query(func.count(models.Question.id)).filter(
+        models.Question.deleted_at.is_(None)
+    ).scalar()
     if total_questions == 0:
         return None
     
@@ -231,12 +267,12 @@ def get_daily_question(db: Session):
     return db.query(models.Question).options(
         joinedload(models.Question.topics),
         joinedload(models.Question.companies)
-    ).offset(question_index).first()
+    ).filter(models.Question.deleted_at.is_(None)).offset(question_index).first()
 
 
 def get_similar_questions(db: Session, question_id: int, limit: int = 5):
     """Get similar questions based on topics and difficulty"""
-    question = get_question(db, question_id)
+    question = get_question(db, question_id, include_deleted=False)
     if not question:
         return []
     
@@ -247,7 +283,8 @@ def get_similar_questions(db: Session, question_id: int, limit: int = 5):
         joinedload(models.Question.companies)
     ).filter(
         models.Question.id != question_id,
-        models.Question.difficulty == question.difficulty
+        models.Question.difficulty == question.difficulty,
+        models.Question.deleted_at.is_(None)  # Exclude deleted
     )
     
     # Prioritize questions with overlapping topics
@@ -478,10 +515,11 @@ def get_user_stats(db: Session, user_id: str) -> schemas.UserStats:
 
 def create_user_attempt(db: Session, user_id: str, attempt: schemas.UserAttemptCreate):
     """Record a user attempt"""
-    # Check if attempt record exists
+    # Check if attempt record exists for this user, question, AND language
     db_attempt = db.query(models.UserQuestionAttempt).filter(
         models.UserQuestionAttempt.user_id == user_id,
-        models.UserQuestionAttempt.question_id == attempt.question_id
+        models.UserQuestionAttempt.question_id == attempt.question_id,
+        models.UserQuestionAttempt.language == attempt.language
     ).first()
     
     if db_attempt:
@@ -513,6 +551,7 @@ def create_user_attempt(db: Session, user_id: str, attempt: schemas.UserAttemptC
         db_attempt = models.UserQuestionAttempt(
             user_id=user_id,
             question_id=attempt.question_id,
+            language=attempt.language,
             is_solved=attempt.is_solved,
             attempts_count=1,
             status=status,
@@ -526,6 +565,47 @@ def create_user_attempt(db: Session, user_id: str, attempt: schemas.UserAttemptC
     db.commit()
     db.refresh(db_attempt)
     return db_attempt
+
+
+def calculate_percentiles(
+    db: Session,
+    question_id: int,
+    language: str,
+    runtime_ms: int,
+    memory_mb: float
+) -> tuple[Optional[float], Optional[float]]:
+    """
+    Calculate runtime and memory percentiles for a submission.
+    Returns (runtime_percentile, memory_percentile) where percentile
+    indicates what % of submissions this beats (0-100).
+    Only calculates if there are at least 10 successful submissions in the same language.
+    """
+    # Query all successful attempts for this question in the same language
+    successful_attempts = db.query(
+        models.UserQuestionAttempt.best_runtime_ms,
+        models.UserQuestionAttempt.best_memory_mb
+    ).filter(
+        models.UserQuestionAttempt.question_id == question_id,
+        models.UserQuestionAttempt.language == language,
+        models.UserQuestionAttempt.is_solved == True,
+        models.UserQuestionAttempt.best_runtime_ms.isnot(None),
+        models.UserQuestionAttempt.best_memory_mb.isnot(None)
+    ).all()
+    
+    # Need minimum threshold for meaningful percentiles
+    if len(successful_attempts) < 10:
+        return None, None
+    
+    # Extract values
+    runtimes = [a.best_runtime_ms for a in successful_attempts]
+    memories = [a.best_memory_mb for a in successful_attempts]
+    
+    # Calculate percentiles (what % of submissions this beats)
+    # Lower runtime/memory is better, so we count how many are >= (worse than) current
+    runtime_percentile = (sum(1 for r in runtimes if r >= runtime_ms) / len(runtimes)) * 100
+    memory_percentile = (sum(1 for m in memories if m >= memory_mb) / len(memories)) * 100
+    
+    return round(runtime_percentile, 1), round(memory_percentile, 1)
 
 
 # ============================================================================

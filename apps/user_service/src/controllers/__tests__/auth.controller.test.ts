@@ -278,7 +278,6 @@ describe("AuthController", () => {
       const req = { user: { id: "user_id", display_name: "Test User" } };
       const result = await authController.getSession(req as any);
       expect(result).toEqual({
-        isAdmin: false,
         user: {
           display_name: "Test User",
           id: "user_id",

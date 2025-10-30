@@ -131,9 +131,7 @@ export class CollaborationManager {
             this.ydoc = new Y.Doc();
 
             // Create WebSocket provider
-            // Note: We don't pass the token in the URL because the browser automatically
-            // sends HttpOnly cookies with the WebSocket connection
-            const wsUrl = `${COLLABORATION_CONFIG.WS_URL}/v1/ws/sessions/${sessionId}`;
+            const wsUrl = `${COLLABORATION_CONFIG.WS_URL}/api/v1/ws/sessions/${sessionId}`;
             this.provider = new WebsocketProvider(wsUrl, sessionId, this.ydoc, {
                 connect: true,
                 awareness: undefined,
