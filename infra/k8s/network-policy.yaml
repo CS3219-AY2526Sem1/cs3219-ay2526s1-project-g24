@@ -12,6 +12,25 @@ spec:
   - Ingress
   - Egress
 ---
+# Allow ingress from ALB to code-execution-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-code-execution
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: code-execution-service
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - namespaceSelector: {}
+    ports:
+    - protocol: TCP
+      port: 3010
+---
 # Allow DNS resolution
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -76,14 +95,12 @@ spec:
     ports:
     - protocol: TCP
       port: 3000
----
-# Allow API gateway to access backend services
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: api-egress
-  namespace: cs3219
-spec:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: code-execution-service
+    ports:
+    - protocol: TCP
   podSelector:
     matchLabels:
       app: api
@@ -113,7 +130,6 @@ spec:
     ports:
     - protocol: TCP
       port: 3000
----
 # Allow services to access their databases
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -248,6 +264,7 @@ spec:
       - user-service
       - question-service
       - matching-service
+      - code-execution-service
   policyTypes:
   - Ingress
   ingress:
@@ -260,6 +277,8 @@ spec:
       port: 8000
     - protocol: TCP
       port: 3000
+    - protocol: TCP
+      port: 3010
 
 ---
 # Allow collab-service to access Redis (pub/sub)

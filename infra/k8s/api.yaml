@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
       - name: api
-        image: ghcr.io/CS3219-AY2526Sem1/g24/api:latest
+        image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-api:latest
         ports:
         - containerPort: 3001
           name: http

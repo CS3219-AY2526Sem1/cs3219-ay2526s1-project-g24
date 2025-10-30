@@ -19,6 +19,7 @@ resources:
   - user-service.yaml
   - matching-service.yaml
   - collab-service.yaml
+  - code-execution-service.yaml
   - api.yaml
   - web.yaml
   - hpa.yaml
