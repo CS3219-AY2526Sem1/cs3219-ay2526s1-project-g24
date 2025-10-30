@@ -16,8 +16,9 @@ data:
   USER_SERVICE_ENV: "production"
   
   # Service URLs for web (via Ingress paths; relative to ALB host)
-  # These are exposed to the browser, so use ingress path prefixes
-  # Use same-origin base in browser; clients will append /api/v1/... paths
+  # Since the frontend is served from the same ALB, use empty string for same-origin requests
+  # The frontend code should append the API path (e.g., /api/v1/questions)
+  # This makes it work with any domain (ALB hostname, custom domain, localhost)
   MATCHING_SERVICE_URL: ""
   QUESTION_SERVICE_URL: ""
   USER_SERVICE_URL: ""

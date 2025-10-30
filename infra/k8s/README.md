@@ -114,6 +114,31 @@ kubectl get ingress cs3219-ingress -n cs3219 -o jsonpath='{.status.loadBalancer.
 
 Your app is live at: `http://<alb-dns-name>`
 
+### If your GHCR repositories are private
+
+Kubernetes nodes need credentials to pull images from GHCR. Create a Docker registry secret once and reference it via the provided ServiceAccount:
+
+```bash
+# Create a GHCR Personal Access Token with read:packages scope
+# https://github.com/settings/tokens
+
+kubectl create secret docker-registry ghcr-pull-secret \
+  -n cs3219 \
+  --docker-server=ghcr.io \
+  --docker-username=<your-github-username-or-org> \
+  --docker-password=<your-ghcr_pat> \
+  --docker-email=<you@example.com>
+
+# Apply manifests (includes ServiceAccount that references this secret)
+kubectl apply -k infra/k8s
+```
+
+All deployments have been wired to use the ServiceAccount `ghcr-pull`, which references `ghcr-pull-secret`. If you prefer attaching the pull secret to the namespace default ServiceAccount instead, you can run:
+
+```bash
+kubectl patch serviceaccount default -n cs3219 -p '{"imagePullSecrets":[{"name":"ghcr-pull-secret"}]}'
+```
+
 ## 📁 What's Included
 
 ### Kubernetes Manifests
@@ -547,6 +572,43 @@ aws ecr list-images --repository-name web --region ap-southeast-1
 kubectl describe pod <pod-name> -n cs3219
 ```
 
+#### GHCR 401 Unauthorized / ImagePullBackOff
+
+If you see errors like:
+
+```
+failed to authorize: failed to fetch anonymous token: unexpected status ... 401 Unauthorized
+```
+
+Then your GHCR repositories are private and the nodes don't have pull credentials. Fix:
+
+1) Create a GHCR pull secret (one-time):
+
+```bash
+kubectl create secret docker-registry ghcr-pull-secret \
+  -n cs3219 \
+  --docker-server=ghcr.io \
+  --docker-username=<github-user-or-org> \
+  --docker-password=<ghcr_pat_with_read_packages> \
+  --docker-email=<you@example.com>
+```
+
+2) Ensure deployments use the pull secret. This repo includes a `ServiceAccount` named `ghcr-pull` and all Deployments set `serviceAccountName: ghcr-pull`.
+
+Alternative: Attach the secret to the default ServiceAccount:
+
+```bash
+kubectl patch serviceaccount default -n cs3219 -p '{"imagePullSecrets":[{"name":"ghcr-pull-secret"}]}'
+```
+
+3) Redeploy or restart pods:
+
+```bash
+kubectl rollout restart deployment -n cs3219
+```
+
+Tip: Make repos public to avoid needing a secret (not recommended for private projects).
+
 ### Ingress Not Working
 ```bash
 # Check if AWS Load Balancer Controller is installed
@@ -583,6 +645,54 @@ kubectl exec -it deployment/api -n cs3219 -- curl http://question-service:80/hea
 
 # Note: question-service uses port 80, but network policies allow both 80 and 8000
 ```
+
+## 🧩 AWS CNI: Failed to assign an IP address
+
+If pod events show errors like:
+
+```
+FailedCreatePodSandBox: plugin type="aws-cni" failed (add): add cmd: failed to assign an IP address to container
+```
+
+This usually means IP exhaustion or VPC CNI configuration limits. Try:
+
+1) Check subnet free IPs (look for small/zero availableIpAddressCount):
+
+```bash
+aws ec2 describe-subnets --query 'Subnets[].{SubnetId:SubnetId,AZ:AvailabilityZone,AvailableIPs:AvailableIpAddressCount,Name:Tags[?Key==`Name`].Value|[0]}' --output table
+```
+
+If low, add/resize subnets or scale down pods.
+
+2) Enable prefix delegation to increase IP density per ENI (recommended):
+
+```bash
+kubectl -n kube-system set env ds/aws-node ENABLE_PREFIX_DELEGATION=true
+kubectl -n kube-system set env ds/aws-node WARM_PREFIX_TARGET=1
+```
+
+3) Or tune warm targets (older approach):
+
+```bash
+kubectl -n kube-system set env ds/aws-node WARM_IP_TARGET=1 WARM_ENI_TARGET=0
+```
+
+4) Restart CNI to apply changes:
+
+```bash
+kubectl -n kube-system rollout restart ds/aws-node
+```
+
+5) Verify nodes and CNI status:
+
+```bash
+kubectl get pods -n kube-system -l k8s-app=aws-node
+kubectl logs -n kube-system -l k8s-app=aws-node --tail=200
+```
+
+Notes:
+- Prefix delegation requires supported instance types (most Nitro-based do) and recent AWS VPC CNI.
+- Also ensure security groups and route tables are correct; see AWS VPC CNI docs if issues persist.
 
 ## 📖 Additional Documentation
 

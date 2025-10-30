@@ -8,6 +8,7 @@ resources:
   # NOTE: secrets.yaml is a TEMPLATE ONLY - create secrets manually!
   # See README.md for instructions on secret management
   # - secrets.yaml  # ← DO NOT UNCOMMENT - use kubectl create instead
+  - serviceaccount.yaml
   - configmap.yaml
   - resource-quota.yaml
   - network-policy.yaml
@@ -25,10 +26,13 @@ resources:
   - hpa.yaml
   - ingress.yaml
 
-# Common labels for all resources
-commonLabels:
-  project: cs3219
-  managed-by: kustomize
+# Common labels for all resources (kustomize v5+)
+labels:
+  - pairs:
+      project: cs3219
+      managed-by: kustomize
+    includeSelectors: true
+    includeTemplates: true
 
 # Images can be updated here for all deployments
 # Uncomment and set after building images
