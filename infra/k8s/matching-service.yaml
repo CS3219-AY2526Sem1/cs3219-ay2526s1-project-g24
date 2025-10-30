@@ -57,7 +57,7 @@ spec:
               name: app-config
               key: LOG_LEVEL
         - name: AUTH_JWKS_URI
-          value: "http://user-service:8000/.well-known/jwks.json"
+          value: "http://user-service:8000/api/v1/.well-known/jwks.json"
         resources:
           requests:
             memory: "256Mi"
