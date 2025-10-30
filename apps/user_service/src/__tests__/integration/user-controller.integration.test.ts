@@ -38,6 +38,11 @@ describe("User Controller Integration (Testcontainers)", () => {
     const { publicKey: pubKey, privateKey: privKey } =
       await jose.generateKeyPair("RS256");
     publicKey = pubKey;
+    
+    // Export the public key in SPKI format for the server to use
+    const publicKeySpki = await jose.exportSPKI(pubKey);
+    process.env.RSA_PUBLIC_KEY = publicKeySpki;
+    process.env.RSA_PRIVATE_KEY = await jose.exportPKCS8(privKey);
 
     // Dynamically import server after mocking
     const { createServer } = await import("../../server.js");
