@@ -1,0 +1,93 @@
+# Node dependencies - these are huge and get installed during build
+**/node_modules
+**/.pnpm-store
+**/.npm
+**/.yarn
+**/pnpm-store
+
+# Build outputs - rebuild during image build
+**/dist
+**/build
+**/.next
+**/.turbo
+*.tsbuildinfo
+
+# Python virtual environments and cache
+**/.venv
+**/__pycache__
+**/*.pyc
+**/.pytest_cache
+**/.mypy_cache
+**/.ruff_cache
+
+# Test files - not needed in production
+**/__tests__
+**/tests
+**/test
+**/*.test.ts
+**/*.test.js
+**/*.spec.ts
+**/*.spec.js
+**/coverage
+**/.nyc_output
+
+# Environment files - mounted separately
+**/.env
+**/.env.local
+**/.env.*.local
+**/.env.development
+**/.env.test
+
+# IDE and editor files
+**/.vscode
+**/.idea
+**/*.swp
+**/*.swo
+**/*~
+**/.DS_Store
+
+# Git files
+.git
+.gitignore
+.gitattributes
+**/.gitkeep
+
+# CI/CD files
+.github
+
+# Documentation
+*.md
+!README.md
+**/docs
+LICENSE
+
+# Docker files - prevent recursion
+**/Dockerfile*
+**/docker-compose*.yml
+**/.dockerignore
+
+# Logs
+**/logs
+**/*.log
+**/npm-debug.log*
+**/pnpm-debug.log*
+**/yarn-error.log*
+
+# Temporary files
+**/tmp
+**/temp
+**/*.tmp
+
+# Database files
+**/*.db
+**/*.sqlite
+**/*.sqlite3
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Misc
+**/.cache
+**/coverage
+**/.eslintcache
