@@ -15,6 +15,7 @@ spec:
       labels:
         app: user-service
     spec:
+      serviceAccountName: ghcr-pull
       initContainers:
       # Init container to run migrations and seed
       - name: migration

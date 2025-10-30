@@ -101,6 +101,15 @@ spec:
           app: code-execution-service
     ports:
     - protocol: TCP
+      port: 3010
+---
+# Allow API gateway to access backend services
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-egress
+  namespace: cs3219
+spec:
   podSelector:
     matchLabels:
       app: api
@@ -130,6 +139,7 @@ spec:
     ports:
     - protocol: TCP
       port: 3000
+---
 # Allow services to access their databases
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
