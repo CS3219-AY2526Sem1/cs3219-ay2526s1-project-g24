@@ -285,11 +285,6 @@ export class AuthController extends Controller {
   @Get("session")
   public async getSession(@Request() req: { user: any }) {
     const user = req.user;
-    let isAdmin = false;
-    // user.roles is always an array of { role: { name: string, ... }, ... }
-    if (user.roles && Array.isArray(user.roles)) {
-      isAdmin = user.roles.some((r: any) => r.role?.name?.toLowerCase() === 'admin');
-    }
-    return { user, isAdmin };
+    return { user };
   }
 }

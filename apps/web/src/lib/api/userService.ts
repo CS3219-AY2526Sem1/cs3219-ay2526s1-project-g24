@@ -1,7 +1,52 @@
-import { Session, User } from "@/lib/types";
 import { API_CONFIG } from "../apiConfig";
+import { Session, User, Role, Permission } from "@/lib/types";
 
 const API_URL = `${API_CONFIG.USER_SERVICE}/api/v1`;
+
+const normalizePermission = (permission: any): Permission => ({
+  id: Number(permission.id),
+  name: permission.name,
+  description: permission.description,
+  created_at: permission.created_at,
+  updated_at: permission.updated_at,
+});
+
+const normalizeRole = (role: any): Role => ({
+  id: Number(role.id),
+  name: role.name,
+  permissions: Array.isArray(role.permissions)
+    ? role.permissions
+        .map((entry: any) => {
+          const rawPermission = entry?.permission ?? entry;
+          if (!rawPermission) {
+            return null;
+          }
+          return normalizePermission(rawPermission);
+        })
+        .filter((permission: any): permission is Permission => Boolean(permission))
+    : [],
+  created_at: role.created_at,
+  updated_at: role.updated_at,
+});
+
+const normalizeUser = (user: any): User => {
+  const roles = Array.isArray(user.roles)
+    ? user.roles
+        .map((assignment: any) => {
+          const rawRole = assignment?.role ?? assignment;
+          if (!rawRole) {
+            return null;
+          }
+          return normalizeRole(rawRole);
+        })
+        .filter((role: any): role is Role => Boolean(role))
+    : [];
+
+  return {
+    ...user,
+    roles,
+  } as User;
+};
 
 // Auth Service
 
@@ -29,8 +74,8 @@ export const getSession = async (): Promise<Session | null> => {
   if (!response.ok) {
     return null;
   }
-  let res = await response.json();
-  return { user: res.user, isAdmin: res.isAdmin };
+  const res = await response.json();
+  return { user: normalizeUser(res.user) };
 };
 
 // User Service
@@ -42,7 +87,8 @@ export const getUser = async (): Promise<User> => {
   if (!response.ok) {
     throw new Error("Failed to fetch user");
   }
-  return response.json();
+  const user = await response.json();
+  return normalizeUser(user);
 };
 
 export const getUsers = async (): Promise<User[]> => {
@@ -52,11 +98,101 @@ export const getUsers = async (): Promise<User[]> => {
   if (!response.ok) {
     throw new Error("Failed to fetch users");
   }
-  return response.json();
+  const users = await response.json();
+  return users.map((user: any) => normalizeUser(user));
+};
+
+export const getRoles = async (): Promise<Role[]> => {
+  const response = await fetch(`${API_URL}/admin/roles`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to fetch roles");
+  }
+  const roles = await response.json();
+  return roles.map((role: any) => normalizeRole(role));
+};
+
+export const createRole = async (name: string): Promise<Role> => {
+  const response = await fetch(`${API_URL}/admin/roles`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to create role");
+  }
+  const role = await response.json();
+  return normalizeRole(role);
+};
+
+export const getPermissions = async (): Promise<Permission[]> => {
+  const response = await fetch(`${API_URL}/admin/permissions`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to fetch permissions");
+  }
+  const permissions = await response.json();
+  return permissions.map((permission: any) => normalizePermission(permission));
+};
+
+export const createPermission = async (name: string): Promise<Permission> => {
+  const response = await fetch(`${API_URL}/admin/permissions`, {
+    method: "POST",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ name }),
+  });
+  if (!response.ok) {
+    throw new Error("Failed to create permission");
+  }
+  const permission = await response.json();
+  return normalizePermission(permission);
+};
+
+export const grantPermissionToRole = async (
+  roleId: number,
+  permissionId: number
+): Promise<void> => {
+  const response = await fetch(
+    `${API_URL}/admin/roles/${roleId}/permissions`,
+    {
+      method: "POST",
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ permissionId }),
+    }
+  );
+  if (!response.ok) {
+    throw new Error("Failed to grant permission to role");
+  }
+};
+
+export const revokePermissionFromRole = async (
+  roleId: number,
+  permissionId: number
+): Promise<void> => {
+  const response = await fetch(
+    `${API_URL}/admin/roles/${roleId}/permissions/${permissionId}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+    }
+  );
+  if (!response.ok) {
+    throw new Error("Failed to revoke permission from role");
+  }
 };
 
 export const updateUser = async (user: Partial<User>): Promise<User> => {
-  console.log('Updating user with data:', user);
   
   // Remove undefined values and only send defined fields
   const cleanedData: Record<string, any> = {};
@@ -66,8 +202,6 @@ export const updateUser = async (user: Partial<User>): Promise<User> => {
   if (user.programming_proficiency !== undefined) cleanedData.programming_proficiency = user.programming_proficiency;
   if (user.preferred_language !== undefined) cleanedData.preferred_language = user.preferred_language;
   if (user.avatar_url !== undefined) cleanedData.avatar_url = user.avatar_url;
-  
-  console.log('Cleaned data to send:', cleanedData);
   
   const response = await fetch(`${API_URL}/users/me`, {
     method: "PATCH",
@@ -127,4 +261,15 @@ export const deleteUser = async (userId: string): Promise<void> => {
   if (!response.ok) {
     throw new Error("Failed to delete user");
   }
+};
+
+export const getUserById = async (userId: string): Promise<User> => {
+  const response = await fetch(`${API_URL}/users/${userId}`, {
+    credentials: "include",
+  });
+  if (!response.ok) {
+    throw new Error("Failed to fetch user");
+  }
+  const user = await response.json();
+  return normalizeUser(user);
 };

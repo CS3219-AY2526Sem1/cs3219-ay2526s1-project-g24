@@ -37,7 +37,6 @@ export class UsersController extends Controller {
     @BodyProp() description?: string,
     @BodyProp() programming_proficiency?: 'beginner' | 'intermediate' | 'advanced',
     @BodyProp() preferred_language?: 'cpp' | 'java' | 'python' | 'javascript',
-    @BodyProp() avatar_url?: string
   ) {
     const user = await updateUser(req.user.id, {
       username,
@@ -45,7 +44,6 @@ export class UsersController extends Controller {
       description,
       programming_proficiency,
       preferred_language,
-      avatar_url,
     });
     if (!user) {
       this.setStatus(404);
@@ -82,11 +80,17 @@ export class UsersController extends Controller {
   @Security('jwt', ['admin:users:edit'])
   public async updateUserById(
     @Path() userId: string,
-    @BodyProp() username?: string,
-    @BodyProp() display_name?: string,
-    @BodyProp() description?: string,
-    @BodyProp() programming_proficiency?: 'beginner' | 'intermediate' | 'advanced',
-    @BodyProp() preferred_language?: 'cpp' | 'java' | 'python' | 'javascript',
+    @BodyProp() username?: string | null,
+    @BodyProp() display_name?: string | null,
+    @BodyProp() description?: string | null,
+    @BodyProp()
+    programming_proficiency?:
+      | 'beginner'
+      | 'intermediate'
+      | 'advanced'
+      | null,
+    @BodyProp()
+    preferred_language?: 'cpp' | 'java' | 'python' | 'javascript' | null,
   ) {
     const user = await updateUser(userId, {
       username,
