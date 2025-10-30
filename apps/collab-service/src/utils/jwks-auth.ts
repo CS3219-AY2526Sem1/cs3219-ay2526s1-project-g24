@@ -29,7 +29,7 @@ function getJWKS(): jose.JWTVerifyGetKey {
     }
 
     // Create new JWKS instance
-    const jwksUrl = `${config.userServiceUrl}/.well-known/jwks.json`;
+    const jwksUrl = `${config.userServiceUrl}/api/v1/.well-known/jwks.json`;
     console.log(`🔑 Fetching JWKS from: ${jwksUrl}`);
 
     jwksCache = jose.createRemoteJWKSet(new URL(jwksUrl));
