@@ -234,7 +234,12 @@ services:
       ENABLE_MOCK_AUTH: 'false' # Set to "true" for local testing without user service
       QUESTION_SERVICE_URL: http://question-service:80
     command: >
-      sh -c "pnpm --filter collab-service prisma migrate deploy && node apps/collab-service/dist/index.js"
+      sh -c "
+        echo '⏳ waiting for db...' &&
+        sleep 3 &&
+        pnpm --filter collab-service prisma:migrate:deploy &&
+        node apps/collab-service/dist/index.js
+      "
     depends_on:
       collab-db:
         condition: service_healthy
