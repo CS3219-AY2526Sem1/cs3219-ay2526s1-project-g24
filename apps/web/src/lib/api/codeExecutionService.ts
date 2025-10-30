@@ -3,9 +3,9 @@
  * Handles all interactions with the Code Execution Service backend
  */
 
-const CODE_EXECUTION_SERVICE_URL = typeof window !== 'undefined'
-    ? (window as any).ENV?.NEXT_PUBLIC_CODE_EXECUTION_SERVICE_URL || 'http://localhost:3010'
-    : 'http://localhost:3010';
+import { API_CONFIG } from '../apiConfig';
+
+const CODE_EXECUTION_SERVICE_URL = API_CONFIG.CODE_EXECUTION_SERVICE;
 
 export type Language = 'python' | 'javascript' | 'java' | 'cpp';
 

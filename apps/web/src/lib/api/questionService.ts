@@ -3,10 +3,9 @@
  * Handles all interactions with the Question Service backend
  */
 
-// In Next.js, environment variables starting with NEXT_PUBLIC_ are available to the browser
-const QUESTION_SERVICE_URL = typeof window !== 'undefined'
-    ? (window as any).ENV?.NEXT_PUBLIC_QUESTION_SERVICE_URL || 'http://localhost:8000'
-    : 'http://localhost:8000';
+import { API_CONFIG } from '../apiConfig';
+
+const QUESTION_SERVICE_URL = API_CONFIG.QUESTION_SERVICE;
 
 // Topic and Company interfaces
 export interface TopicResponse {
