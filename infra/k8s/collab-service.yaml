@@ -75,6 +75,14 @@ spec:
           value: "matching-redis"
         - name: REDIS_PORT
           value: "6379"
+        - name: USER_SERVICE_URL
+          value: "http://user-service:8000"
+        - name: QUESTION_SERVICE_URL
+          value: "http://question-service:8000"
+        - name: JWT_ALGORITHM
+          value: "RS256"
+        - name: ENABLE_MOCK_AUTH
+          value: "false"
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
