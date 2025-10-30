@@ -11,6 +11,7 @@ import {
   ConnectionStatus,
   UserPresence,
   CollaborationErrorInfo,
+  CollaborationMessage,
 } from '@/lib/collaboration/CollaborationManager';
 import PresenceIndicator from '@/components/PresenceIndicator';
 import ToastNotification, { Toast } from '@/components/ToastNotification';
@@ -64,6 +65,7 @@ function CollaborativeCodingPage() {
   const [testResults, setTestResults] = useState<TestCaseResult[]>([]);
   const [executionError, setExecutionError] = useState<string | null>(null);
   const [isRunning, setIsRunning] = useState(false);
+  const [executionLock, setExecutionLock] = useState<{ clientId: number; userName: string } | null>(null);
 
   // refs
   const collaborationManagerRef = useRef<CollaborationManager | null>(null);
@@ -108,6 +110,51 @@ function CollaborativeCodingPage() {
   const handleCollaborationError = (error: CollaborationErrorInfo) => {
     console.error('[Collaboration Error]', error);
     addToast(error.message, 'error', error.recoverable ? 5000 : 10000);
+  };
+
+  // Handle collaboration messages (code execution events)
+  const handleCollaborationMessage = (message: CollaborationMessage) => {
+    const senderUser = connectedUsers.find((u) => u.clientId === message.sender);
+    const senderName = senderUser?.name || 'Another user';
+
+    if (message.type === 'code-execution-start') {
+      console.log(`[CodeExecution] ${senderName} started running code`);
+      setExecutionLock({ clientId: message.sender, userName: senderName });
+      setIsRunning(true);
+      addToast(`${senderName} is running the code...`, 'info', 3000);
+    } else if (message.type === 'code-execution-result') {
+      console.log('[CodeExecution] Received execution results from', senderName);
+      setExecutionLock(null);
+      setIsRunning(false);
+
+      const { success, results, error, action } = message.data;
+
+      if (success) {
+        if (action === 'submit') {
+          const { status, passed_test_cases, total_test_cases } = message.data;
+          if (status === 'accepted') {
+            addToast(`✅ All ${total_test_cases} test cases passed!`, 'success', 4000);
+            setTestResults([]);
+            setExecutionError(null);
+          } else {
+            addToast(
+              `❌ ${passed_test_cases}/${total_test_cases} test cases passed\nStatus: ${status}`,
+              'warning',
+              6000
+            );
+            setTestResults([]);
+            setExecutionError(`Status: ${status}`);
+          }
+        } else {
+          setTestResults(results || []);
+          setExecutionError(null);
+          setActiveTab('testResults');
+        }
+      } else {
+        setExecutionError(error || 'Code execution failed');
+        setTestResults([]);
+      }
+    }
   };
 
   // -------------- QUESTION FETCH + SEED --------------
@@ -170,6 +217,12 @@ function CollaborativeCodingPage() {
       });
 
       collaborationManagerRef.current.onErrorNotification(handleCollaborationError);
+
+      // Listen for code execution messages from other users
+      collaborationManagerRef.current.onMessage((message: CollaborationMessage) => {
+        console.log('[CodeExecution] Received message:', message);
+        handleCollaborationMessage(message);
+      });
 
       // connect
       await collaborationManagerRef.current.connect(
@@ -370,6 +423,26 @@ function CollaborativeCodingPage() {
   const handleRunCode = async () => {
     if (!question || !editorRef.current) return;
 
+    // Check if someone else is running code
+    if (executionLock && executionLock.clientId !== collaborationManagerRef.current?.getLocalUser().clientId) {
+      addToast(`${executionLock.userName} is already running code. Please wait...`, 'warning', 3000);
+      return;
+    }
+
+    console.log('[CodeExecution] Starting code execution (run)');
+    const localUser = collaborationManagerRef.current?.getLocalUser();
+
+    // Broadcast execution start
+    if (isConnected && collaborationManagerRef.current) {
+      setExecutionLock({
+        clientId: localUser?.clientId ?? 0,
+        userName: localUser?.name ?? 'You'
+      });
+      collaborationManagerRef.current.sendMessage('code-execution-start', {
+        action: 'run',
+      });
+    }
+
     setIsRunning(true);
     setExecutionError(null);
     setActiveTab('testResults');
@@ -381,16 +454,56 @@ function CollaborativeCodingPage() {
         code: codeToRun,
       });
       setTestResults(resp.results);
+
+      // Broadcast results
+      if (isConnected && collaborationManagerRef.current) {
+        collaborationManagerRef.current.sendMessage('code-execution-result', {
+          action: 'run',
+          success: true,
+          results: resp.results,
+        });
+      }
     } catch (err) {
-      setExecutionError(err instanceof Error ? err.message : 'Failed to run code');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to run code';
+      setExecutionError(errorMessage);
       setTestResults([]);
+
+      // Broadcast error
+      if (isConnected && collaborationManagerRef.current) {
+        collaborationManagerRef.current.sendMessage('code-execution-result', {
+          action: 'run',
+          success: false,
+          error: errorMessage,
+        });
+      }
     } finally {
       setIsRunning(false);
+      setExecutionLock(null);
     }
   };
 
   const handleSubmitCode = async () => {
     if (!question || !editorRef.current) return;
+
+    // Check if someone else is running code
+    if (executionLock && executionLock.clientId !== collaborationManagerRef.current?.getLocalUser().clientId) {
+      addToast(`${executionLock.userName} is already running code. Please wait...`, 'warning', 3000);
+      return;
+    }
+
+    console.log('[CodeExecution] Starting code execution (submit)');
+    const localUser = collaborationManagerRef.current?.getLocalUser();
+
+    // Broadcast execution start
+    if (isConnected && collaborationManagerRef.current) {
+      setExecutionLock({
+        clientId: localUser?.clientId ?? 0,
+        userName: localUser?.name ?? 'You'
+      });
+      collaborationManagerRef.current.sendMessage('code-execution-start', {
+        action: 'submit',
+      });
+    }
 
     setIsRunning(true);
     setExecutionError(null);
@@ -416,11 +529,33 @@ function CollaborativeCodingPage() {
         setTestResults([]);
         setExecutionError(`Status: ${resp.status}`);
       }
+
+      // Broadcast results
+      if (isConnected && collaborationManagerRef.current) {
+        collaborationManagerRef.current.sendMessage('code-execution-result', {
+          action: 'submit',
+          success: true,
+          status: resp.status,
+          passed_test_cases: resp.passed_test_cases,
+          total_test_cases: resp.total_test_cases,
+        });
+      }
     } catch (err) {
-      setExecutionError(err instanceof Error ? err.message : 'Failed to submit code');
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit code';
+      setExecutionError(errorMessage);
       setTestResults([]);
+
+      // Broadcast error
+      if (isConnected && collaborationManagerRef.current) {
+        collaborationManagerRef.current.sendMessage('code-execution-result', {
+          action: 'submit',
+          success: false,
+          error: errorMessage,
+        });
+      }
     } finally {
       setIsRunning(false);
+      setExecutionLock(null);
     }
   };
 
@@ -685,7 +820,12 @@ function CollaborativeCodingPage() {
                     </div>
                   </div>
                 </div>
-                <div className='flex gap-2'>
+                <div className='flex gap-2 items-center'>
+                  {executionLock && executionLock.clientId !== collaborationManagerRef.current?.getLocalUser().clientId && (
+                    <span className='text-xs text-yellow-400 animate-pulse'>
+                      {executionLock.userName} is running code...
+                    </span>
+                  )}
                   <button
                     onClick={handleRunCode}
                     disabled={isRunning || !question}
