@@ -1,62 +1,41 @@
-# ---------- deps (install only, for caching) ----------
-FROM node:20-alpine AS deps
-WORKDIR /app
+# ---- Node 22 on Alpine Linux ----
+FROM node:22-alpine AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl
+# ---- builder: prune for collab-service ----
+FROM base AS builder
+RUN apk update && apk add --no-cache libc6-compat
+WORKDIR /app
+COPY . .
+# 👇 just change the scope
+RUN npx turbo prune --scope=collab-service --docker
 
-# 1) Copy root manifests + lockfile FIRST
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+# ---- installer: install deps for pruned repo ----
+FROM base AS installer
+RUN apk update && apk add --no-cache libc6-compat
+WORKDIR /app
 
-# 2) Copy only package.json files for all workspaces (better cache)
-COPY packages/*/package.json packages/
-COPY apps/*/package.json apps/
-
-# 3) Install using the lockfile
+# 1) install from pruned json
+COPY --from=builder /app/out/json/ .
 RUN pnpm install --frozen-lockfile
 
+# 2) now copy the actual source
+COPY --from=builder /app/out/full/ .
 
-# ---------- build (real build happens here) ----------
-FROM node:20-alpine AS build
+# 3) build only collab-service
+# this will now find prisma because we just installed deps in this stage
+RUN npx turbo build --filter=collab-service
+
+# ---- runner ----
+FROM base AS runner
 WORKDIR /app
-RUN corepack enable
 
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 collab-service
+USER collab-service
 
-# 1) Bring over node_modules from deps
-COPY --from=deps /app/node_modules ./node_modules
-COPY --from=deps /app/pnpm-workspace.yaml ./
-COPY --from=deps /app/package.json ./
-COPY --from=deps /app/pnpm-lock.yaml ./
-
-# 2) Now copy the entire repo (so we finally have prisma/schema.prisma etc.)
-COPY . .
-
-# 3) IMPORTANT: generate Prisma client **after** source is present
-RUN pnpm --filter collab-service prisma generate
-
-# 4) (Optional but common) run tests / typecheck here
-# RUN pnpm --filter collab-service test
-
-# 5) Build the service
-RUN pnpm --filter collab-service build
-
-
-# ---------- production ----------
-FROM node:20-alpine AS prod
-WORKDIR /app
-ENV NODE_ENV=production
-RUN corepack enable
-
-# Install OpenSSL for Prisma runtime
-RUN apk add --no-cache openssl
-
-# Copy everything from build stage (includes dist + node_modules + generated Prisma client)
-COPY --from=build /app ./
-
-# Expose port
-EXPOSE 3003
+COPY --from=installer /app .
 
 CMD ["node", "apps/collab-service/dist/index.js"]
