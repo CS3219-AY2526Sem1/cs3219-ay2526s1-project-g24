@@ -3,7 +3,7 @@ name: Deploy to EKS
 on:
   workflow_dispatch: {}
   workflow_run:
-    workflows: ["Build and Push to GHCR"]
+    workflows: ["Push Images to GHCR (manual)"]
     types:
       - completed
 
@@ -11,9 +11,13 @@ permissions:
   id-token: write
   contents: read
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.workflow_run?.head_sha || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -27,7 +31,9 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/cs3219-eks-gha-deployer
+          role-session-name: gha-${{ github.run_id }}
           aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+          audience: sts.amazonaws.com
 
       - name: Setup kubectl
         run: |
