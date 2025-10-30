@@ -1,0 +1,75 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: code-execution-service
+  namespace: cs3219
+  labels:
+    app: code-execution-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: code-execution-service
+  template:
+    metadata:
+      labels:
+        app: code-execution-service
+    spec:
+      containers:
+      - name: code-execution-service
+        image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-code-execution-service:latest
+        ports:
+        - containerPort: 3010
+          name: http
+        env:
+        # Optional overrides via ConfigMap/Secrets; falls back to app defaults if missing
+        - name: JUDGE0_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: JUDGE0_URL
+              optional: true
+        - name: JUDGE0_AUTH_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: judge0-auth-token
+              optional: true
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 3010
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 3010
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: code-execution-service
+  namespace: cs3219
+  labels:
+    app: code-execution-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 3010
+    targetPort: 3010
+    protocol: TCP
+    name: http
+  selector:
+    app: code-execution-service

@@ -1,0 +1,16 @@
+# Ignore any files with actual secrets
+secrets-production.yaml
+secrets-*.yaml
+!secrets.yaml
+
+# Ignore local kustomize overlays with real values
+overlays/*/secrets.yaml
+
+# Ignore any backup files
+*.bak
+*.backup
+
+# Ignore temporary files
+*.tmp
+*.swp
+*~

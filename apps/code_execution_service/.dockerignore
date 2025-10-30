@@ -1,0 +1,41 @@
+# Python environments and caches
+.venv
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.mypy_cache
+.pytest_cache
+.ruff_cache
+
+# Tests and coverage
+/tests
+/__tests__
+coverage
+.coverage
+
+# Editors/OS
+.vscode
+.idea
+.DS_Store
+
+# Logs and temp
+*.log
+logs
+/tmp
+/temp
+
+# VCS
+.git
+.gitignore
+.gitattributes
+
+# Docker
+Dockerfile*
+dockerfile*
+.dockerignore
+
+# Misc
+*.swp
+*.swo
+*~

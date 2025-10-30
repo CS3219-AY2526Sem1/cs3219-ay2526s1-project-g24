@@ -1,0 +1,78 @@
+// PeerPrep User and RBAC Schema (Verified against requirements)
+
+Table users as U {
+  id uuid [pk, default: `uuid_generate_v4()`, note: 'Primary unique identifier for the user.']
+  username text [unique, note: 'This will be displayed, can be updated by user, but must be unique']
+  display_name text [note: 'Public display name, can be updated by the user.']
+  email text [unique, not null, note: "User's unique email address."]
+  avatar_url text [note: 'URL to the user-uploaded profile photo.']
+  google_id text [unique, note: 'Immutable ID from Google SSO for reliable authentication.']
+  description text [note: 'User profile description, max 1000 chars (enforced by app).']
+  programming_proficiency proficiency_level [note: 'User-defined skill level.']
+  preferred_language programming_language [note: 'User preferred programming language.']  
+  created_at timestamp [not null, default: `now()`]
+  updated_at timestamp [not null, default: `now()`]
+}
+
+enum proficiency_level {
+  beginner
+  intermediate
+  advanced
+}
+  
+enum programming_language {
+  cpp
+  java
+  python
+  javascript
+}
+
+// -- RBAC TABLES --
+
+// Step 1: List all possible roles
+Table roles as R {
+  id serial [pk]
+  name text [unique, not null, note: 'e.g., user, admin, moderator']
+}
+
+// Step 2: List all possible granular actions (permissions)
+Table permissions as P {
+  id serial [pk]
+  name text [unique, not null, note: 'e.g., questions:create, questions:delete']
+}
+
+// Step 3: Link users to roles (Many-to-Many)
+Table user_roles as UR {
+  user_id uuid [ref: > U.id, not null]
+  role_id integer [ref: > R.id, not null]
+  
+  indexes {
+    (user_id, role_id) [pk]
+  }
+}
+
+// Step 4: Link roles to permissions (Many-to-Many)
+// This is where you define what a role can DO.
+Table role_permissions as RP {
+  role_id integer [ref: > R.id, not null]
+  permission_id integer [ref: > P.id, not null]
+  
+  indexes {
+    (role_id, permission_id) [pk]
+  }
+}
+
+// -- REFRESH TOKEN TABLES --
+
+Table refresh_token_families as RTF {
+  id uuid [pk, default: `uuid_generate_v4()`, note: 'Primary key for the token family.']
+  user_id uuid [ref: > U.id, not null]
+  is_revoked boolean [not null, default: false, note: 'Set to true to revoke the entire token family.']
+}
+
+Table refresh_tokens as RT {
+  id text [pk, note: 'The JTI (JWT ID) of the refresh token.']
+  family_id uuid [ref: > RTF.id, not null]
+  is_used boolean [not null, default: false, note: 'Set to true after the token has been used once.']
+  created_at timestamp [not null, default: `now()`]
+}

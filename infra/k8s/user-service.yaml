@@ -1,0 +1,144 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: cs3219
+  labels:
+    app: user-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      initContainers:
+      # Init container to run migrations and seed
+      - name: migration
+        image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-user-service:latest
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: user-db-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: user-db-password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: user-db-name
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@user-db:5432/$(POSTGRES_DB)"
+        - name: USERDB_DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@user-db:5432/$(POSTGRES_DB)"
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo '🔄 Waiting for database...'
+          sleep 10
+          echo '📝 Running migrations...'
+          npx prisma migrate deploy
+          echo '🌱 Seeding database...'
+          npx ts-node src/seed.ts
+          echo '✅ Setup complete'
+        workingDir: /app/apps/user_service
+      containers:
+      - name: user-service
+        image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-user-service:latest
+        ports:
+        - containerPort: 8000
+          name: http
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: user-db-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: user-db-password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: user-db-name
+        - name: DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@user-db:5432/$(POSTGRES_DB)"
+        - name: USERDB_DATABASE_URL
+          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@user-db:5432/$(POSTGRES_DB)"
+        - name: JWT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: jwt-secret
+        - name: GOOGLE_CLIENT_ID
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: google-client-id
+        - name: GOOGLE_CLIENT_SECRET
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: google-client-secret
+        - name: GOOGLE_CALLBACK_URL
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: google-callback-url
+        - name: NODE_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: USER_SERVICE_ENV
+        - name: PORT
+          value: "8000"
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 30
+          periodSeconds: 10
+          timeoutSeconds: 5
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8000
+          initialDelaySeconds: 10
+          periodSeconds: 5
+          timeoutSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: cs3219
+  labels:
+    app: user-service
+spec:
+  type: ClusterIP
+  ports:
+  - port: 8000
+    targetPort: 8000
+    protocol: TCP
+    name: http
+  selector:
+    app: user-service

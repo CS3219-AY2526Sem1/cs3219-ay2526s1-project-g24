@@ -1,0 +1,277 @@
+services:
+  web:
+    container_name: web
+    build:
+      context: .
+      dockerfile: ./apps/web/Dockerfile
+    restart: always
+    ports:
+      - 3000:3000
+    networks:
+      - app_network
+
+  api:
+    container_name: api
+    build:
+      context: .
+      dockerfile: ./apps/api/Dockerfile
+    restart: always
+    ports:
+      - 3001:3001
+    networks:
+      - app_network
+
+  question-db:
+    container_name: question-db
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: questionuser
+      POSTGRES_PASSWORD: ${QUESTION_DB_PASSWORD:-questionpass123}
+      POSTGRES_DB: questiondb
+    ports:
+      - "5434:5432"
+    volumes:
+      - question_db_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U questionuser -d questiondb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  question-service:
+    container_name: question-service
+    build:
+      context: ./apps/question_service
+      dockerfile: dockerfile
+    restart: always
+    ports:
+      - "8000:80"
+    environment:
+      DATABASE_URL: postgresql://questionuser:${QUESTION_DB_PASSWORD:-questionpass123}@question-db:5432/questiondb
+      ENV: development
+      USER_SERVICE_URL: http://user-service:8000
+      CODE_EXECUTOR_URL: http://code-execution:8003
+    depends_on:
+      question-db:
+        condition: service_healthy
+    networks:
+      - app_network
+    command: >
+      sh -c "
+        echo '🔄 Waiting for database...' &&
+        sleep 2 &&
+        echo '📦 Running migrations...' &&
+        /app/.venv/bin/alembic upgrade head &&
+        echo '🌱 Seeding database...' &&
+        /app/.venv/bin/python -c 'from seed_db import seed_database; from app.questions.models import Topic; from app.core.database import SessionLocal; db = SessionLocal(); existing = db.query(Topic).count(); db.close(); seed_database() if existing == 0 else print(\"✅ Database already seeded\")' &&
+        echo '🚀 Starting FastAPI server...' &&
+        /app/.venv/bin/fastapi run app/main.py --port 80 --host 0.0.0.0"
+
+  user-db:
+    container_name: user-db
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: ${USER_DB_PASSWORD:-password123}
+      POSTGRES_DB: userdb
+    ports:
+        - "5433:5432"
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U user -d userdb"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  user-service:
+    container_name: user-service
+    build:
+      context: .
+      dockerfile: ./apps/user_service/Dockerfile
+    restart: always
+    ports:
+      - "8001:8000"
+    env_file:
+      - ./apps/user_service/.env
+    environment:
+      USERDB_DATABASE_URL: postgresql://user:${USER_DB_PASSWORD:-password123}@user-db:5432/userdb
+      LOG_LEVEL: info
+    depends_on:
+      user-db:
+        condition: service_healthy
+    networks:
+      - app_network
+    command: >
+      sh -c "
+        echo '🔄 Waiting for user database...' &&
+        sleep 5 &&
+        echo '📝 Running migrations...' &&
+        pnpm --filter user_service db:migrate &&
+        echo '🌱 Seeding user database...' &&
+        pnpm --filter user_service db:seed &&
+        echo '🚀 Starting user service...' &&
+        pnpm --filter user_service start"
+
+
+  # Redis for matching service
+  matching_redis:
+    container_name: matching_redis
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - matching_redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app_network
+
+  # Matching service
+  matching_service:
+    container_name: matching_service
+    build:
+      context: .
+      dockerfile: ./apps/matching-service/Dockerfile
+    restart: always
+    ports:
+      - "3002:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      REDIS_HOST: matching_redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      COLLABORATION_SERVICE_URL: http://collaboration_service:4000
+      MATCH_TIMEOUT_SECONDS: 30
+      REQUEST_TTL_SECONDS: 60
+      LOG_LEVEL: info
+      AUTH_JWKS_URI: http://user-service:8000/.well-known/jwks.json
+      # CORS configuration - allow web service and localhost for development
+      CORS_ORIGIN: http://web:3000,http://localhost:3000
+    depends_on:
+      matching_redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - app_network
+
+# Define volumes for persistent data
+  code-execution-service:
+    container_name: code-execution-service
+    build:
+      context: ./apps/code_execution_service
+      dockerfile: Dockerfile
+    restart: always
+    ports:
+      - "3010:3010"
+    environment:
+      JUDGE0_URL: http://judgezero-server:2358
+      JUDGE0_AUTH_TOKEN: ${JUDGE0_AUTH_TOKEN:-}
+      DEFAULT_TIME_LIMIT: 5.0
+      DEFAULT_MEMORY_LIMIT: 128000
+      PORT: 3010
+      # CORS configuration - allow web service and localhost for development
+      CORS_ORIGINS: http://web:3000,http://localhost:3000
+    depends_on:
+      - judgezero-server
+      - judgezero-workers
+    networks:
+      - app_network
+
+  judgezero-server:
+    container_name: judgezero-server
+    image: judge0/judge0:1.13.1
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    networks:
+      - app_network
+    privileged: true
+    restart: always
+    depends_on:
+      judgezero-db:
+        condition: service_healthy
+      judgezero-redis:
+        condition: service_healthy
+
+  judgezero-workers:
+    container_name: judgezero-workers
+    image: judge0/judge0:1.13.1
+    command: ["./scripts/workers"]
+    volumes:
+      - ./judge0.conf:/judge0.conf:ro
+    networks:
+      - app_network
+    privileged: true
+    restart: always
+    depends_on:
+      judgezero-db:
+        condition: service_healthy
+      judgezero-redis:
+        condition: service_healthy
+
+  judgezero-db:
+    container_name: judgezero-db
+    image: postgres:16.2
+    environment:
+      POSTGRES_USER: judge0
+      POSTGRES_PASSWORD: ${JUDGE0_DB_PASSWORD:-YourPasswordHere}
+      POSTGRES_DB: judge0
+    volumes:
+      - judgezero_db_data:/var/lib/postgresql/data/
+    networks:
+      - app_network
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U judge0"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+
+  judgezero-redis:
+    container_name: judgezero-redis
+    image: redis:7.2.4
+    command: [
+      "bash", "-c",
+      'docker-entrypoint.sh --appendonly no --requirepass "$$REDIS_PASSWORD"'
+    ]
+    environment:
+      REDIS_PASSWORD: ${JUDGE0_REDIS_PASSWORD:-YourPasswordHere}
+    networks:
+      - app_network
+    restart: always
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  question_db_data:
+    driver: local
+  user_db_data:
+    driver: local
+  matching_redis_data:
+    driver: local
+  judgezero_db_data:
+    driver: local
+
+networks:
+  app_network:
+    driver: bridge

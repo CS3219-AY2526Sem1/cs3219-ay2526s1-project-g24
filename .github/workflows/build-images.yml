@@ -1,0 +1,134 @@
+name: Build Images (no push)
+
+on:
+  pull_request:
+    branches: ["master", "main", "dev"]
+  push:
+    branches: ["master", "main"]
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set lowercase repository owner
+        id: repo
+        run: echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build web (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/web/Dockerfile
+          push: false
+          load: false
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-web:${{ github.sha }}
+
+      - name: Build api (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/api/Dockerfile
+          push: false
+          load: false
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-api:${{ github.sha }}
+
+      - name: Build question-service (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./apps/question_service
+          file: ./apps/question_service/dockerfile
+          push: false
+          load: false
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-question-service:${{ github.sha }}
+
+      - name: Build user-service (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/user_service/Dockerfile
+          push: false
+          load: false
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-user-service:${{ github.sha }}
+
+      - name: Build matching-service (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/matching-service/Dockerfile
+          push: false
+          load: false
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-matching-service:${{ github.sha }}
+
+      - name: Build collab-service (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./apps/collab-service/Dockerfile
+          push: false
+          load: false
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-collab-service:${{ github.sha }}
+
+      - name: Build code-execution-service (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: ./apps/code_execution_service
+          file: ./apps/code_execution_service/Dockerfile
+          push: false
+          load: false
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-code-execution-service:${{ github.sha }}
+
+      - name: Output image tags (for logs)
+        run: |
+          echo "WEB=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-web:${GITHUB_SHA}"
+          echo "API=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-api:${GITHUB_SHA}"
+          echo "QUESTION=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-question-service:${GITHUB_SHA}"
+          echo "USER=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-user-service:${GITHUB_SHA}"
+          echo "MATCHING=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-matching-service:${GITHUB_SHA}"
+          echo "COLLAB=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-collab-service:${GITHUB_SHA}"
+          echo "CODE_EXEC=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-code-execution-service:${GITHUB_SHA}"

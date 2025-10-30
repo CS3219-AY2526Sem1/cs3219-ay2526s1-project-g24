@@ -1,0 +1,666 @@
+openapi: 3.1.0
+info:
+  title: PeerPrep Matching Service API
+  version: 1.0.0
+  description: |
+    Matching service for pairing users based on difficulty, topics, and programming languages.
+
+    ## Features
+    - Creates match requests that persist until matched or cancelled
+    - Real-time updates via Server-Sent Events (SSE)
+    - Automatic matching based on compatibility criteria
+    - Auto-cancellation when SSE connection is closed (user disconnects)
+    - Observable with Prometheus metrics
+
+    ## Matching Criteria
+    Users are compatible if:
+    - Same difficulty level
+    - At least one overlapping topic
+    - At least one overlapping programming language
+
+    ## Important Behavior
+    - **Configurable timeout**: Requests timeout after `MATCH_TIMEOUT_SECONDS` (default: 30s) if not matched
+    - **Timeout implementation**: Uses Redis sorted set with periodic scanning for accurate, reliable timeout detection
+    - **Auto-cancel on disconnect**: Closing the SSE connection cancels the request
+    - **Active connection required**: Users must maintain SSE connection to stay in queue
+    
+    ## Authentication
+    - Every matching endpoint requires a valid RS256 JWT supplied via `Authorization: Bearer <token>` or an `access_token` cookie
+    
+  ## Timeout Mechanism
+  The service uses a Redis sorted set with **atomic popping** for timeouts:
+  - Requests tracked with deadline timestamps in a single `match:timeouts` sorted set
+  - Timeout worker pops expired items in one atomic operation every ~5 seconds to avoid duplicate handling
+  - Provides accurate timeout metrics without relying on keyspace notifications
+  - Works consistently across managed Redis deployments and replicas
+  contact:
+    name: PeerPrep Team
+    email: support@peerprep.example.com
+  license:
+    name: MIT
+
+servers:
+  - url: http://localhost:3000
+    description: Local development
+  - url: https://api.peerprep.example.com/matching
+    description: Production
+
+tags:
+  - name: Matching
+    description: Match request operations
+  - name: Monitoring
+    description: Health checks and metrics
+
+paths:
+  /api/v1/match/requests:
+    post:
+      tags:
+        - Matching
+      summary: Create a new match request
+      description: |
+        Creates a new match request and begins searching for a compatible partner.
+        The request will remain in queue until matched or until the SSE connection is closed.
+
+  **Important:** You must open an SSE connection at `/api/v1/match/requests/{reqId}/events` 
+        and keep it open. Closing the SSE connection will automatically cancel the match request.
+
+  Use Server-Sent Events at `/api/v1/match/requests/{reqId}/events` to receive real-time updates.
+      operationId: createMatchRequest
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMatchRequest"
+            examples:
+              pythonEasy:
+                summary: Python beginner looking for arrays practice
+                value:
+                  userId: "user-123"
+                  difficulty: "easy"
+                  topics: ["arrays", "strings"]
+                  languages: ["python", "javascript"]
+              javaHard:
+                summary: Java expert looking for algorithm practice
+                value:
+                  userId: "user-456"
+                  difficulty: "hard"
+                  topics: ["dynamic-programming", "graphs"]
+                  languages: ["java", "cpp"]
+      responses:
+        "201":
+          description: Match request created successfully
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateMatchResponse"
+              examples:
+                success:
+                  value:
+                    reqId: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
+        "400":
+          $ref: "#/components/responses/BadRequest"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "409":
+          description: User already has an active match request
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                  - reqId
+                properties:
+                  error:
+                    type: string
+                    example: "User already has an active match request"
+                  reqId:
+                    type: string
+                    format: uuid
+                    description: Existing active request identifier
+              examples:
+                conflict:
+                  value:
+                    error: "User already has an active match request"
+                    reqId: "a9a8f1f9-e53c-4b47-8b8f-cc6ed2190d55"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/match/requests/{reqId}:
+    get:
+      tags:
+        - Matching
+      summary: Get match request status
+      description: Retrieves the current status and details of a match request
+      operationId: getMatchRequest
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: Match request details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MatchRequest"
+              examples:
+                queued:
+                  summary: Request still searching
+                  value:
+                    reqId: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
+                    userId: "user-123"
+                    difficulty: "easy"
+                    topics: ["arrays", "strings"]
+                    languages: ["python", "javascript"]
+                    status: "queued"
+                    createdAt: 1697040000000
+                matched:
+                  summary: Successfully matched
+                  value:
+                    reqId: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
+                    userId: "user-123"
+                    difficulty: "easy"
+                    topics: ["arrays", "strings"]
+                    languages: ["python", "javascript"]
+                    status: "matched"
+                    createdAt: 1697040000000
+                    sessionId: "session_xyz789"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+    delete:
+      tags:
+        - Matching
+      summary: Cancel a match request
+      description: |
+        Cancels an active match request. Only works if the request is still in "queued" status.
+        Returns 409 with session details if the request was already matched.
+
+        **Note:** Closing the SSE connection also automatically cancels the request, 
+        so explicit cancellation is optional.
+      operationId: cancelMatchRequest
+      security:
+        - bearerAuth: []
+        - cookieAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: Match request cancelled successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - success
+                properties:
+                  success:
+                    type: boolean
+                    example: true
+                  message:
+                    type: string
+                    example: "Request already cancelled"
+        "409":
+          description: Request already matched; join existing collaboration session instead
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - error
+                  - sessionId
+                properties:
+                  error:
+                    type: string
+                    example: "Request already matched"
+                  sessionId:
+                    type: string
+                    description: Collaboration session the user should join
+                    format: uuid
+                    example: "b4e0b981-2fd1-4d9f-86bb-6dfe0e31ac84"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v1/match/requests/{reqId}/events:
+    get:
+      tags:
+        - Matching
+      summary: Subscribe to real-time match updates (SSE)
+      description: |
+        Server-Sent Events stream providing real-time updates for a match request.
+
+        **Critical:** Keeping this SSE connection open is required to stay in the matching queue.
+        When the connection is closed (e.g., user closes tab), the match request is automatically cancelled.
+
+  Browsers should instantiate the SSE client with `withCredentials: true` so the `access_token` cookie is sent with every reconnect; non-browser clients can instead provide a bearer token.
+
+        ## Event Format
+        Events are sent as JSON in the `data` field with the following structure:
+        - `status`: Current request status ("queued", "matched", "cancelled")
+        - `timestamp`: Event timestamp in milliseconds
+        - `elapsed`: Seconds elapsed since request creation (for queued status)
+        - `sessionId`: Collaboration session ID (only when matched)
+
+        ## Usage Example
+        ```javascript
+  const eventSource = new EventSource(`/api/v1/match/requests/${reqId}/events`, {
+          withCredentials: true,
+        });
+
+        eventSource.onmessage = (event) => {
+          const data = JSON.parse(event.data);
+          
+          if (data.status === 'queued') {
+            console.log(`Waiting... ${data.elapsed}s`);
+          } else if (data.status === 'matched') {
+            console.log('Matched! Session:', data.sessionId);
+            window.location.href = `/session/${data.sessionId}`;
+          } else if (data.status === 'cancelled') {
+            console.log('Request cancelled');
+          }
+        };
+
+        // Closing this connection cancels the request
+        // eventSource.close();
+        ```
+      operationId: subscribeToMatchEvents
+      security:
+        - cookieAuth: []
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/RequestId"
+      responses:
+        "200":
+          description: SSE stream established
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                format: binary
+              examples:
+                queuedEvent:
+                  summary: Queued status update (sent every second)
+                  value: |
+                    data: {"status":"queued","timestamp":1697385601000,"elapsed":5}
+
+                matchedEvent:
+                  summary: Matched status event
+                  value: |
+                    data: {"status":"matched","timestamp":1697385645000,"sessionId":"session_xyz789"}
+
+                cancelledEvent:
+                  summary: Cancelled status event
+                  value: |
+                    data: {"status":"cancelled","timestamp":1697385650000}
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          description: Duplicate SSE connection detected; request remains active via existing stream
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                format: binary
+              examples:
+                duplicateConnection:
+                  value: |
+                    event: error
+                    data: {"error":"Another SSE connection already exists for this request"}
+
+  /health:
+    get:
+      tags:
+        - Monitoring
+      summary: Health check endpoint
+      description: Returns 200 if service is running
+      operationId: healthCheck
+      responses:
+        "200":
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ok]
+              example:
+                status: ok
+
+  /-/ready:
+    get:
+      tags:
+        - Monitoring
+      summary: Readiness check endpoint
+      description: Returns 200 if service is ready to accept traffic (Redis connected)
+      operationId: readinessCheck
+      responses:
+        "200":
+          description: Service is ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [ready]
+                  redis:
+                    type: string
+                    enum: [connected]
+              example:
+                status: ready
+                redis: connected
+        "503":
+          description: Service not ready
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    enum: [not_ready]
+                  redis:
+                    type: string
+              example:
+                status: not_ready
+                redis: "disconnected"
+
+  /-/metrics:
+    get:
+      tags:
+        - Monitoring
+      summary: Prometheus metrics endpoint
+      description: |
+        Exposes Prometheus metrics for monitoring.
+
+        ## Key Metrics
+        - `match_queue_length` - Number of requests in queue by difficulty
+        - `match_latency_seconds` - Time from queue to match
+        - `matches_total` - Total successful matches
+        - `match_cancellations_total` - Total cancellations
+        - `sse_connections` - Active SSE connections
+        - `redis_operation_duration_seconds` - Redis latency
+      operationId: getMetrics
+      responses:
+        "200":
+          description: Prometheus metrics in text format
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: |
+                # HELP match_queue_length Number of requests in queue by difficulty
+                # TYPE match_queue_length gauge
+                match_queue_length{difficulty="easy"} 3
+                match_queue_length{difficulty="medium"} 1
+                match_queue_length{difficulty="hard"} 0
+
+                # HELP matches_total Total successful matches
+                # TYPE matches_total counter
+                matches_total{difficulty="easy"} 42
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: RS256 access token issued by the user service
+    cookieAuth:
+      type: apiKey
+      in: cookie
+      name: access_token
+      description: Session cookie carrying the RS256 JWT
+  parameters:
+    RequestId:
+      name: reqId
+      in: path
+      required: true
+      description: Unique identifier for the match request
+      schema:
+        type: string
+        format: uuid
+        example: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
+
+  schemas:
+    Difficulty:
+      type: string
+      enum:
+        - easy
+        - medium
+        - hard
+      description: Problem difficulty level
+      example: easy
+
+    RequestStatus:
+      type: string
+      enum:
+        - queued
+        - matched
+        - cancelled
+        - timeout
+      description: |
+        Current status of the match request:
+        - `queued`: Searching for a match (SSE connection active)
+        - `matched`: Successfully paired with another user
+        - `cancelled`: User cancelled or disconnected
+        - `timeout`: Request timed out (no match within configured timeout)
+
+    CreateMatchRequest:
+      type: object
+      required:
+        - userId
+        - difficulty
+        - topics
+        - languages
+      properties:
+        userId:
+          type: string
+          description: Unique identifier for the user
+          minLength: 1
+          maxLength: 100
+          example: "user-123"
+        difficulty:
+          $ref: "#/components/schemas/Difficulty"
+        topics:
+          type: array
+          description: List of programming topics/problem categories
+          minItems: 1
+          maxItems: 10
+          items:
+            type: string
+            minLength: 1
+            maxLength: 50
+          example: ["arrays", "strings", "hashmaps"]
+        languages:
+          type: array
+          description: Preferred programming languages
+          minItems: 1
+          maxItems: 10
+          items:
+            type: string
+            minLength: 1
+            maxLength: 20
+          example: ["python", "javascript", "java"]
+
+    CreateMatchResponse:
+      type: object
+      required:
+        - reqId
+      properties:
+        reqId:
+          type: string
+          description: Unique identifier for the created match request
+            format: uuid
+            example: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
+
+    MatchRequest:
+      type: object
+      required:
+        - reqId
+        - userId
+        - difficulty
+        - topics
+        - languages
+        - status
+        - createdAt
+      properties:
+        reqId:
+          type: string
+          description: Unique identifier for the match request
+            format: uuid
+            example: "3f65a0de-9e7b-4f54-bc96-4f3b60d4701b"
+        userId:
+          type: string
+          description: User who created the request
+          example: "user-123"
+        difficulty:
+          $ref: "#/components/schemas/Difficulty"
+        topics:
+          type: array
+          items:
+            type: string
+          example: ["arrays", "strings"]
+        languages:
+          type: array
+          items:
+            type: string
+          example: ["python", "javascript"]
+        status:
+          $ref: "#/components/schemas/RequestStatus"
+        createdAt:
+          type: integer
+          format: int64
+          description: Unix timestamp (milliseconds)
+          example: 1697040000000
+        sessionId:
+          type: string
+          description: Collaboration session ID (only present when status is "matched")
+          example: "session_xyz789"
+
+    StatusEvent:
+      type: object
+      required:
+        - status
+      properties:
+        status:
+          $ref: "#/components/schemas/RequestStatus"
+        sessionId:
+          type: string
+          description: Present only when status is "matched"
+          example: "session_xyz789"
+
+    SSEEvent:
+      type: object
+      description: |
+        Server-Sent Event data format. Events are sent as JSON in the `data` field.
+        The service sends periodic updates (every 1 second) for queued requests.
+      required:
+        - status
+        - timestamp
+      properties:
+        status:
+          $ref: "#/components/schemas/RequestStatus"
+        timestamp:
+          type: integer
+          format: int64
+          description: Event timestamp in milliseconds since epoch
+          example: 1697385601000
+        elapsed:
+          type: integer
+          description: Seconds elapsed since request creation (only for queued status)
+          example: 5
+        sessionId:
+          type: string
+          description: Collaboration session ID (only for matched status)
+          example: "session_xyz789"
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Human-readable error message
+          example: "Invalid request body"
+        code:
+          type: string
+          description: Machine-readable error code
+          example: "VALIDATION_ERROR"
+        details:
+          type: object
+          description: Additional error context
+          additionalProperties: true
+
+  responses:
+    BadRequest:
+      description: Invalid request parameters
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            validationError:
+              value:
+                error: "Validation failed: topics must have at least 1 item"
+                code: "VALIDATION_ERROR"
+            missingField:
+              value:
+                error: "Missing required field: userId"
+                code: "MISSING_FIELD"
+
+    Unauthorized:
+      description: Authentication required or token invalid
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            missingToken:
+              value:
+                error: "Unauthorized"
+                code: "UNAUTHORIZED"
+
+    NotFound:
+      description: Resource not found
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            requestNotFound:
+              value:
+                error: "Match request not found"
+                code: "NOT_FOUND"
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+          examples:
+            serverError:
+              value:
+                error: "Internal server error"
+                code: "INTERNAL_ERROR"

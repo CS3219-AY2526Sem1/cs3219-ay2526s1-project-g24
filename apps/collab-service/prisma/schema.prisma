@@ -1,0 +1,64 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id             String        @id @default(uuid())
+  sessionId      String        @unique
+  
+  // Users
+  user1Id        String
+  user2Id        String
+  
+  // Question context
+  questionId     String
+  difficulty     String
+  topic          String
+  language       String        @default("python")
+  
+  // Session state
+  status         SessionStatus @default(ACTIVE)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  lastActivityAt DateTime      @default(now())
+  terminatedAt   DateTime?
+  
+  // Snapshots for recovery
+  snapshots      Snapshot[]
+  
+  @@index([user1Id])
+  @@index([user2Id])
+  @@index([status])
+  @@index([lastActivityAt])
+  @@map("sessions")
+}
+
+enum SessionStatus {
+  ACTIVE
+  TERMINATED
+  EXPIRED
+}
+
+model Snapshot {
+  id        String   @id @default(uuid())
+  sessionId String
+  session   Session  @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  // Yjs document state
+  yjsState  Bytes    // Encoded Y.Doc state
+  version   Int      @default(1)
+  
+  createdAt DateTime @default(now())
+  
+  @@index([sessionId])
+  @@index([createdAt])
+  @@map("snapshots")
+}
