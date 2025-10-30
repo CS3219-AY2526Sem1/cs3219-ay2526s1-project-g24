@@ -35,4 +35,48 @@ export const ALL_PROFICIENCY_LEVELS: ProficiencyLevel[] = [
     ProficiencyLevel.BEGINNER,
     ProficiencyLevel.INTERMEDIATE,
     ProficiencyLevel.ADVANCED,
-]
+];
+
+export const DIFFICULTY_OPTIONS = [
+    {
+        level: ProficiencyLevel.BEGINNER,
+        tag: 'EASY',
+        description: 'Perfect for getting started with fundamentals',
+        display: 'Beginner\nLevel',
+    },
+    {
+        level: ProficiencyLevel.INTERMEDIATE,
+        tag: 'MEDIUM',
+        description: 'Build deeper understanding and skills',
+        display: 'Intermediate\nLevel',
+    },
+    {
+        level: ProficiencyLevel.ADVANCED,
+        tag: 'HARD',
+        description: 'Master the most challenging problems',
+        display: 'Expert\nLevel',
+    },
+] as const;
+
+export const LANGUAGE_OPTIONS = [
+    {
+        name: ProgrammingLanguage.CPP,
+        display: 'C++',
+        icon: '/c-.png',
+    },
+    {
+        name: ProgrammingLanguage.JAVA,
+        display: 'Java',
+        icon: '/java.png',
+    },
+    {
+        name: ProgrammingLanguage.PYTHON,
+        display: 'Python',
+        icon: '/python.png',
+    },
+    {
+        name: ProgrammingLanguage.JAVASCRIPT,
+        display: 'JavaScript',
+        icon: '/js.png',
+    },
+] as const;

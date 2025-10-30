@@ -15,10 +15,10 @@ export const createServer = (): Express => {
     .get("/health", (_req, res) => {
       return res.status(200).json({ ok: true });
     })
-    .get("/message/:name", (req, res) => {
+    .get("/api/v1/message/:name", (req, res) => {
       return res.json({ message: `hello ${req.params.name}` });
     })
-    .get("/status", (_, res) => {
+    .get("/api/v1/status", (_, res) => {
       return res.json({ ok: true });
     });
 

@@ -1,4 +1,4 @@
-import express, { type Express } from 'express';
+import express, { type Express, type RequestHandler } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import cors from 'cors';
 import cookieParser from 'cookie-parser';
@@ -30,7 +30,10 @@ export const createServer = (): Express => {
   }));
 
   app.use(cookieParser());
-  app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+  // Wrap swagger-ui-express handlers to satisfy Express types across versions
+  const swaggerServe = swaggerUi.serve as unknown as RequestHandler;
+  const swaggerSetup = swaggerUi.setup(swaggerDocument) as unknown as RequestHandler;
+  app.use('/docs', swaggerServe, swaggerSetup);
   RegisterRoutes(app);
   return app;
 };

@@ -60,7 +60,7 @@ export interface CodeExecutionResponse {
  * Execute code against test cases
  */
 export async function executeCode(request: CodeExecutionRequest): Promise<CodeExecutionResponse> {
-    const response = await fetch(`${CODE_EXECUTION_SERVICE_URL}/api/execution/execute`, {
+    const response = await fetch(`${CODE_EXECUTION_SERVICE_URL}/api/v1/execution/execute`, {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',

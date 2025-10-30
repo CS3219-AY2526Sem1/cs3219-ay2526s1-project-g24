@@ -1,7 +1,7 @@
 import prisma from '../prisma';
 import type { User } from '@prisma/client';
 
-export const getUserById = async (userId: string) => {
+export const getUserById = async (userId: string): Promise<User | null> => {
   return prisma.user.findUnique({
     where: { id: userId },
     include: {
@@ -34,5 +34,21 @@ export const deleteUser = async (userId: string): Promise<User> => {
 };
 
 export const getAllUsers = async (): Promise<User[]> => {
-  return prisma.user.findMany();
+  return prisma.user.findMany({
+    include: {
+      roles: {
+        include: {
+          role: {
+            include: {
+              permissions: {
+                include: {
+                  permission: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  });
 };

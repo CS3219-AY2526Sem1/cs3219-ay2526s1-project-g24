@@ -75,9 +75,20 @@ function trackMetrics(req: Request, res: Response, next: NextFunction) {
  * GET /docs
  * Swagger UI for API documentation
  */
-router.use("/docs", swaggerUi.serve, (req: Request, res: Response, next: NextFunction) => {
-  swaggerUi.setup(getOpenapiSpec())(req, res, next);
-});
+// Mount Swagger UI with a typed RequestHandler to satisfy TS typings across versions
+const swaggerMiddleware: express.RequestHandler = (req, res, next) => {
+  return (swaggerUi.setup(getOpenapiSpec()) as unknown as express.RequestHandler)(
+    req,
+    res,
+    next,
+  );
+};
+// Casting to any to bridge @types/express v4/v5 typing incompatibilities in some environments
+router.use(
+  "/docs",
+  ...((swaggerUi.serve as unknown) as any[]),
+  (swaggerMiddleware as unknown) as any,
+);
 
 router.use(trackMetrics);
 
@@ -95,13 +106,13 @@ function ensureAuthenticated(
   return auth;
 }
 
-router.use("/v1/match", authenticate);
+router.use("/api/v1/match", authenticate);
 
 /**
  * POST /v1/match/requests
  * Create a new match request
  */
-router.post("/v1/match/requests", async (req: Request, res: Response) => {
+router.post("/api/v1/match/requests", async (req: Request, res: Response) => {
   const auth = ensureAuthenticated(req, res);
   if (!auth) return;
 
@@ -214,7 +225,7 @@ router.post("/v1/match/requests", async (req: Request, res: Response) => {
  * GET /v1/match/requests/:reqId
  * Get status of a match request
  */
-router.get("/v1/match/requests/:reqId", async (req: Request, res: Response) => {
+router.get("/api/v1/match/requests/:reqId", async (req: Request, res: Response) => {
   const auth = ensureAuthenticated(req, res);
   if (!auth) return;
 
@@ -394,7 +405,7 @@ export async function cancelMatchRequest(
  * Cancel a match request
  */
 router.delete(
-  "/v1/match/requests/:reqId",
+  "/api/v1/match/requests/:reqId",
   async (req: Request, res: Response) => {
     const auth = ensureAuthenticated(req, res);
     if (!auth) return;
@@ -429,7 +440,7 @@ router.delete(
  * GET /v1/match/requests/:reqId/events
  * Server-Sent Events endpoint for real-time updates
  */
-router.get("/v1/match/requests/:reqId/events", handleSSE);
+router.get("/api/v1/match/requests/:reqId/events", handleSSE);
 
 /**
  * GET /health
