@@ -1,19 +1,18 @@
 import type { NextFunction, Request, Response } from "express";
-import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
+import { importSPKI, jwtVerify, type JWTPayload } from "jose";
 import { AuthContext } from "../auth/types.js";
 import { logger } from "../observability/logger.js";
 
-const DEFAULT_JWKS_URI = "http://localhost:8001/.well-known/jwks.json";
+// Use RSA public key directly instead of remote JWKS to avoid network issues in K8s
+const RSA_PUBLIC_KEY = process.env.RSA_PUBLIC_KEY || "";
 
-let jwksUri = process.env.AUTH_JWKS_URI || DEFAULT_JWKS_URI;
-let jwks = createRemoteJWKSet(new URL(jwksUri));
+let publicKey: Awaited<ReturnType<typeof importSPKI>> | null = null;
 
-function refreshJwksIfNeeded() {
-  const currentUri = process.env.AUTH_JWKS_URI || DEFAULT_JWKS_URI;
-  if (currentUri !== jwksUri) {
-    jwksUri = currentUri;
-    jwks = createRemoteJWKSet(new URL(jwksUri));
+async function getPublicKey() {
+  if (!publicKey && RSA_PUBLIC_KEY) {
+    publicKey = await importSPKI(RSA_PUBLIC_KEY, "RS256");
   }
+  return publicKey;
 }
 
 type MutableRequest = Request & { auth?: AuthContext; cookies?: Record<string, string> };
@@ -69,7 +68,6 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   }
 
   try {
-    refreshJwksIfNeeded();
     const token = extractToken(req);
 
     if (!token) {
@@ -77,7 +75,13 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
       return res.status(401).json({ error: "Unauthorized" });
     }
 
-    const { payload } = await jwtVerify(token, jwks, {
+    const key = await getPublicKey();
+    if (!key) {
+      logger.error("RSA_PUBLIC_KEY not configured");
+      return res.status(500).json({ error: "Server misconfiguration" });
+    }
+
+    const { payload } = await jwtVerify(token, key, {
       algorithms: ["RS256"],
     });
 

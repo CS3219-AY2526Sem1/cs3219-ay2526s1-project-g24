@@ -130,6 +130,8 @@ spec:
               key: USER_SERVICE_ENV
         - name: PORT
           value: "8000"
+        - name: CORS_ORIGINS
+          value: "https://cs3219.leyew.dev,http://localhost:3000"
         resources:
           requests:
             memory: "256Mi"

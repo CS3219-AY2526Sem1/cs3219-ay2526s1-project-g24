@@ -18,7 +18,23 @@ export function createServer(): { app: Express; wss: WebSocketServer } {
             contentSecurityPolicy: false,
         })
     );
-    app.use(cors());
+    
+    // CORS configuration
+    const allowedOrigins = process.env.CORS_ORIGINS
+        ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
+        : ['http://localhost:3000'];
+
+    app.use(cors({
+        origin: (origin, callback) => {
+            // Allow requests with no origin (like mobile apps or curl requests)
+            if (!origin) return callback(null, true);
+            if (allowedOrigins.includes(origin)) {
+                return callback(null, true);
+            }
+            return callback(new Error('Not allowed by CORS'));
+        },
+        credentials: true,
+    }));
 
     // Body parser
     app.use(express.json());
