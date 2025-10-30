@@ -153,6 +153,7 @@ services:
       REDIS_PORT: 6379
       REDIS_PASSWORD: ''
       COLLABORATION_SERVICE_URL: http://collab-service:3003
+      QUESTION_SERVICE_URL: http://question-service:80
       MATCH_TIMEOUT_SECONDS: 30
       REQUEST_TTL_SECONDS: 60
       LOG_LEVEL: info

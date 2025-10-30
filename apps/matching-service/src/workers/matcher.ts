@@ -80,21 +80,54 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
             // If no token available, fall back to mock auth (userId as token)
             const authToken = req1.authToken || req2.authToken;
 
+            logger.info(
+                {
+                    req1Id: item1.reqId,
+                    req2Id: item2.reqId,
+                    user1: req1.userId,
+                    user2: req2.userId,
+                },
+                "🎯 Creating collaboration session for matched users",
+            );
+
+            const mergedTopics = [
+                ...new Set([...req1.topics.split(","), ...req2.topics.split(",")]),
+            ];
+            const mergedLanguages = [
+                ...new Set([
+                    ...req1.languages.split(","),
+                    ...req2.languages.split(","),
+                ]),
+            ];
+
+            logger.info(
+                {
+                    mergedTopics,
+                    mergedTopicsType: Array.isArray(mergedTopics) ? 'array' : typeof mergedTopics,
+                    mergedLanguages,
+                    difficulty,
+                },
+                "📋 Merged topics and languages for session creation",
+            );
+
             const session = await createSession(
                 {
                     difficulty,
                     userIds: [req1.userId, req2.userId],
-                    topics: [
-                        ...new Set([...req1.topics.split(","), ...req2.topics.split(",")]),
-                    ],
-                    languages: [
-                        ...new Set([
-                            ...req1.languages.split(","),
-                            ...req2.languages.split(","),
-                        ]),
-                    ],
+                    topics: mergedTopics,
+                    languages: mergedLanguages,
                 },
                 authToken, // Pass token for JWKS auth, or undefined for mock auth
+            );
+
+            logger.info(
+                {
+                    sessionId: session.sessionId,
+                    questionId: session.questionId,
+                    user1: req1.userId,
+                    user2: req2.userId,
+                },
+                "✅ Collaboration session created successfully",
             );
 
             // Update both requests as matched
@@ -114,16 +147,42 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
             await redisOps.removeTimeout(item2.reqId, difficulty);
 
             // Publish events
-            await redisOps.publishEvent(item1.reqId, {
-                status: "matched",
+            logger.info(
+                {
+                    req1Id: item1.reqId,
+                    req2Id: item2.reqId,
+                    sessionId: session.sessionId,
+                    questionId: session.questionId,
+                },
+                "📢 Publishing match events to both users",
+            );
+
+            const matchEvent = {
+                status: "matched" as const,
                 sessionId: session.sessionId,
+                ...(session.questionId && { questionId: session.questionId }),
                 timestamp: Date.now(),
-            });
-            await redisOps.publishEvent(item2.reqId, {
-                status: "matched",
-                sessionId: session.sessionId,
-                timestamp: Date.now(),
-            });
+            };
+
+            await redisOps.publishEvent(item1.reqId, matchEvent);
+            logger.info(
+                {
+                    reqId: item1.reqId,
+                    sessionId: session.sessionId,
+                    questionId: session.questionId,
+                },
+                "✉️ Event published for user 1",
+            );
+
+            await redisOps.publishEvent(item2.reqId, matchEvent);
+            logger.info(
+                {
+                    reqId: item2.reqId,
+                    sessionId: session.sessionId,
+                    questionId: session.questionId,
+                },
+                "✉️ Event published for user 2",
+            );
 
             // Record metrics
             const latency1 = (Date.now() - req1.createdAt) / 1000;

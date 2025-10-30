@@ -59,6 +59,7 @@ export interface MatchEvent {
     status: RequestStatus;
     timestamp: number;
     sessionId?: string;
+    questionId?: string; // Question ID for the matched session
     elapsed?: number; // Seconds since request creation
 }
 

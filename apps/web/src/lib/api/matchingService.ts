@@ -66,6 +66,7 @@ export interface MatchRequestStatus {
 export interface MatchEvent {
     status: MatchStatus;
     sessionId?: string;
+    questionId?: string;
     timestamp: number;
 }
 

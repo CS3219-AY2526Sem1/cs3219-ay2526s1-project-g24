@@ -27,6 +27,13 @@ import {
 function CollaborativeCodingPage() {
   const router = useRouter();
 
+  // Log initial state on page load
+  console.log("🚀 Collaborative Coding Page loaded");
+  console.log("📦 Initial sessionStorage state:", {
+    sessionId: typeof window !== 'undefined' ? sessionStorage.getItem('sessionId') : null,
+    questionId: typeof window !== 'undefined' ? sessionStorage.getItem('questionId') : null,
+  });
+
   // layout
   const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
   const [codeHeight, setCodeHeight] = useState<number>(LAYOUT_DEFAULTS.CODE_HEIGHT_PERCENT);
@@ -131,16 +138,25 @@ function CollaborativeCodingPage() {
   const connectToSession = async (autoSessionId?: string) => {
     const targetSessionId = autoSessionId || sessionInputValue.trim();
 
+    console.log("🔌 Attempting to connect to session:", {
+      autoSessionId,
+      sessionInputValue,
+      targetSessionId,
+    });
+
     if (!targetSessionId) {
+      console.warn("❌ No session ID provided");
       addToast('Please enter a session ID', 'warning');
       return;
     }
 
     if (!editorRef.current) {
+      console.warn("❌ Editor not ready");
       addToast('Editor not ready. Please try again.', 'warning');
       return;
     }
 
+    console.log("✅ Connecting to session ID:", targetSessionId);
     setSessionId(targetSessionId);
     setConnectionStatus('connecting');
 
@@ -164,13 +180,18 @@ function CollaborativeCodingPage() {
           setIsConnected(status === 'connected');
 
           if (status === 'connected') {
+            console.log("🎉 Successfully connected to session:", targetSessionId);
             addToast('Successfully connected to session', 'success', 3000);
 
             // try to get questionId from somewhere
             // 1) from sessionStorage (simple)
             const storedQid = sessionStorage.getItem('questionId');
+            console.log("📚 Checking for question ID:", storedQid);
             if (storedQid) {
+              console.log("✅ Found question ID, fetching question:", storedQid);
               await fetchAndSetQuestion(Number(storedQid), selectedLanguage);
+            } else {
+              console.warn("⚠️ No question ID found in sessionStorage");
             }
             // 2) if your collab server returns metadata, use meta.questionId here
           }
@@ -191,6 +212,8 @@ function CollaborativeCodingPage() {
     );
     if (!confirmed) return;
 
+    console.log("🔌 Disconnecting from session");
+
     if (collaborationManagerRef.current) {
       try {
         collaborationManagerRef.current.disconnect();
@@ -207,6 +230,11 @@ function CollaborativeCodingPage() {
     setConnectionStatus('disconnected');
     setConnectedUsers([]);
     setIsFromMatchFlow(false);
+
+    // Clean up session storage
+    sessionStorage.removeItem('sessionId');
+    sessionStorage.removeItem('questionId');
+    console.log("🗑️ Cleared session ID and question ID from sessionStorage");
 
     // reset editor to a local template
     if (editorRef.current) {
@@ -269,14 +297,25 @@ function CollaborativeCodingPage() {
 
   // auto-connect from match flow
   useEffect(() => {
+    console.log("🔍 Checking for stored session ID...");
     const storedSessionId = sessionStorage.getItem('sessionId');
-    if (storedSessionId && isEditorReady) {
+    console.log("📦 Retrieved from sessionStorage:", {
+      sessionId: storedSessionId,
+      isEditorReady: isEditorReady,
+    });
+
+    if (storedSessionId && isEditorReady && !sessionId) {
+      console.log("✅ Found session ID and editor is ready. Auto-connecting to session:", storedSessionId);
       setIsFromMatchFlow(true);
       connectToSession(storedSessionId);
-      sessionStorage.removeItem('sessionId');
+      // Don't remove session ID yet - keep it for the duration of the session
+      console.log("📌 Session ID kept in sessionStorage for the duration of the session");
     } else if (storedSessionId && !isEditorReady) {
+      console.log("⏳ Found session ID but editor not ready. Will connect once ready.");
       setIsFromMatchFlow(true);
       setSessionInputValue(storedSessionId);
+    } else if (!storedSessionId) {
+      console.log("ℹ️ No stored session ID found. User needs to manually enter session ID.");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditorReady]);
@@ -394,6 +433,8 @@ function CollaborativeCodingPage() {
       if (!confirmed) return;
     }
 
+    console.log("🛑 Terminating session");
+
     if (collaborationManagerRef.current) {
       collaborationManagerRef.current.disconnect();
       collaborationManagerRef.current = null;
@@ -405,6 +446,13 @@ function CollaborativeCodingPage() {
     setConnectionStatus('disconnected');
     setConnectedUsers([]);
     setIsFromMatchFlow(false);
+
+    // Clean up session storage
+    sessionStorage.removeItem('sessionId');
+    sessionStorage.removeItem('questionId');
+    sessionStorage.removeItem('matchRequestId');
+    sessionStorage.removeItem('matchUserId');
+    console.log("🗑️ Cleared all session data from sessionStorage");
 
     router.push('/home');
   };

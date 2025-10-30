@@ -5,6 +5,7 @@
 import { logger } from "../observability/logger.js";
 import { metrics } from "../observability/metrics.js";
 import { getCollabAuthHeader } from "../utils/auth.js";
+import { getMatchingQuestion } from "./question.js";
 import type { CreateSessionRequest, CreateSessionResponse } from "../types.js";
 
 const COLLABORATION_SERVICE_URL =
@@ -31,17 +32,39 @@ export async function createSession(
         const topic = request.topics?.[0];
         const language = request.languages?.[0];
 
-        // TEMP: questionId not selected here; use topic as placeholder until question service integration
-        const questionId = topic || "unknown";
+        // Fetch an actual question from the question service
+        const fetchedQuestionId = await getMatchingQuestion(
+            request.difficulty,
+            request.topics,
+        );
+
+        // Use fetched question ID, or fall back to first topic as placeholder
+        const requestQuestionId = fetchedQuestionId || topic || "unknown";
+
+        logger.info(
+            {
+                difficulty: request.difficulty,
+                topics: request.topics,
+                fetchedQuestionId,
+                requestQuestionId,
+                usedFallback: !fetchedQuestionId,
+            },
+            "🎲 Selected questionId for session",
+        );
 
         const collabPayload = {
             user1Id,
             user2Id,
-            questionId,
+            questionId: requestQuestionId,
             difficulty: request.difficulty,
             ...(topic ? { topic } : {}),
             ...(language ? { language } : {}),
         };
+
+        logger.info(
+            { collabPayload },
+            "📤 Sending payload to collaboration service",
+        );
 
         // Get appropriate authorization header
         // Requires a valid JWT token from user service
@@ -86,17 +109,52 @@ export async function createSession(
 
         const raw: any = await response.json();
 
-        // Collab returns { message, data: { sessionId, ... } }
+        // Log the full response to debug
+        logger.info(
+            {
+                fullResponse: raw,
+                hasData: !!raw?.data,
+                dataKeys: raw?.data ? Object.keys(raw.data) : [],
+            },
+            "📦 Full collaboration service response received",
+        );
+
+        // Collab returns { message, data: { sessionId, questionId, ... } }
         const sessionId = raw?.data?.sessionId ?? raw?.sessionId;
         if (!sessionId) {
+            logger.error(
+                { raw, hasData: !!raw?.data },
+                "❌ Collaboration service response missing sessionId",
+            );
             throw new Error("Collaboration service response missing sessionId");
         }
 
-        const data: CreateSessionResponse = { sessionId };
+        // Extract questionId if available
+        const questionId = raw?.data?.questionId ?? raw?.questionId;
 
         logger.info(
-            { sessionId: data.sessionId, duration },
-            "Session created successfully",
+            {
+                sessionId,
+                questionId,
+                rawDataQuestionId: raw?.data?.questionId,
+                rawQuestionId: raw?.questionId,
+            },
+            "🔍 Extracted session data from response",
+        );
+
+        const data: CreateSessionResponse = {
+            sessionId,
+            ...(questionId && { questionId }),
+        };
+
+        logger.info(
+            {
+                sessionId: data.sessionId,
+                questionId: data.questionId,
+                hasQuestionId: !!data.questionId,
+                duration,
+            },
+            "✅ Session created successfully",
         );
 
         return data;

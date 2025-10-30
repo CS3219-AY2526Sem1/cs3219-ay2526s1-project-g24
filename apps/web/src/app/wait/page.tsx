@@ -28,10 +28,31 @@ function Wait() {
             reqId,
             (event) => {
                 console.log("Match event received:", event);
-                
+
                 if (event.status === "matched" && event.sessionId) {
-                    // Store session ID and redirect to collaborative coding
+                    // Store session ID and question ID (if available)
+                    console.log("🎉 Match found! Storing session data:", {
+                        sessionId: event.sessionId,
+                        questionId: event.questionId,
+                    });
+
                     sessionStorage.setItem("sessionId", event.sessionId);
+                    console.log("✅ Session ID stored:", event.sessionId);
+
+                    if (event.questionId) {
+                        sessionStorage.setItem("questionId", event.questionId);
+                        console.log("✅ Question ID stored:", event.questionId);
+                    } else {
+                        console.warn("⚠️ No question ID in match event");
+                    }
+
+                    console.log("📦 SessionStorage contents:", {
+                        sessionId: sessionStorage.getItem("sessionId"),
+                        questionId: sessionStorage.getItem("questionId"),
+                        matchRequestId: sessionStorage.getItem("matchRequestId"),
+                        matchUserId: sessionStorage.getItem("matchUserId"),
+                    });
+
                     router.push("/collaborative-coding");
                 } else if (event.status === "timeout") {
                     setError("Match timeout - no partner found");
