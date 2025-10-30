@@ -115,9 +115,15 @@ export class AuthController extends Controller {
       });
 
       // Determine the redirect URL based on environment
-      const redirectUrl = isProduction()
-        ? webConfig.callbackUrl
-        : webConfig.callbackUrl;
+      const redirectUrl =  webConfig.callbackUrl
+
+      // Log the resolved redirect target for troubleshooting
+      logger.info({
+        msg: "OAuth callback redirect target",
+        redirectUrl,
+        envCallback: process.env.WEB_CALLBACK_URL,
+        isProduction: isProduction(),
+      });
 
       // Set cookies and include Location header for client-side redirect
       res(
@@ -133,10 +139,14 @@ export class AuthController extends Controller {
       );
       return;
     } catch (error: any) {
-      logger.error(
-        "Error during Google callback:",
-        error.response?.data || error.message,
-      );
+      logger.error({
+        msg: "Error during Google callback",
+        error: error.message,
+        code: error.code,
+        status: error.response?.status,
+        data: error.response?.data,
+        stack: error.stack,
+      });
       this.setStatus(500);
       res(302, undefined, { "Location": webConfig.errorUrl });
       return;
@@ -152,8 +162,9 @@ export class AuthController extends Controller {
     const refreshToken = req.cookies.refresh_token;
     if (refreshToken) {
       try {
-        const JWKS = jose.createRemoteJWKSet(new URL(jwtConfig.jwksUri));
-        const { payload } = await jose.jwtVerify(refreshToken, JWKS, {
+        // Use the public key directly instead of remote JWKS to avoid network issues in K8s
+        const publicKey = await jose.importSPKI(jwtConfig.publicKey, "RS256");
+        const { payload } = await jose.jwtVerify(refreshToken, publicKey, {
           algorithms: ["RS256"],
         });
         const { familyId } = payload;
@@ -192,8 +203,9 @@ export class AuthController extends Controller {
     }
 
     try {
-      const JWKS = jose.createRemoteJWKSet(new URL(jwtConfig.jwksUri));
-      const { payload } = await jose.jwtVerify(refreshToken, JWKS, {
+      // Use the public key directly instead of remote JWKS to avoid network issues in K8s
+      const publicKey = await jose.importSPKI(jwtConfig.publicKey, "RS256");
+      const { payload } = await jose.jwtVerify(refreshToken, publicKey, {
         algorithms: ["RS256"],
       });
 

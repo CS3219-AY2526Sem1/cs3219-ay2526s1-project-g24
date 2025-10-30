@@ -36,10 +36,11 @@ export function expressAuthentication(
     }
 
     try {
-      const JWKS = jose.createRemoteJWKSet(new URL(jwtConfig.jwksUri));
+      // Use the public key directly instead of remote JWKS to avoid network issues in K8s
+      const publicKey = await jose.importSPKI(jwtConfig.publicKey, "RS256");
       let decoded;
       try {
-        const result = await jose.jwtVerify(token, JWKS, {
+        const result = await jose.jwtVerify(token, publicKey, {
           algorithms: ["RS256"],
         });
         decoded = result.payload;
