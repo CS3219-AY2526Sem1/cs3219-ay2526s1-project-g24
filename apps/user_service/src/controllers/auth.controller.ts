@@ -133,10 +133,14 @@ export class AuthController extends Controller {
       );
       return;
     } catch (error: any) {
-      logger.error(
-        "Error during Google callback:",
-        error.response?.data || error.message,
-      );
+      logger.error({
+        msg: "Error during Google callback",
+        error: error.message,
+        code: error.code,
+        status: error.response?.status,
+        data: error.response?.data,
+        stack: error.stack,
+      });
       this.setStatus(500);
       res(302, undefined, { "Location": webConfig.errorUrl });
       return;

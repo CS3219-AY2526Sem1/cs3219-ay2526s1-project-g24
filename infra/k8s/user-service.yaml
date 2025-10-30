@@ -83,6 +83,21 @@ spec:
             secretKeyRef:
               name: app-secrets
               key: jwt-secret
+        - name: RSA_PRIVATE_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: rsa-private-key
+        - name: RSA_PUBLIC_KEY
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: rsa-public-key
+        - name: JWKS_URI
+          valueFrom:
+            secretKeyRef:
+              name: app-secrets
+              key: jwks-uri
         - name: GOOGLE_CLIENT_ID
           valueFrom:
             secretKeyRef:
