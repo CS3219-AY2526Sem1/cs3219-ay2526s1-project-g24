@@ -17,7 +17,7 @@ spec:
     spec:
       serviceAccountName: ghcr-pull
       initContainers:
-      # Init container to run migrations
+      # Init container to run migrations and seed
       - name: migration
         image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-question-service:latest
         env:
@@ -48,10 +48,15 @@ spec:
         - -c
         - |
           echo '🔄 Waiting for database...'
-          sleep 5
+          sleep 10
+          
           echo '📦 Running migrations...'
           /app/.venv/bin/alembic upgrade head
           echo '✅ Migrations complete'
+          
+          echo '🌱 Seeding database...'
+          /app/.venv/bin/python -c 'from seed_db import seed_database; from app.questions.models import Topic; from app.core.database import SessionLocal; db = SessionLocal(); existing = db.query(Topic).count(); db.close(); seed_database() if existing == 0 else print("✅ Database already seeded")'
+          echo '✅ Setup complete'
       containers:
       - name: question-service
         image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-question-service:latest
