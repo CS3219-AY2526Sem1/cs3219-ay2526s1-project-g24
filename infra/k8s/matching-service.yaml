@@ -42,7 +42,7 @@ spec:
               name: app-config
               key: COLLABORATION_SERVICE_URL
         - name: QUESTION_SERVICE_URL
-          value: "http://question-service:80"
+          value: "http://question-service:8000"
         - name: MATCH_TIMEOUT_SECONDS
           valueFrom:
             configMapKeyRef:
