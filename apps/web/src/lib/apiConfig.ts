@@ -12,23 +12,31 @@
 const isBrowser = typeof window !== 'undefined';
 const isLocalhost = isBrowser && (
   window.location.hostname === 'localhost' || 
-  window.location.hostname === '127.0.0.1'
+  window.location.hostname === '127.0.0.1' ||
+  window.location.hostname === '0.0.0.0' ||
+  window.location.hostname === '::1'
 );
 
-// For production, use the current origin (same ALB)
+// For production, prefer relative URLs (same-origin) to avoid any mixed-content issues
 // For localhost, use the specific service ports
 const getServiceUrl = (envVar: string | undefined, localPort: string): string => {
   if (isLocalhost) {
     return `http://localhost:${localPort}`;
   }
-  
-  // In production, if env var is set, use it; otherwise use current origin
-  if (envVar && envVar.trim() !== '') {
-    return envVar;
+
+  // When running in the browser on a deployed site, use relative path ("") so requests are same-origin (HTTPS)
+  if (isBrowser) {
+    return '';
   }
-  
-  // Use same-origin (works with ALB, custom domains, etc.)
-  return isBrowser ? window.location.origin : '';
+
+  // Fallback for non-browser (SSR/build) contexts: respect env if provided, but upgrade to https
+  if (envVar && envVar.trim() !== '') {
+    // Ensure we never emit an http scheme in production builds
+    return envVar.startsWith('http://') ? envVar.replace('http://', 'https://') : envVar;
+  }
+
+  // Default to empty so clients construct relative URLs
+  return '';
 };
 
 export const API_CONFIG = {

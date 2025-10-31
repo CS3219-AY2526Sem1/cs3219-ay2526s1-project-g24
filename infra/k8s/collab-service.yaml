@@ -17,14 +17,19 @@ spec:
     spec:
       serviceAccountName: ghcr-pull
       initContainers:
-      - name: prisma-migrate
-        image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-collab-service:latest
-        command: 
+      - name: wait-for-collab-db
+        image: postgres:15-alpine
+        command:
           - sh
           - -c
           - |
-            cd apps/collab-service &&
-            npx prisma migrate deploy
+            echo "⏳ Waiting for collab-db to be ready..."
+            for i in $(seq 1 60); do
+              if pg_isready -h collab-db -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"; then
+                echo "✅ collab-db is ready"; exit 0; fi;
+              echo "...still waiting ($i)"; sleep 2;
+            done
+            echo "❌ Timeout waiting for collab-db"; exit 1
         env:
         - name: POSTGRES_USER
           valueFrom:
@@ -41,8 +46,6 @@ spec:
             secretKeyRef:
               name: db-secrets
               key: collab-db-name
-        - name: DATABASE_URL
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@collab-db:5432/$(POSTGRES_DB)"
       containers:
       - name: collab-service
         image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-collab-service:latest

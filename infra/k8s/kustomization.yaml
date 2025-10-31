@@ -31,7 +31,8 @@ labels:
   - pairs:
       project: cs3219
       managed-by: kustomize
-    includeSelectors: true
+    # Avoid mutating selectors so Services continue matching Pods by their original labels
+    includeSelectors: false
     includeTemplates: true
 
 # Images can be updated here for all deployments
