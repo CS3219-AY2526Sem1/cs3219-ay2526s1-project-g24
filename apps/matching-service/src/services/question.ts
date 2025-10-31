@@ -16,6 +16,45 @@ interface Question {
     topics: Array<{ id: number; name: string }>;
 }
 
+interface TopicDto {
+    id: number;
+    name: string;
+    description?: string;
+}
+
+async function resolveTopicIdsByNames(
+    names: string[],
+    authToken?: string,
+): Promise<number[]> {
+    try {
+        // Fetch all topics once and map names (case-insensitive) to IDs
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (authToken) headers["Authorization"] = `Bearer ${authToken}`;
+
+        const resp = await fetch(`${QUESTION_SERVICE_URL}/api/v1/topics`, {
+            method: "GET",
+            headers,
+            signal: AbortSignal.timeout(3000),
+        });
+        if (!resp.ok) {
+            logger.warn({ status: resp.status }, "⚠️ Failed to fetch topics for name->id mapping");
+            return [];
+        }
+        const topics = (await resp.json()) as TopicDto[];
+        const index = new Map<string, number>();
+        topics.forEach((t) => index.set(t.name.toLowerCase(), t.id));
+        const ids: number[] = [];
+        names.forEach((n) => {
+            const id = index.get(n.toLowerCase());
+            if (typeof id === "number") ids.push(id);
+        });
+        return ids;
+    } catch (error) {
+        logger.warn({ error }, "⚠️ Error resolving topic IDs by names");
+        return [];
+    }
+}
+
 /**
  * Fetch a random question matching the given criteria
  * @param difficulty - Question difficulty
@@ -34,10 +73,21 @@ export async function getMatchingQuestion(
             "🔍 Fetching random question from question service",
         );
 
-        // Build query parameters
+        // Build query parameters according to Question Service API
+        // - difficulties: comma-separated string (e.g., "easy,medium")
+        // - topic_ids: comma-separated numeric IDs
         const params = new URLSearchParams();
-        params.append("difficulty", difficulty);
-        topics.forEach((topic) => params.append("topics", topic));
+        params.append("difficulties", difficulty);
+
+        // Resolve topic names to IDs (best effort). If none resolved, omit filter.
+        let topicIdsCsv = "";
+        if (topics && topics.length > 0) {
+            const ids = await resolveTopicIdsByNames(topics, authToken);
+            if (ids.length > 0) {
+                topicIdsCsv = ids.join(",");
+                params.append("topic_ids", topicIdsCsv);
+            }
+        }
 
         // Prepare headers
         const headers: Record<string, string> = {
@@ -71,7 +121,7 @@ export async function getMatchingQuestion(
 
         if (!question || !question.id) {
             logger.warn(
-                { difficulty, topics },
+                { difficulty, topics, topicIdsCsv },
                 "⚠️ No question found matching criteria",
             );
             return null;
