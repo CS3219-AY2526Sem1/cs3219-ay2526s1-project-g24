@@ -5,7 +5,9 @@ Revises: 9c5452cf8705
 Create Date: 2025-10-30 23:50:00.000000
 
 """
+
 from typing import Sequence, Union
+from alembic import op
 
 
 # revision identifiers, used by Alembic.
@@ -25,5 +27,5 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
-    """No-op downgrade matching the merge migration."""
-    return None
+    """Remove deleted_at column."""
+    op.drop_column('questions', 'deleted_at')

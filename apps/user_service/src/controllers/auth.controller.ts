@@ -139,7 +139,7 @@ export class AuthController extends Controller {
           "Location": redirectUrl
         },
       );
-      return;
+      // Always use Strict for SameSite in production
     } catch (error: any) {
       logger.error({
         msg: "Error during Google callback",
