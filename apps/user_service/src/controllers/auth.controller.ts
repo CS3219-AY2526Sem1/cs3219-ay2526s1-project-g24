@@ -107,6 +107,8 @@ export class AuthController extends Controller {
         refreshTokenFamily.id,
       );
 
+      const sameSite = isProduction() ? "Strict" : "Lax";
+
       await prisma.refreshToken.create({
         data: {
           id: jti,
@@ -115,7 +117,7 @@ export class AuthController extends Controller {
       });
 
       // Determine the redirect URL based on environment
-      const redirectUrl =  webConfig.callbackUrl
+      const redirectUrl = webConfig.callbackUrl
 
       // Log the resolved redirect target for troubleshooting
       logger.info({
@@ -131,8 +133,8 @@ export class AuthController extends Controller {
         undefined,
         {
           "Set-Cookie": [
-            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
-            `refresh_token=${refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `access_token=${accessToken}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${jwtConfig.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `refresh_token=${refreshToken}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${jwtConfig.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
           ],
           "Location": redirectUrl
         },
@@ -183,8 +185,8 @@ export class AuthController extends Controller {
       { message: "Logged out successfully" },
       {
         "Set-Cookie": [
-          `access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
-          `refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
+          `access_token=; HttpOnly; SameSite=${isProduction() ? "Strict" : "Lax"}; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
+          `refresh_token=; HttpOnly; SameSite=${isProduction() ? "Strict" : "Lax"}; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
         ],
       },
     );
@@ -282,13 +284,15 @@ export class AuthController extends Controller {
         },
       });
 
+      const sameSite = isProduction() ? "Strict" : "Lax";
+
       res(
         200,
         { accessToken },
         {
           "Set-Cookie": [
-            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
-            `refresh_token=${newRefreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `access_token=${accessToken}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${jwtConfig.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `refresh_token=${newRefreshToken}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${jwtConfig.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
           ],
         },
       );
