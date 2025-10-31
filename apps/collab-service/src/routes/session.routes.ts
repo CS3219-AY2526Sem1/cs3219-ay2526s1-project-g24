@@ -3,7 +3,8 @@ import { authenticate } from '../middleware/auth.js';
 import { SessionService } from '../services/session.service.js';
 import { YjsService } from '../services/yjs.service.js';
 import { CreateSessionRequest, AppError } from '../types/index.js';
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
+import { validate as validateUuid } from 'uuid';
 import { getRedisClient } from '../utils/redis.js';
 import * as Y from 'yjs';
 
@@ -16,10 +17,20 @@ interface AuthenticatedRequest extends Request {
     };
 }
 
+const NON_UUID_USER_ID_REGEX = /^[A-Za-z0-9_.:@\-|]+$/;
+
+// Accept UUIDs (preferred) and fall back to service-issued identifiers that use safe characters
+const userIdSchema = z.string().trim().min(1).max(128).refine((value) => {
+    if (validateUuid(value)) return true;
+    return NON_UUID_USER_ID_REGEX.test(value);
+}, {
+    message: 'Invalid user ID format. Expected UUID or service-issued identifier.',
+});
+
 // Validation schemas
 const createSessionSchema = z.object({
-    user1Id: z.string().uuid(),
-    user2Id: z.string().uuid(),
+    user1Id: userIdSchema,
+    user2Id: userIdSchema,
     questionId: z.string(),
     difficulty: z.string(),
     topic: z.string().optional(),
@@ -32,6 +43,13 @@ router.post('/sessions', authenticate, async (req: Request, res: Response, next:
         console.log('[POST /sessions] Creating new session, body:', JSON.stringify(req.body, null, 2));
 
         const validatedData = createSessionSchema.parse(req.body);
+
+        if (!validateUuid(validatedData.user1Id) || !validateUuid(validatedData.user2Id)) {
+            console.warn('[POST /sessions] ℹ️  Non-UUID user IDs detected (accepted)', {
+                user1Id: validatedData.user1Id,
+                user2Id: validatedData.user2Id,
+            });
+        }
         const authReq = req as AuthenticatedRequest;
 
         console.log('[POST /sessions] Validated data:', validatedData);
@@ -68,6 +86,11 @@ router.post('/sessions', authenticate, async (req: Request, res: Response, next:
             data: session,
         });
     } catch (error) {
+        if (error instanceof ZodError) {
+            console.warn('[POST /sessions] ❌ Validation failed:', error.issues);
+            return next(new AppError('Invalid session payload', 400));
+        }
+
         console.error('[POST /sessions] ❌ Error:', {
             error: error instanceof Error ? error.message : String(error),
             body: req.body,
