@@ -19,6 +19,35 @@ spec:
     spec:
       serviceAccountName: ghcr-pull
       initContainers:
+      - name: wait-for-question-db
+        image: postgres:15-alpine
+        command:
+        - sh
+        - -c
+        - |
+          echo "⏳ Waiting for question-db to be ready..."
+          for i in $(seq 1 60); do
+            if pg_isready -h question-db -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"; then
+              echo "✅ question-db is ready"; exit 0; fi;
+            echo "...still waiting ($i)"; sleep 2;
+          done
+          echo "❌ Timeout waiting for question-db"; exit 1
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: question-db-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: question-db-password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: question-db-name
       # Init container to run migrations and seed
       - name: migration
         image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-question-service:latest
