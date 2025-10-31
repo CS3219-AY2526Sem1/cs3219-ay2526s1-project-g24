@@ -63,7 +63,7 @@ export const getGoogleSignInUrl = async (): Promise<string> => {
 };
 
 export const logoutUser = async (): Promise<void> => {
-    await fetch(`${AUTH_API_BASE}/logout`, {
+    await fetch(`${API_URL}/auth/logout`, {
         method: "POST",
         credentials: "include",
     });

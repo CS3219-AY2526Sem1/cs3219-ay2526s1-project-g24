@@ -352,38 +352,17 @@ function CollaborativeCodingPage() {
   useEffect(() => {
     console.log('🔍 Checking for stored session ID...');
     const storedSessionId = sessionStorage.getItem('sessionId');
-    const mockMode = sessionStorage.getItem('mockMode');
-
     console.log('📦 Retrieved from sessionStorage:', {
       sessionId: storedSessionId,
-      mockMode: mockMode,
       isEditorReady: isEditorReady,
     });
 
     if (storedSessionId && isEditorReady && !sessionId) {
-      // Check if we're in mock mode (UI testing only)
-      if (mockMode === 'true') {
-        console.log('🎨 Mock mode detected - skipping WebSocket connection');
-        setSessionId(storedSessionId);
-        setIsFromMatchFlow(true);
-        setConnectionStatus('connected');
-        setIsConnected(true);
-
-        // Load question without connecting to WebSocket
-        const storedQid = sessionStorage.getItem('questionId');
-        if (storedQid) {
-          console.log('✅ Loading question in mock mode:', storedQid);
-          fetchAndSetQuestion(Number(storedQid), selectedLanguage);
-        }
-
-        addToast('UI Test Mode - WebSocket disabled', 'info', 3000);
-      } else {
-        console.log('✅ Found session ID and editor is ready. Auto-connecting to session:', storedSessionId);
-        setIsFromMatchFlow(true);
-        connectToSession(storedSessionId);
-        // Don't remove session ID yet - keep it for the duration of the session
-        console.log('📌 Session ID kept in sessionStorage for the duration of the session');
-      }
+      console.log('✅ Found session ID and editor is ready. Auto-connecting to session:', storedSessionId);
+      setIsFromMatchFlow(true);
+      connectToSession(storedSessionId);
+      // Don't remove session ID yet - keep it for the duration of the session
+      console.log('📌 Session ID kept in sessionStorage for the duration of the session');
     } else if (storedSessionId && !isEditorReady) {
       console.log('⏳ Found session ID but editor not ready. Will connect once ready.');
       setIsFromMatchFlow(true);
