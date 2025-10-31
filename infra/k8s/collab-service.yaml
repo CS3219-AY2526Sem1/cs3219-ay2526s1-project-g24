@@ -46,32 +46,6 @@ spec:
             secretKeyRef:
               name: db-secrets
               key: collab-db-name
-      - name: prisma-migrate
-        image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-collab-service:latest
-        command: 
-          - sh
-          - -c
-          - |
-            cd apps/collab-service &&
-            npx prisma migrate deploy
-        env:
-        - name: POSTGRES_USER
-          valueFrom:
-            secretKeyRef:
-              name: db-secrets
-              key: collab-db-user
-        - name: POSTGRES_PASSWORD
-          valueFrom:
-            secretKeyRef:
-              name: db-secrets
-              key: collab-db-password
-        - name: POSTGRES_DB
-          valueFrom:
-            secretKeyRef:
-              name: db-secrets
-              key: collab-db-name
-        - name: DATABASE_URL
-          value: "postgresql://$(POSTGRES_USER):$(POSTGRES_PASSWORD)@collab-db:5432/$(POSTGRES_DB)"
       containers:
       - name: collab-service
         image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-collab-service:latest
