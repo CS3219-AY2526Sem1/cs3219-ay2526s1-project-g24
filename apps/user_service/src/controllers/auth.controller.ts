@@ -107,7 +107,7 @@ export class AuthController extends Controller {
         refreshTokenFamily.id,
       );
 
-      const sameSite = isProduction() ? "Strict" : "Lax";
+      const sameSite = "Strict";
 
       await prisma.refreshToken.create({
         data: {
@@ -185,8 +185,8 @@ export class AuthController extends Controller {
       { message: "Logged out successfully" },
       {
         "Set-Cookie": [
-          `access_token=; HttpOnly; SameSite=${isProduction() ? "Strict" : "Lax"}; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
-          `refresh_token=; HttpOnly; SameSite=${isProduction() ? "Strict" : "Lax"}; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
+          `access_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
+          `refresh_token=; HttpOnly; SameSite=Strict; Path=/; Max-Age=0${isProduction() ? "; Secure" : ""}`,
         ],
       },
     );
@@ -284,7 +284,7 @@ export class AuthController extends Controller {
         },
       });
 
-      const sameSite = isProduction() ? "Strict" : "Lax";
+      const sameSite = "Strict";
 
       res(
         200,

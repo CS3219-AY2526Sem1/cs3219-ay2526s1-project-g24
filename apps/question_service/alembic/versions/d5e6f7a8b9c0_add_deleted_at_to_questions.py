@@ -22,8 +22,7 @@ def upgrade() -> None:
     # This revision exists to linearise the migration history after
     # a duplicate soft-delete migration landed on another branch.
     # No schema changes are required because the preceding revision
-    # already introduced the `deleted_at` column.
-    return None
+    pass
 
 
 def downgrade() -> None:
