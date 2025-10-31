@@ -17,16 +17,16 @@ const isLocalhost = isBrowser && (
   window.location.hostname === '::1'
 );
 
-// For production, prefer same-origin (avoids mixed content) and upgrade any http envs to https
+// For production, prefer relative URLs (same-origin) to avoid any mixed-content issues
 // For localhost, use the specific service ports
 const getServiceUrl = (envVar: string | undefined, localPort: string): string => {
   if (isLocalhost) {
     return `http://localhost:${localPort}`;
   }
 
-  // When running in the browser on a deployed site, always use same-origin to avoid mixed content
+  // When running in the browser on a deployed site, use relative path ("") so requests are same-origin (HTTPS)
   if (isBrowser) {
-    return window.location.origin;
+    return '';
   }
 
   // Fallback for non-browser (SSR/build) contexts: respect env if provided, but upgrade to https
