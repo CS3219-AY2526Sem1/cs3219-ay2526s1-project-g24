@@ -14,6 +14,8 @@ spec:
     metadata:
       labels:
         app: question-service
+        managed-by: kustomize
+        project: cs3219
     spec:
       serviceAccountName: ghcr-pull
       initContainers:
