@@ -60,10 +60,10 @@ export default function PracticePage() {
             try {
                 const data = await getQuestionById(questionId);
                 setQuestion(data);
-                
+
                 // Try to load saved code from localStorage first
                 const savedCode = localStorage.getItem(getCodeStorageKey(questionId, selectedLanguage));
-                
+
                 if (savedCode) {
                     setCode(savedCode);
                 } else {
@@ -105,7 +105,7 @@ export default function PracticePage() {
         if (question) {
             // Try to load saved code from localStorage first
             const savedCode = localStorage.getItem(getCodeStorageKey(questionId, selectedLanguage));
-            
+
             if (savedCode) {
                 setCode(savedCode);
             } else {
@@ -147,7 +147,7 @@ export default function PracticePage() {
                 code: code,
                 // Don't specify test_case_ids to run against sample cases
             });
-            
+
             setTestResults(response.results);
         } catch (err) {
             setExecutionError(err instanceof Error ? err.message : 'Failed to run code');
@@ -171,7 +171,7 @@ export default function PracticePage() {
                 language: selectedLanguage,
                 code: code,
             });
-            
+
             // Prepare submission result data to pass to results page
             const submissionData = {
                 submission_id: response.submission_id,
@@ -188,7 +188,7 @@ export default function PracticePage() {
                 timestamp: new Date().toISOString(),
                 language: selectedLanguage,
             };
-            
+
             // Redirect to submission results page with data
             const dataParam = encodeURIComponent(JSON.stringify(submissionData));
             router.push(`/practice/${questionId}/submission?data=${dataParam}`);
@@ -269,14 +269,14 @@ export default function PracticePage() {
             if (response.results.length > 0) {
                 const result = response.results[0];
                 let outputText = '';
-                
+
                 if (result.error) {
                     outputText = `❌ Error:\n${result.error}`;
                     setCustomError(result.error);
                 } else {
                     outputText = `✅ Execution successful!\n\n`;
                     outputText += `Output: ${JSON.stringify(result.actual_output, null, 2)}\n\n`;
-                    
+
                     if (result.runtime_ms !== null && result.runtime_ms !== undefined) {
                         outputText += `Runtime: ${result.runtime_ms.toFixed(2)} ms\n`;
                     }
@@ -284,12 +284,12 @@ export default function PracticePage() {
                         outputText += `Memory: ${result.memory_mb.toFixed(2)} MB\n`;
                     }
                 }
-                
+
                 setCustomOutput(outputText);
             } else {
                 throw new Error('No results returned from execution');
             }
-            
+
         } catch (err) {
             setCustomError(err instanceof Error ? err.message : 'Failed to run custom input');
             setCustomOutput(null);
@@ -319,7 +319,7 @@ export default function PracticePage() {
             {/* Header */}
             <header className="bg-[#2e2e2e] px-6 py-2.5 flex items-center justify-between border-b border-[#3e3e3e]">
                 <div className="flex items-center gap-6">
-                    <h1 
+                    <h1
                         className="font-mclaren text-xl text-white cursor-pointer hover:opacity-80 transition-opacity"
                         onClick={() => router.push('/home')}
                     >
@@ -358,14 +358,14 @@ export default function PracticePage() {
                         ) : question ? (
                             <>
                                 {/* Back Button */}
-                                <button 
+                                <button
                                     onClick={() => router.push('/questions')}
                                     className="inline-flex items-center gap-2 text-gray-400 hover:text-white transition-colors mb-4 group"
                                 >
-                                    <svg 
-                                        className="w-4 h-4 transition-transform group-hover:-translate-x-1" 
-                                        fill="none" 
-                                        stroke="currentColor" 
+                                    <svg
+                                        className="w-4 h-4 transition-transform group-hover:-translate-x-1"
+                                        fill="none"
+                                        stroke="currentColor"
                                         viewBox="0 0 24 24"
                                     >
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -373,11 +373,10 @@ export default function PracticePage() {
                                     <span className="text-sm font-medium">Back to Questions</span>
                                 </button>
 
-                                {/* Question Header */}
                                 <div className="mb-6">
                                     <div className="flex items-center gap-3 mb-3">
                                         <h2 className="text-2xl font-semibold text-white">{question.title}</h2>
-                                        <span className={`text-xs px-3 py-1 rounded-md font-medium uppercase ${getDifficultyStyles(question.difficulty)}`}>
+                                        <span className={`text-xs px-3 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
                                             {question.difficulty}
                                         </span>
                                         {question.deleted_at && (
@@ -393,11 +392,9 @@ export default function PracticePage() {
                                     </div>
                                 </div>
 
-                                {/* Question Description */}
                                 <div className="space-y-4 text-gray-300 text-sm leading-relaxed">
-                                    <p className="whitespace-pre-line">{question.description}</p>
+                                    <p className="whitespace-pre-line">{question.description.replace(/\*\*Example \d+:\*\*[\s\S]*?(?=\*\*Example \d+:\*\*|$)/g, '').trim()}</p>
 
-                                    {/* Sample Test Cases as Examples */}
                                     {question.sample_test_cases.map((testCase: any, idx: number) => (
                                         <div key={idx} className="bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]">
                                             <p className="font-semibold text-white mb-2">Example {idx + 1}:</p>
@@ -425,7 +422,7 @@ export default function PracticePage() {
                                                 >
                                                     <div className="flex items-center justify-between mb-2">
                                                         <span className="text-white text-sm transition-colors">{similar.title}</span>
-                                                        <span className={`text-xs px-2 py-0.5 rounded-md font-medium uppercase ${getDifficultyStyles(similar.difficulty)}`}>
+                                                        <span className={`text-xs px-3 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(similar.difficulty)}`}>
                                                             {similar.difficulty}
                                                         </span>
                                                     </div>
@@ -493,14 +490,14 @@ export default function PracticePage() {
                                     </div>
                                 </div>
                                 <div className="flex gap-2">
-                                    <button 
+                                    <button
                                         onClick={handleRunCode}
                                         disabled={isRunning || !question}
                                         className="px-4 py-1.5 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                                     >
                                         {isRunning ? 'Running...' : 'Run Code'}
                                     </button>
-                                    <button 
+                                    <button
                                         onClick={handleSubmitCode}
                                         disabled={isRunning || !question}
                                         className="px-4 py-1.5 bg-profile-avatar hover:bg-profile-avatar-hover text-black text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -594,7 +591,7 @@ export default function PracticePage() {
                                                     <div className="w-16 h-16 border-4 border-gray-700 rounded-full"></div>
                                                     <div className="w-16 h-16 border-4 border-profile-avatar rounded-full border-t-transparent animate-spin absolute top-0"></div>
                                                 </div>
-                                                
+
                                                 {/* Status message */}
                                                 <div className="text-center">
                                                     <p className="text-white font-semibold text-lg mb-1">Running Code...</p>
@@ -603,13 +600,13 @@ export default function PracticePage() {
                                             </div>
                                         </div>
                                     )}
-                                    
+
                                     {executionError && (
                                         <div className="mb-4 p-3 bg-red-900/20 border border-red-500 rounded text-red-300 text-sm">
                                             {executionError}
                                         </div>
                                     )}
-                                    
+
                                     {testResults.length === 0 ? (
                                         <div className="text-gray-400 text-center py-8">
                                             Run your code to see test results
@@ -622,17 +619,15 @@ export default function PracticePage() {
                                                     <button
                                                         key={idx}
                                                         onClick={() => setSelectedTestCase(idx)}
-                                                        className={`flex items-center gap-1 px-3 py-1.5 rounded transition-colors ${
-                                                            selectedTestCase === idx 
-                                                                ? 'bg-[#3e3e3e]' 
-                                                                : 'bg-[#2e2e2e] hover:bg-[#3a3a3a]'
-                                                        }`}
+                                                        className={`flex items-center gap-1 px-3 py-1.5 rounded transition-colors ${selectedTestCase === idx
+                                                            ? 'bg-[#3e3e3e]'
+                                                            : 'bg-[#2e2e2e] hover:bg-[#3a3a3a]'
+                                                            }`}
                                                     >
-                                                        <span className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${
-                                                            result.passed 
-                                                                ? 'bg-green-500 text-white' 
-                                                                : 'bg-red-500 text-white'
-                                                        }`}>
+                                                        <span className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${result.passed
+                                                            ? 'bg-green-500 text-white'
+                                                            : 'bg-red-500 text-white'
+                                                            }`}>
                                                             {result.passed ? '✓' : '✗'}
                                                         </span>
                                                         <span className="text-white text-sm font-medium ml-1">
@@ -647,11 +642,10 @@ export default function PracticePage() {
                                                 <div className="space-y-4">
                                                     <div>
                                                         <label className="text-white block mb-2 text-sm font-medium">Result</label>
-                                                        <div className={`p-3 rounded font-medium text-sm ${
-                                                            testResults[selectedTestCase].passed
-                                                                ? 'bg-green-900/20 border border-green-500 text-green-300'
-                                                                : 'bg-red-900/20 border border-red-500 text-red-300'
-                                                        }`}>
+                                                        <div className={`p-3 rounded font-medium text-sm ${testResults[selectedTestCase].passed
+                                                            ? 'bg-green-900/20 border border-green-500 text-green-300'
+                                                            : 'bg-red-900/20 border border-red-500 text-red-300'
+                                                            }`}>
                                                             {testResults[selectedTestCase].passed ? '✓ Passed' : '✗ Failed'}
                                                         </div>
                                                     </div>
@@ -666,7 +660,7 @@ export default function PracticePage() {
                                                     <div>
                                                         <label className="text-white block mb-2 text-sm font-medium">Your Output</label>
                                                         <div className="bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300">
-                                                            {testResults[selectedTestCase].actual_output !== null 
+                                                            {testResults[selectedTestCase].actual_output !== null
                                                                 ? JSON.stringify(testResults[selectedTestCase].actual_output, null, 2)
                                                                 : 'No output'}
                                                         </div>
@@ -730,7 +724,7 @@ export default function PracticePage() {
                                             </div>
                                         </div>
                                     )}
-                                    
+
                                     {/* Help text */}
                                     <div className="bg-[#2e2e2e] border border-[#3e3e3e] p-3 rounded">
                                         <p className="text-gray-400 text-xs mb-2">
@@ -767,7 +761,7 @@ export default function PracticePage() {
 
                                     {/* Run Button */}
                                     <div className="flex gap-2">
-                                        <button 
+                                        <button
                                             onClick={handleRunCustomInput}
                                             disabled={isRunningCustom || !question || !customInput.trim()}
                                             className="px-4 py-2 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
