@@ -10,17 +10,6 @@ services:
     networks:
       - app_network
 
-  api:
-    container_name: api
-    build:
-      context: .
-      dockerfile: ./apps/api/Dockerfile
-    restart: always
-    ports:
-      - 3001:3001
-    networks:
-      - app_network
-
   question-db:
     container_name: question-db
     image: postgres:15-alpine

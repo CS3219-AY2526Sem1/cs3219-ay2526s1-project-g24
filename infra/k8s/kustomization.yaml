@@ -21,7 +21,6 @@ resources:
   - matching-service.yaml
   - collab-service.yaml
   - code-execution-service.yaml
-  - api.yaml
   - web.yaml
   - hpa.yaml
   - ingress.yaml
@@ -49,7 +48,4 @@ labels:
 #     newTag: latest
 #   - name: REPLACE_WITH_ECR_WEB_IMAGE
 #     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/web
-#     newTag: latest
-#   - name: REPLACE_WITH_ECR_API_IMAGE
-#     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/api
 #     newTag: latest
