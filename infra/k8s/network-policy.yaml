@@ -160,6 +160,28 @@ spec:
     ports:
     - protocol: TCP
       port: 5432
+
+---
+# Allow ingress to question-db from question-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-question-db
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: question-db
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: question-service
+    ports:
+    - protocol: TCP
+      port: 5432
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -177,6 +199,28 @@ spec:
     - podSelector:
         matchLabels:
           app: user-db
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# Allow ingress to user-db from user-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-user-db
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: user-db
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: user-service
     ports:
     - protocol: TCP
       port: 5432
@@ -330,6 +374,28 @@ spec:
     - podSelector:
         matchLabels:
           app: collab-db
+    ports:
+    - protocol: TCP
+      port: 5432
+
+---
+# Allow ingress to collab-db from collab-service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-collab-db
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: collab-db
+  policyTypes:
+  - Ingress
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: collab-service
     ports:
     - protocol: TCP
       port: 5432
