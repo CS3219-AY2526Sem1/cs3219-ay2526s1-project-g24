@@ -24,6 +24,10 @@ RUN pnpm install --frozen-lockfile
 # 2) now copy the actual source
 COPY --from=builder /app/out/full/ .
 
+# Ensure Prisma schema and migrations are present (turbo prune may exclude migrations)
+# Copy directly from the original source context preserved in the builder stage
+COPY --from=builder /app/apps/collab-service/prisma ./apps/collab-service/prisma
+
 # 3) Generate Prisma Client before building
 WORKDIR /app/apps/collab-service
 RUN npx prisma generate
