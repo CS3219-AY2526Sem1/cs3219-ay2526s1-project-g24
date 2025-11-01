@@ -331,8 +331,8 @@ int main() {{
                     else:
                         status = ExecutionStatus.WRONG_ANSWER
                 
-                # Capture stderr as error message if present
-                if judge0_result.stderr and judge0_result.stderr.strip():
+                # Capture stderr as error message only if the test case did not pass
+                if not passed and judge0_result.stderr and judge0_result.stderr.strip():
                     error_message = judge0_result.stderr
 
                 # Parse runtime and memory
