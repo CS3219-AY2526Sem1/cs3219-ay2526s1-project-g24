@@ -12,3 +12,8 @@ export const mapDifficultyToApi = (difficulty: ProficiencyLevel): MatchingDiffic
     if (difficulty === ProficiencyLevel.ADVANCED) return 'hard';
     return "medium"; // Default
 };
+
+// Remove example sections from question description
+export const removeExamplesFromDescription = (description: string): string => {
+    return description.replace(/\*\*Example \d+:\*\*[\s\S]*?(?=\*\*Example \d+:\*\*|$)/g, '').trim();
+};

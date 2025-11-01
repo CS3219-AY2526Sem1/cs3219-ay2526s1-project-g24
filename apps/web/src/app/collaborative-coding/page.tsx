@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
+import { removeExamplesFromDescription } from '@/lib/utils';
+import { getDifficultyStyles } from '@/lib/difficulty';
 
 import type { editor } from 'monaco-editor';
 import {
@@ -697,14 +699,7 @@ function CollaborativeCodingPage() {
                 <div className='mb-6'>
                   <div className='flex items-center gap-3 mb-3'>
                     <h2 className='text-2xl font-semibold text-white'>{question.title}</h2>
-                    <span
-                      className={`text-xs px-3 py-1.5 rounded-full font-semibold uppercase ${question.difficulty.toLowerCase() === 'easy'
-                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
-                        : question.difficulty.toLowerCase() === 'medium'
-                          ? 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'
-                          : 'bg-red-500/10 text-red-400 border border-red-500/20'
-                        }`}
-                    >
+                    <span className={getDifficultyStyles(question.difficulty)}>
                       {question.difficulty}
                     </span>
                   </div>
@@ -718,7 +713,7 @@ function CollaborativeCodingPage() {
                 </div>
 
                 <div className='space-y-4 text-gray-300 text-sm leading-relaxed'>
-                  <p className='whitespace-pre-line'>{question.description.replace(/\*\*Example \d+:\*\*[\s\S]*?(?=\*\*Example \d+:\*\*|$)/g, '').trim()}</p>
+                  <p className='whitespace-pre-line'>{removeExamplesFromDescription(question.description)}</p>
 
                   {question.sample_test_cases?.map((ex, idx) => (
                     <div key={idx} className='bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]'>

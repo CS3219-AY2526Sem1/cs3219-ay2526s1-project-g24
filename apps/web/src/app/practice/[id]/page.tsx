@@ -7,6 +7,7 @@ import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
 import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult, getSimilarQuestions, QuestionListItem } from '@/lib/api/questionService';
 import { ProgrammingLanguage } from '@/lib/types';
 import { useAuth } from '@/hooks/useAuth';
+import { removeExamplesFromDescription } from '@/lib/utils';
 
 
 export default function PracticePage() {
