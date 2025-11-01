@@ -63,18 +63,6 @@ jobs:
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-web:${{ steps.git.outputs.sha }}
             ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-g24-web:latest', steps.repo.outputs.owner_lc) || '' }}
 
-      - name: Push api image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./apps/api/Dockerfile
-          push: true
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-api:${{ steps.git.outputs.sha }}
-            ${{ inputs.tag_latest && format('ghcr.io/{0}/cs3219-g24-api:latest', steps.repo.outputs.owner_lc) || '' }}
-
       - name: Push question-service image
         uses: docker/build-push-action@v6
         with:

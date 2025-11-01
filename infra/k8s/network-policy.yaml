@@ -68,13 +68,6 @@ spec:
   - to:
     - podSelector:
         matchLabels:
-          app: api
-    ports:
-    - protocol: TCP
-      port: 3001
-  - to:
-    - podSelector:
-        matchLabels:
           app: user-service
     ports:
     - protocol: TCP
@@ -102,43 +95,6 @@ spec:
     ports:
     - protocol: TCP
       port: 3010
----
-# Allow API gateway to access backend services
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: api-egress
-  namespace: cs3219
-spec:
-  podSelector:
-    matchLabels:
-      app: api
-  policyTypes:
-  - Egress
-  egress:
-  - to:
-    - podSelector:
-        matchLabels:
-          app: user-service
-    ports:
-    - protocol: TCP
-      port: 8000
-  - to:
-    - podSelector:
-        matchLabels:
-          app: question-service
-    ports:
-    - protocol: TCP
-      port: 8000
-    - protocol: TCP
-      port: 80
-  - to:
-    - podSelector:
-        matchLabels:
-          app: matching-service
-    ports:
-    - protocol: TCP
-      port: 3000
 ---
 # Allow services to access their databases
 apiVersion: networking.k8s.io/v1
@@ -285,24 +241,6 @@ spec:
     ports:
     - protocol: TCP
       port: 3000
----
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: allow-ingress-to-api
-  namespace: cs3219
-spec:
-  podSelector:
-    matchLabels:
-      app: api
-  policyTypes:
-  - Ingress
-  ingress:
-  - from:
-    - namespaceSelector: {}
-    ports:
-    - protocol: TCP
-      port: 3001
 ---
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy

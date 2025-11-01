@@ -78,7 +78,7 @@ jobs:
           echo "Updating deployments to images with SHA=${SHA}"
           
           # Update or create deployments
-          for service in web api question-service user-service matching-service collab-service code-execution-service; do
+          for service in web question-service user-service matching-service collab-service code-execution-service; do
             if kubectl get deployment ${service} -n cs3219 2>/dev/null; then
               echo "Updating ${service} deployment..."
               kubectl set image deployment/${service} ${service}=ghcr.io/${OWNER}/cs3219-g24-${service}:${SHA} -n cs3219
@@ -94,7 +94,6 @@ jobs:
           kubectl apply -f infra/k8s/matching-service.yaml
           kubectl apply -f infra/k8s/collab-service.yaml
           kubectl apply -f infra/k8s/code-execution-service.yaml
-          kubectl apply -f infra/k8s/api.yaml
           kubectl apply -f infra/k8s/web.yaml
 
       - name: Update deployments to GHCR images (post-apply)
@@ -105,7 +104,7 @@ jobs:
           echo "Updating deployments to images with SHA=${SHA} (post-apply)"
           
           # Update or create deployments
-          for service in web api question-service user-service matching-service collab-service code-execution-service; do
+          for service in web question-service user-service matching-service collab-service code-execution-service; do
             echo "Setting image for $service"
             kubectl set image deployment/${service} ${service}=ghcr.io/${OWNER}/cs3219-g24-${service}:${SHA} -n cs3219 --record || true
           done
@@ -118,7 +117,7 @@ jobs:
       - name: Verify all deployments
         run: |
           echo "🔍 Verifying deployments..."
-          for deployment in web api question-service user-service matching-service collab-service code-execution-service; do
+          for deployment in web question-service user-service matching-service collab-service code-execution-service; do
             echo "Checking ${deployment}..."
             kubectl rollout status deployment/${deployment} -n cs3219 --timeout=300s
           done
