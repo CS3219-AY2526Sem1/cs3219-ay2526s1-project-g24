@@ -212,13 +212,13 @@ jobs:
           kubectl apply -f infra/k8s/question-service.yaml
           kubectl apply -f infra/k8s/user-service.yaml
           kubectl apply -f infra/k8s/matching-service.yaml
-          kubectl apply -f infra/k8s/api.yaml
+          kubectl apply -f infra/k8s/collab-service.yaml
+          kubectl apply -f infra/k8s/code-execution-service.yaml
           kubectl apply -f infra/k8s/web.yaml
           
           # Update images to GHCR (use latest tag for initial deployment)
           echo "🖼️  Updating to GHCR images..."
           kubectl set image deployment/web web=ghcr.io/${OWNER}/cs3219-g24-web:${SHA} -n cs3219 || true
-          kubectl set image deployment/api api=ghcr.io/${OWNER}/cs3219-g24-api:${SHA} -n cs3219 || true
           kubectl set image deployment/question-service question-service=ghcr.io/${OWNER}/cs3219-g24-question-service:${SHA} -n cs3219 || true
           kubectl set image deployment/user-service user-service=ghcr.io/${OWNER}/cs3219-g24-user-service:${SHA} -n cs3219 || true
           kubectl set image deployment/matching-service matching-service=ghcr.io/${OWNER}/cs3219-g24-matching-service:${SHA} -n cs3219 || true
