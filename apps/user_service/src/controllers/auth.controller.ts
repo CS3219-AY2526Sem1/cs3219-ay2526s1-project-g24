@@ -107,8 +107,6 @@ export class AuthController extends Controller {
         refreshTokenFamily.id,
       );
 
-      const sameSite = "Strict";
-
       await prisma.refreshToken.create({
         data: {
           id: jti,
@@ -133,13 +131,13 @@ export class AuthController extends Controller {
         undefined,
         {
           "Set-Cookie": [
-            `access_token=${accessToken}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${jwtConfig.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
-            `refresh_token=${refreshToken}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${jwtConfig.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `refresh_token=${refreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
           ],
           "Location": redirectUrl
         },
       );
-      // Always use Strict for SameSite in production
+      return;
     } catch (error: any) {
       logger.error({
         msg: "Error during Google callback",
@@ -284,15 +282,13 @@ export class AuthController extends Controller {
         },
       });
 
-      const sameSite = "Strict";
-
       res(
         200,
         { accessToken },
         {
           "Set-Cookie": [
-            `access_token=${accessToken}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${jwtConfig.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
-            `refresh_token=${newRefreshToken}; HttpOnly; SameSite=${sameSite}; Path=/; Max-Age=${jwtConfig.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `access_token=${accessToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.accessTokenExpiry}${isProduction() ? "; Secure" : ""}`,
+            `refresh_token=${newRefreshToken}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${jwtConfig.refreshTokenExpiry}${isProduction() ? "; Secure" : ""}`,
           ],
         },
       );
