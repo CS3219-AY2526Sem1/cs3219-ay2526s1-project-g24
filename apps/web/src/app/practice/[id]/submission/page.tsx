@@ -68,7 +68,7 @@ const getStatusConfig = (status: string, passed: number, total: number) => {
             message: 'Congratulations! Your solution passed all test cases.',
         };
     }
-    
+
     const statusMap: Record<string, any> = {
         'wrong_answer': {
             icon: XCircle,
@@ -156,7 +156,7 @@ export default function SubmissionResultPage() {
             <header className="fixed top-0 left-0 right-0 z-50 bg-[#333232] border-b-2 border-dashed border-white/20">
                 <div className="flex justify-between items-center px-6 md:px-12 py-9 max-w-[68rem] mx-auto">
                     <div className="flex items-center gap-6">
-                        <h1 
+                        <h1
                             onClick={() => router.push('/home')}
                             className="font-mclaren text-white text-2xl md:text-3xl cursor-pointer hover:opacity-80 transition-opacity"
                         >
@@ -185,11 +185,10 @@ export default function SubmissionResultPage() {
                                     {statusConfig.title}
                                 </h2>
                                 <p className="text-white text-lg mb-4">{statusConfig.message}</p>
-                                
-                                {/* Question info */}
+
                                 <div className="flex items-center gap-3 flex-wrap">
                                     <span className="text-white font-medium">{submission.question_title}</span>
-                                    <span className={`text-xs px-3 py-1 rounded-md font-semibold uppercase ${getDifficultyStyles(submission.difficulty)}`}>
+                                    <span className={`text-xs px-3 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(submission.difficulty)}`}>
                                         {submission.difficulty}
                                     </span>
                                     <span className="text-[#9e9e9e] text-sm">
@@ -219,7 +218,7 @@ export default function SubmissionResultPage() {
                                     <div className="text-[#9e9e9e] text-sm mt-1">Total</div>
                                 </div>
                             </div>
-                            
+
                             {/* Visual progress bar */}
                             <div className="flex-1 max-w-md ml-8">
                                 <div className="bg-[#2a2a2a] rounded-full h-6 overflow-hidden">

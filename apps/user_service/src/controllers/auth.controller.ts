@@ -115,7 +115,7 @@ export class AuthController extends Controller {
       });
 
       // Determine the redirect URL based on environment
-      const redirectUrl =  webConfig.callbackUrl
+      const redirectUrl = webConfig.callbackUrl;
 
       // Log the resolved redirect target for troubleshooting
       logger.info({

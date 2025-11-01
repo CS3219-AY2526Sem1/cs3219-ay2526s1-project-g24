@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
+import { removeExamplesFromDescription } from '@/lib/utils';
+import { getDifficultyStyles } from '@/lib/difficulty';
 
 import type { editor } from 'monaco-editor';
 import {
@@ -631,18 +633,17 @@ function CollaborativeCodingPage() {
               </>
             ) : (
               <>
-                <span className='text-sm text-gray-400'>Session: {sessionId.substring(0, 12)}...</span>
+                <span className='text-sm text-gray-400'>Session: {sessionId}</span>
                 <div className='flex items-center gap-1'>
                   <div
-                    className={`w-2 h-2 rounded-full ${
-                      connectionStatus === 'connected'
-                        ? 'bg-green-500'
-                        : connectionStatus === 'connecting'
-                          ? 'bg-yellow-500 animate-pulse'
-                          : connectionStatus === 'error'
-                            ? 'bg-red-500'
-                            : 'bg-gray-500'
-                    }`}
+                    className={`w-2 h-2 rounded-full ${connectionStatus === 'connected'
+                      ? 'bg-[#F1FCAC]'
+                      : connectionStatus === 'connecting'
+                        ? 'bg-yellow-500 animate-pulse'
+                        : connectionStatus === 'error'
+                          ? 'bg-red-500'
+                          : 'bg-gray-500'
+                      }`}
                   />
                   <span className='text-xs text-gray-400'>{connectionStatus}</span>
                 </div>
@@ -657,7 +658,7 @@ function CollaborativeCodingPage() {
 
                 <button
                   onClick={disconnectFromSession}
-                  className='px-3 py-1 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors rounded'
+                  className='px-3 py-1 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors'
                 >
                   Disconnect
                 </button>
@@ -668,7 +669,7 @@ function CollaborativeCodingPage() {
 
         <button
           onClick={handleTerminate}
-          className='px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors rounded'
+          className='px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors'
         >
           Terminate
         </button>
@@ -698,7 +699,7 @@ function CollaborativeCodingPage() {
                 <div className='mb-6'>
                   <div className='flex items-center gap-3 mb-3'>
                     <h2 className='text-2xl font-semibold text-white'>{question.title}</h2>
-                    <span className='text-xs px-3 py-1 rounded bg-[#854d0e] text-[#fbbf24] font-medium uppercase'>
+                    <span className={getDifficultyStyles(question.difficulty)}>
                       {question.difficulty}
                     </span>
                   </div>
@@ -712,7 +713,7 @@ function CollaborativeCodingPage() {
                 </div>
 
                 <div className='space-y-4 text-gray-300 text-sm leading-relaxed'>
-                  <p className='whitespace-pre-line'>{question.description}</p>
+                  <p className='whitespace-pre-line'>{removeExamplesFromDescription(question.description)}</p>
 
                   {question.sample_test_cases?.map((ex, idx) => (
                     <div key={idx} className='bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]'>
@@ -902,18 +903,16 @@ function CollaborativeCodingPage() {
             <div className='bg-[#2e2e2e] px-4 flex items-center gap-1 border-b border-[#3e3e3e]'>
               <button
                 onClick={() => setActiveTab('testResults')}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-                  activeTab === 'testResults' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
-                }`}
+                className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${activeTab === 'testResults' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
+                  }`}
               >
                 Test Results
                 {activeTab === 'testResults' && <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-white' />}
               </button>
               <button
                 onClick={() => setActiveTab('customInput')}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-                  activeTab === 'customInput' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
-                }`}
+                className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${activeTab === 'customInput' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
+                  }`}
               >
                 Custom Input
                 {activeTab === 'customInput' && <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-white' />}
@@ -939,14 +938,12 @@ function CollaborativeCodingPage() {
                           <button
                             key={idx}
                             onClick={() => setSelectedTestCase(idx)}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded transition-colors ${
-                              selectedTestCase === idx ? 'bg-[#3e3e3e]' : 'bg-[#2e2e2e] hover:bg-[#3a3a3a]'
-                            }`}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded transition-colors ${selectedTestCase === idx ? 'bg-[#3e3e3e]' : 'bg-[#2e2e2e] hover:bg-[#3a3a3a]'
+                              }`}
                           >
                             <span
-                              className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${
-                                result.passed ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
-                              }`}
+                              className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${result.passed ? 'bg-[#F1FCAC] text-black' : 'bg-red-500 text-white'
+                                }`}
                             >
                               {result.passed ? '✓' : '✗'}
                             </span>
@@ -960,11 +957,10 @@ function CollaborativeCodingPage() {
                           <div>
                             <label className='text-white block mb-2 text-sm font-medium'>Result</label>
                             <div
-                              className={`p-3 rounded font-medium text-sm ${
-                                testResults[selectedTestCase].passed
-                                  ? 'bg-green-900/20 border border-green-500 text-green-300'
-                                  : 'bg-red-900/20 border border-red-500 text-red-300'
-                              }`}
+                              className={`p-3 rounded font-medium text-sm ${testResults[selectedTestCase].passed
+                                ? 'bg-[#F1FCAC]/10 border border-[#F1FCAC] text-[#F1FCAC]'
+                                : 'bg-red-900/20 border border-red-500 text-red-300'
+                                }`}
                             >
                               {testResults[selectedTestCase].passed ? '✓ Passed' : '✗ Failed'}
                             </div>
@@ -1004,25 +1000,25 @@ function CollaborativeCodingPage() {
 
                           {(testResults[selectedTestCase].runtime_ms !== null ||
                             testResults[selectedTestCase].memory_mb !== null) && (
-                            <div className='grid grid-cols-2 gap-4'>
-                              {testResults[selectedTestCase].runtime_ms !== null && (
-                                <div>
-                                  <label className='text-white block mb-2 text-sm font-medium'>Runtime</label>
-                                  <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
-                                    {testResults[selectedTestCase].runtime_ms?.toFixed(2)} ms
+                              <div className='grid grid-cols-2 gap-4'>
+                                {testResults[selectedTestCase].runtime_ms !== null && (
+                                  <div>
+                                    <label className='text-white block mb-2 text-sm font-medium'>Runtime</label>
+                                    <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                                      {testResults[selectedTestCase].runtime_ms?.toFixed(2)} ms
+                                    </div>
                                   </div>
-                                </div>
-                              )}
-                              {testResults[selectedTestCase].memory_mb !== null && (
-                                <div>
-                                  <label className='text-white block mb-2 text-sm font-medium'>Memory</label>
-                                  <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
-                                    {testResults[selectedTestCase].memory_mb?.toFixed(2)} MB
+                                )}
+                                {testResults[selectedTestCase].memory_mb !== null && (
+                                  <div>
+                                    <label className='text-white block mb-2 text-sm font-medium'>Memory</label>
+                                    <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                                      {testResults[selectedTestCase].memory_mb?.toFixed(2)} MB
+                                    </div>
                                   </div>
-                                </div>
-                              )}
-                            </div>
-                          )}
+                                )}
+                              </div>
+                            )}
                         </div>
                       )}
                     </>

@@ -74,11 +74,10 @@ function ProfileStats() {
                             <Link
                                 key={tab.name}
                                 href={tab.href}
-                                className={`font-montserrat font-medium text-sm transition-colors ${
-                                    activeTab === tab.name
-                                        ? "text-white"
-                                        : "text-[#9e9e9e] hover:text-white"
-                                }`}
+                                className={`font-montserrat font-medium text-sm transition-colors ${activeTab === tab.name
+                                    ? "text-white"
+                                    : "text-[#9e9e9e] hover:text-white"
+                                    }`}
                                 onClick={() => setActiveTab(tab.name)}
                             >
                                 {tab.name}
@@ -97,7 +96,7 @@ function ProfileStats() {
                             className="text-[#9e9e9e] hover:text-white transition-colors flex items-center gap-2"
                         >
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                <path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round"/>
+                                <path d="M19 12H5M12 19l-7-7 7-7" strokeLinecap="round" strokeLinejoin="round" />
                             </svg>
                             <span className="text-sm">Back to Profile</span>
                         </button>
@@ -116,10 +115,9 @@ function ProfileStats() {
                         </div>
                     ) : stats ? (
                         <div className="space-y-8">
-                            {/* Overall Progress Card */}
-                            <div className="bg-[#3a3a3a] border-2 border-white/20 rounded-2xl p-8">
+                            <div className="bg-[#2d2d2d] border border-white/10 rounded-3xl p-8 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                                 <h2 className="text-2xl font-semibold text-white mb-6">Overall Progress</h2>
-                                
+
                                 {/* Total Solved */}
                                 <div className="mb-8">
                                     <div className="flex justify-between items-center mb-2">
@@ -127,7 +125,7 @@ function ProfileStats() {
                                         <span className="text-white text-lg font-bold">{stats.total_solved}/{questionCounts.total}</span>
                                     </div>
                                     <div className="w-full bg-[#2d2d2d] rounded-full h-3 overflow-hidden">
-                                        <div 
+                                        <div
                                             className="bg-gradient-to-r from-[#4ade80] to-[#22c55e] h-full rounded-full transition-all duration-500"
                                             style={{ width: `${getProgressPercentage(stats.total_solved, questionCounts.total)}%` }}
                                         />
@@ -143,7 +141,7 @@ function ProfileStats() {
                                             <span className="text-white text-sm font-semibold">{stats.easy_solved}/{questionCounts.easy}</span>
                                         </div>
                                         <div className="w-full bg-[#2d2d2d] rounded-full h-2 overflow-hidden">
-                                            <div 
+                                            <div
                                                 className="bg-[#00b8a3] h-full rounded-full transition-all duration-500"
                                                 style={{ width: `${getProgressPercentage(stats.easy_solved, questionCounts.easy)}%` }}
                                             />
@@ -157,7 +155,7 @@ function ProfileStats() {
                                             <span className="text-white text-sm font-semibold">{stats.medium_solved}/{questionCounts.medium}</span>
                                         </div>
                                         <div className="w-full bg-[#2d2d2d] rounded-full h-2 overflow-hidden">
-                                            <div 
+                                            <div
                                                 className="bg-[#ffc01e] h-full rounded-full transition-all duration-500"
                                                 style={{ width: `${getProgressPercentage(stats.medium_solved, questionCounts.medium)}%` }}
                                             />
@@ -171,7 +169,7 @@ function ProfileStats() {
                                             <span className="text-white text-sm font-semibold">{stats.hard_solved}/{questionCounts.hard}</span>
                                         </div>
                                         <div className="w-full bg-[#2d2d2d] rounded-full h-2 overflow-hidden">
-                                            <div 
+                                            <div
                                                 className="bg-[#ff375f] h-full rounded-full transition-all duration-500"
                                                 style={{ width: `${getProgressPercentage(stats.hard_solved, questionCounts.hard)}%` }}
                                             />
@@ -180,28 +178,23 @@ function ProfileStats() {
                                 </div>
                             </div>
 
-                            {/* Stats Grid */}
                             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-                                {/* Total Attempted */}
-                                <div className="bg-[#3a3a3a] border border-[#4a4a4a] rounded-xl p-6 text-center">
+                                <div className="bg-[#2d2d2d] border border-white/10 rounded-3xl p-6 text-center shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                                     <div className="text-4xl font-bold text-white mb-2">{stats.total_attempted}</div>
                                     <div className="text-[#9e9e9e] text-sm">Attempted</div>
                                 </div>
 
-                                {/* Acceptance Rate */}
-                                <div className="bg-[#3a3a3a] border border-[#4a4a4a] rounded-xl p-6 text-center">
+                                <div className="bg-[#2d2d2d] border border-white/10 rounded-3xl p-6 text-center shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                                     <div className="text-4xl font-bold text-white mb-2">{stats.acceptance_rate.toFixed(1)}%</div>
                                     <div className="text-[#9e9e9e] text-sm">Acceptance</div>
                                 </div>
 
-                                {/* Total Submissions */}
-                                <div className="bg-[#3a3a3a] border border-[#4a4a4a] rounded-xl p-6 text-center">
+                                <div className="bg-[#2d2d2d] border border-white/10 rounded-3xl p-6 text-center shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                                     <div className="text-4xl font-bold text-white mb-2">{stats.total_submissions}</div>
                                     <div className="text-[#9e9e9e] text-sm">Submissions</div>
                                 </div>
 
-                                {/* Streak */}
-                                <div className="bg-[#3a3a3a] border border-[#4a4a4a] rounded-xl p-6 text-center">
+                                <div className="bg-[#2d2d2d] border border-white/10 rounded-3xl p-6 text-center shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                                     <div className="text-4xl font-bold text-white mb-2">
                                         {stats.streak_days}
                                         <span className="text-2xl ml-1">🔥</span>
@@ -210,10 +203,9 @@ function ProfileStats() {
                                 </div>
                             </div>
 
-                            {/* Recently Solved Questions */}
-                            <div className="bg-[#3a3a3a] border-2 border-white/20 rounded-2xl p-8">
+                            <div className="bg-[#2d2d2d] border border-white/10 rounded-3xl p-8 shadow-[0_0_20px_rgba(255,255,255,0.1)]">
                                 <h2 className="text-2xl font-semibold text-white mb-6">Recently Solved</h2>
-                                
+
                                 {solvedQuestions.length > 0 ? (
                                     <div className="space-y-3">
                                         {solvedQuestions.slice(0, 10).map((question) => (
@@ -230,14 +222,14 @@ function ProfileStats() {
                                                         <h3 className="text-white font-medium truncate">{question.title}</h3>
                                                     </div>
                                                 </div>
-                                                
+
                                                 <div className="flex items-center gap-4">
                                                     {question.best_runtime_ms && (
                                                         <span className="text-[#9e9e9e] text-sm">
                                                             {question.best_runtime_ms}ms
                                                         </span>
                                                     )}
-                                                    <span className={`text-xs px-3 py-1 rounded-md font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
+                                                    <span className={`text-xs px-3 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
                                                         {question.difficulty}
                                                     </span>
                                                 </div>
