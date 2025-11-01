@@ -16,119 +16,125 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
+  detect-changes:
     runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      question: ${{ steps.filter.outputs.question }}
+      user: ${{ steps.filter.outputs.user }}
+      matching: ${{ steps.filter.outputs.matching }}
+      collab: ${{ steps.filter.outputs.collab }}
+      code-execution: ${{ steps.filter.outputs.code-execution }}
+      shared: ${{ steps.filter.outputs.shared }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
+      - name: Check for changed files
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+              - 'packages/**'
+            question:
+              - 'apps/question_service/**'
+            user:
+              - 'apps/user_service/**'
+              - 'packages/**'
+            matching:
+              - 'apps/matching-service/**'
+              - 'packages/**'
+            collab:
+              - 'apps/collab-service/**'
+              - 'packages/**'
+            code-execution:
+              - 'apps/code_execution_service/**'
+            shared:
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - '.github/workflows/**'
+
+  build:
+    needs: detect-changes
+    if: |
+      needs.detect-changes.outputs.web == 'true' ||
+      needs.detect-changes.outputs.question == 'true' ||
+      needs.detect-changes.outputs.user == 'true' ||
+      needs.detect-changes.outputs.matching == 'true' ||
+      needs.detect-changes.outputs.collab == 'true' ||
+      needs.detect-changes.outputs.code-execution == 'true' ||
+      needs.detect-changes.outputs.shared == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: web
+            context: .
+            dockerfile: ./apps/web/Dockerfile
+            condition: ${{ needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+          - service: question-service
+            context: ./apps/question_service
+            dockerfile: ./apps/question_service/dockerfile
+            condition: ${{ needs.detect-changes.outputs.question == 'true' }}
+          - service: user-service
+            context: .
+            dockerfile: ./apps/user_service/Dockerfile
+            condition: ${{ needs.detect-changes.outputs.user == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+          - service: matching-service
+            context: .
+            dockerfile: ./apps/matching-service/Dockerfile
+            condition: ${{ needs.detect-changes.outputs.matching == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+          - service: collab-service
+            context: .
+            dockerfile: ./apps/collab-service/Dockerfile
+            condition: ${{ needs.detect-changes.outputs.collab == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+          - service: code-execution-service
+            context: ./apps/code_execution_service
+            dockerfile: ./apps/code_execution_service/Dockerfile
+            condition: ${{ needs.detect-changes.outputs.code-execution == 'true' }}
+    steps:
+      - name: Skip if no changes
+        if: ${{ matrix.condition == 'false' }}
+        run: echo "Skipping ${{ matrix.service }} - no changes detected"
+
+      - name: Checkout
+        if: ${{ matrix.condition == 'true' }}
+        uses: actions/checkout@v4
+
       - name: Set lowercase repository owner
+        if: ${{ matrix.condition == 'true' }}
         id: repo
         run: echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
 
       - name: Set up QEMU
+        if: ${{ matrix.condition == 'true' }}
         uses: docker/setup-qemu-action@v3
 
       - name: Set up Docker Buildx
+        if: ${{ matrix.condition == 'true' }}
         uses: docker/setup-buildx-action@v3
 
-      - name: Build web (no push)
+      - name: Build ${{ matrix.service }} (no push)
+        if: ${{ matrix.condition == 'true' }}
         uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./apps/web/Dockerfile
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: false
           load: false
           provenance: false
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-web:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:${{ github.sha }}
 
-      - name: Build api (no push)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./apps/api/Dockerfile
-          push: false
-          load: false
-          provenance: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-api:${{ github.sha }}
-
-      - name: Build question-service (no push)
-        uses: docker/build-push-action@v6
-        with:
-          context: ./apps/question_service
-          file: ./apps/question_service/dockerfile
-          push: false
-          load: false
-          provenance: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-question-service:${{ github.sha }}
-
-      - name: Build user-service (no push)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./apps/user_service/Dockerfile
-          push: false
-          load: false
-          provenance: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-user-service:${{ github.sha }}
-
-      - name: Build matching-service (no push)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./apps/matching-service/Dockerfile
-          push: false
-          load: false
-          provenance: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-matching-service:${{ github.sha }}
-
-      - name: Build collab-service (no push)
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./apps/collab-service/Dockerfile
-          push: false
-          load: false
-          provenance: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-collab-service:${{ github.sha }}
-
-      - name: Build code-execution-service (no push)
-        uses: docker/build-push-action@v6
-        with:
-          context: ./apps/code_execution_service
-          file: ./apps/code_execution_service/Dockerfile
-          push: false
-          load: false
-          provenance: false
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-          tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-code-execution-service:${{ github.sha }}
-
-      - name: Output image tags (for logs)
+      - name: Output build info
+        if: ${{ matrix.condition == 'true' }}
         run: |
-          echo "WEB=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-web:${GITHUB_SHA}"
-          echo "API=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-api:${GITHUB_SHA}"
-          echo "QUESTION=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-question-service:${GITHUB_SHA}"
-          echo "USER=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-user-service:${GITHUB_SHA}"
-          echo "MATCHING=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-matching-service:${GITHUB_SHA}"
-          echo "COLLAB=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-collab-service:${GITHUB_SHA}"
-          echo "CODE_EXEC=ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-code-execution-service:${GITHUB_SHA}"
+          echo "✅ Built ${{ matrix.service }}"
+          echo "Image: ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:${{ github.sha }}"
