@@ -28,15 +28,6 @@ spec:
             port:
               number: 3000
       
-      # API Gateway (optional)
-      - path: /api
-        pathType: Prefix
-        backend:
-          service:
-            name: api
-            port:
-              number: 3001
-      
       # Question Service
       - path: /api/v1/questions
         pathType: Prefix
