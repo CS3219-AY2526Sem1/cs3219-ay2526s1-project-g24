@@ -70,7 +70,7 @@ export const logoutUser = async (): Promise<void> => {
 };
 
 export const getSession = async (): Promise<Session | null> => {
-    const response = await fetch(`${AUTH_API_BASE}/session`, {
+    const response = await fetch(`${API_URL}/auth/session`, {
         // Include credentials to send cookies
         credentials: "include",
     });
