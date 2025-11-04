@@ -3,17 +3,17 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { withAdminAuth } from "@/components/withAuth";
-import { 
-    getQuestions, 
+import {
+    getQuestions,
     deleteQuestion,
     restoreQuestion,
     QuestionListItem,
     getTopics,
     getCompanies,
     TopicResponse,
-    CompanyResponse 
+    CompanyResponse
 } from "@/lib/api/questionService";
-import Spinner from "@/components/spinner";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 function AdminQuestions() {
     // API Data
@@ -22,7 +22,7 @@ function AdminQuestions() {
     const [companies, setCompanies] = useState<CompanyResponse[]>([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    
+
     // Filters
     const [search, setSearch] = useState("");
     const [debouncedSearch, setDebouncedSearch] = useState("");
@@ -30,17 +30,17 @@ function AdminQuestions() {
     const [topicFilter, setTopicFilter] = useState<number | null>(null);
     const [companyFilter, setCompanyFilter] = useState<number | null>(null);
     const [showDeleted, setShowDeleted] = useState(false);  // Toggle for deleted questions
-    
+
     // Pagination
     const [page, setPage] = useState(1);
     const [totalPages, setTotalPages] = useState(1);
     const [totalQuestions, setTotalQuestions] = useState(0);
-    
+
     // Delete modal
-    const [deleteConfirm, setDeleteConfirm] = useState<{ 
-        show: boolean; 
-        questionId: number | null; 
-        questionTitle: string 
+    const [deleteConfirm, setDeleteConfirm] = useState<{
+        show: boolean;
+        questionId: number | null;
+        questionTitle: string
     }>({
         show: false,
         questionId: null,
@@ -146,7 +146,7 @@ function AdminQuestions() {
 
     const confirmDelete = async () => {
         if (deleteConfirm.questionId === null) return;
-        
+
         try {
             await deleteQuestion(deleteConfirm.questionId);
             // Refresh the questions list
@@ -317,9 +317,7 @@ function AdminQuestions() {
 
                     {/* Loading State */}
                     {loading && (
-                        <div className="flex justify-center items-center py-20">
-                            <Spinner />
-                        </div>
+                        <LoadingSpinner message="Loading questions..." fullScreen={false} />
                     )}
 
                     {/* Error State */}
@@ -340,7 +338,7 @@ function AdminQuestions() {
                             </Link>
                         </div>
                     )}
-                    
+
                     {/* Questions Table */}
                     {!loading && !error && questions.length > 0 && (
                         <div className="bg-white border border-gray-200 rounded-2xl overflow-hidden">
@@ -368,118 +366,118 @@ function AdminQuestions() {
                                     {questions.map((question) => {
                                         const isDeleted = question.deleted_at != null;
                                         return (
-                                        <tr key={question.id} className={`hover:bg-gray-50 transition-colors ${isDeleted ? 'opacity-60 bg-red-50' : ''}`}>
-                                            <td className="px-6 py-4">
-                                                <div className="flex items-center gap-2">
-                                                    <Link 
-                                                        href={`/admin/questions/${question.id}`}
-                                                        className={`font-montserrat text-sm font-medium hover:text-[#DCC8FE] transition-colors ${isDeleted ? 'text-gray-500 line-through' : 'text-black'}`}
-                                                    >
-                                                        {question.title}
-                                                    </Link>
-                                                    {isDeleted && (
-                                                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-montserrat rounded-full border border-red-300">
-                                                            Deleted
-                                                        </span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <span className={`px-3 py-1 rounded-full text-xs font-montserrat font-semibold border ${difficultyColors[question.difficulty]}`}>
-                                                    {question.difficulty.toUpperCase()}
-                                                </span>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-wrap gap-1 relative group">
-                                                    {question.topics.slice(0, 2).map((topic) => (
-                                                        <span
-                                                            key={topic.id}
-                                                            className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-montserrat rounded"
+                                            <tr key={question.id} className={`hover:bg-gray-50 transition-colors ${isDeleted ? 'opacity-60 bg-red-50' : ''}`}>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex items-center gap-2">
+                                                        <Link
+                                                            href={`/admin/questions/${question.id}`}
+                                                            className={`font-montserrat text-sm font-medium hover:text-[#DCC8FE] transition-colors ${isDeleted ? 'text-gray-500 line-through' : 'text-black'}`}
                                                         >
-                                                            {topic.name}
-                                                        </span>
-                                                    ))}
-                                                    {question.topics.length > 2 && (
-                                                        <span className="px-2 py-1 text-gray-500 text-xs font-montserrat">
-                                                            +{question.topics.length - 2}
-                                                        </span>
-                                                    )}
-                                                    {/* Tooltip for all topics */}
-                                                    {question.topics.length > 2 && (
-                                                        <div className="absolute left-0 top-full mt-2 bg-gray-800 text-white text-xs rounded-lg py-2 px-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 whitespace-nowrap">
-                                                            <div className="flex flex-col gap-1">
-                                                                {question.topics.map((topic) => (
-                                                                    <span key={topic.id} className="font-montserrat">
-                                                                        • {topic.name}
+                                                            {question.title}
+                                                        </Link>
+                                                        {isDeleted && (
+                                                            <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs font-montserrat rounded-full border border-red-300">
+                                                                Deleted
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <span className={`px-3 py-1 rounded-full text-xs font-montserrat font-semibold border ${difficultyColors[question.difficulty]}`}>
+                                                        {question.difficulty.toUpperCase()}
+                                                    </span>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-wrap gap-1 relative group">
+                                                        {question.topics.slice(0, 2).map((topic) => (
+                                                            <span
+                                                                key={topic.id}
+                                                                className="px-2 py-1 bg-gray-100 text-gray-700 text-xs font-montserrat rounded"
+                                                            >
+                                                                {topic.name}
+                                                            </span>
+                                                        ))}
+                                                        {question.topics.length > 2 && (
+                                                            <span className="px-2 py-1 text-gray-500 text-xs font-montserrat">
+                                                                +{question.topics.length - 2}
+                                                            </span>
+                                                        )}
+                                                        {/* Tooltip for all topics */}
+                                                        {question.topics.length > 2 && (
+                                                            <div className="absolute left-0 top-full mt-2 bg-gray-800 text-white text-xs rounded-lg py-2 px-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 whitespace-nowrap">
+                                                                <div className="flex flex-col gap-1">
+                                                                    {question.topics.map((topic) => (
+                                                                        <span key={topic.id} className="font-montserrat">
+                                                                            • {topic.name}
+                                                                        </span>
+                                                                    ))}
+                                                                </div>
+                                                            </div>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4">
+                                                    <div className="flex flex-wrap gap-1 relative group">
+                                                        {question.companies.length > 0 ? (
+                                                            <>
+                                                                {question.companies.slice(0, 2).map((company) => (
+                                                                    <span
+                                                                        key={company.id}
+                                                                        className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-montserrat rounded"
+                                                                    >
+                                                                        {company.name}
                                                                     </span>
                                                                 ))}
-                                                            </div>
-                                                        </div>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4">
-                                                <div className="flex flex-wrap gap-1 relative group">
-                                                    {question.companies.length > 0 ? (
-                                                        <>
-                                                            {question.companies.slice(0, 2).map((company) => (
-                                                                <span
-                                                                    key={company.id}
-                                                                    className="px-2 py-1 bg-blue-50 text-blue-700 text-xs font-montserrat rounded"
-                                                                >
-                                                                    {company.name}
-                                                                </span>
-                                                            ))}
-                                                            {question.companies.length > 2 && (
-                                                                <span className="px-2 py-1 text-gray-500 text-xs font-montserrat">
-                                                                    +{question.companies.length - 2}
-                                                                </span>
-                                                            )}
-                                                            {/* Tooltip for all companies */}
-                                                            {question.companies.length > 2 && (
-                                                                <div className="absolute left-0 top-full mt-2 bg-gray-800 text-white text-xs rounded-lg py-2 px-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 whitespace-nowrap">
-                                                                    <div className="flex flex-col gap-1">
-                                                                        {question.companies.map((company) => (
-                                                                            <span key={company.id} className="font-montserrat">
-                                                                                • {company.name}
-                                                                            </span>
-                                                                        ))}
+                                                                {question.companies.length > 2 && (
+                                                                    <span className="px-2 py-1 text-gray-500 text-xs font-montserrat">
+                                                                        +{question.companies.length - 2}
+                                                                    </span>
+                                                                )}
+                                                                {/* Tooltip for all companies */}
+                                                                {question.companies.length > 2 && (
+                                                                    <div className="absolute left-0 top-full mt-2 bg-gray-800 text-white text-xs rounded-lg py-2 px-3 shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all z-10 whitespace-nowrap">
+                                                                        <div className="flex flex-col gap-1">
+                                                                            {question.companies.map((company) => (
+                                                                                <span key={company.id} className="font-montserrat">
+                                                                                    • {company.name}
+                                                                                </span>
+                                                                            ))}
+                                                                        </div>
                                                                     </div>
-                                                                </div>
-                                                            )}
-                                                        </>
-                                                    ) : (
-                                                        <span className="text-gray-400 text-xs font-montserrat">—</span>
-                                                    )}
-                                                </div>
-                                            </td>
-                                            <td className="px-6 py-4 text-right">
-                                                <div className="flex gap-2 justify-end">
-                                                    <Link href={`/admin/questions/${question.id}`}>
-                                                        <button className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-montserrat text-xs rounded transition-colors">
-                                                            View
-                                                        </button>
-                                                    </Link>
-                                                    {isDeleted ? (
-                                                        <button
-                                                            onClick={() => handleRestoreQuestion(question.id)}
-                                                            className="px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-600 font-montserrat text-xs rounded transition-colors"
-                                                        >
-                                                            Restore
-                                                        </button>
-                                                    ) : (
-                                                        <button
-                                                            onClick={() => handleDeleteQuestion(question.id, question.title)}
-                                                            className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-montserrat text-xs rounded transition-colors"
-                                                        >
-                                                            Delete
-                                                        </button>
-                                                    )}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
+                                                                )}
+                                                            </>
+                                                        ) : (
+                                                            <span className="text-gray-400 text-xs font-montserrat">—</span>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 text-right">
+                                                    <div className="flex gap-2 justify-end">
+                                                        <Link href={`/admin/questions/${question.id}`}>
+                                                            <button className="px-3 py-1.5 bg-gray-100 hover:bg-gray-200 text-gray-700 font-montserrat text-xs rounded transition-colors">
+                                                                View
+                                                            </button>
+                                                        </Link>
+                                                        {isDeleted ? (
+                                                            <button
+                                                                onClick={() => handleRestoreQuestion(question.id)}
+                                                                className="px-3 py-1.5 bg-green-50 hover:bg-green-100 text-green-600 font-montserrat text-xs rounded transition-colors"
+                                                            >
+                                                                Restore
+                                                            </button>
+                                                        ) : (
+                                                            <button
+                                                                onClick={() => handleDeleteQuestion(question.id, question.title)}
+                                                                className="px-3 py-1.5 bg-red-50 hover:bg-red-100 text-red-600 font-montserrat text-xs rounded transition-colors"
+                                                            >
+                                                                Delete
+                                                            </button>
+                                                        )}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
                                 </tbody>
                             </table>
                         </div>

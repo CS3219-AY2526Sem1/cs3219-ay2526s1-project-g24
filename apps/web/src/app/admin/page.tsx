@@ -6,7 +6,7 @@ import { useState, useEffect } from "react";
 import { withAdminAuth } from "@/components/withAuth";
 import { getDashboardStats } from "@/lib/api/questionService";
 import { getUsers } from "@/lib/api/userService";
-import Spinner from "@/components/spinner";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 function AdminDashboard() {
     const [stats, setStats] = useState({
@@ -114,9 +114,7 @@ function AdminDashboard() {
 
                     {/* Loading State */}
                     {loading && (
-                        <div className="flex justify-center items-center py-20">
-                            <Spinner />
-                        </div>
+                        <LoadingSpinner message="Loading dashboard..." fullScreen={false} />
                     )}
 
                     {/* Error State */}
