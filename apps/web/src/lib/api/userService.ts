@@ -2,6 +2,7 @@ import { API_CONFIG } from "../apiConfig";
 import { Session, User, Role, Permission } from "@/lib/types";
 
 const API_URL = `${API_CONFIG.USER_SERVICE}/api/v1`;
+const AUTH_API_BASE = "/api/auth";
 
 const normalizePermission = (permission: any): Permission => ({
     id: Number(permission.id),
@@ -51,7 +52,9 @@ const normalizeUser = (user: any): User => {
 // Auth Service
 
 export const getGoogleSignInUrl = async (): Promise<string> => {
-    const response = await fetch(`${API_URL}/auth/google/url`);
+    const response = await fetch(`${AUTH_API_BASE}/google/url`, {
+        credentials: "include",
+    });
     if (!response.ok) {
         throw new Error("Failed to get Google Sign-In URL");
     }
@@ -194,14 +197,12 @@ export const revokePermissionFromRole = async (
 
 export const updateUser = async (user: Partial<User>): Promise<User> => {
 
-    // Remove undefined values and only send defined fields
     const cleanedData: Record<string, any> = {};
     if (user.username !== undefined) cleanedData.username = user.username;
     if (user.display_name !== undefined) cleanedData.display_name = user.display_name;
     if (user.description !== undefined) cleanedData.description = user.description;
     if (user.programming_proficiency !== undefined) cleanedData.programming_proficiency = user.programming_proficiency;
     if (user.preferred_language !== undefined) cleanedData.preferred_language = user.preferred_language;
-    if (user.avatar_url !== undefined) cleanedData.avatar_url = user.avatar_url;
 
     const response = await fetch(`${API_URL}/users/me`, {
         method: "PATCH",
@@ -211,10 +212,8 @@ export const updateUser = async (user: Partial<User>): Promise<User> => {
         },
         body: JSON.stringify(cleanedData),
     });
-    console.log('Update response status:', response.status);
     if (!response.ok) {
         const errorText = await response.text();
-        console.error('Update failed:', errorText);
         throw new Error("Failed to update user: " + errorText);
     }
     return response.json();

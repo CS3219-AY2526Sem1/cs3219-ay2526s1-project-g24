@@ -3,7 +3,7 @@
 import { useAuth } from '../hooks/useAuth';
 import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import Spinner from './spinner';
+import LoadingSpinner from './LoadingSpinner';
 
 export function withAdminAuth<P extends object>(WrappedComponent: React.ComponentType<P>) {
   function WithAdminAuth(props: P) {
@@ -17,7 +17,7 @@ export function withAdminAuth<P extends object>(WrappedComponent: React.Componen
     }, [user, loading, isAdmin, router]);
 
     if (loading) {
-      return <Spinner />;
+      return <LoadingSpinner message="Loading..." />;
     }
     return user && isAdmin ? <WrappedComponent {...props} /> : null;
   }
@@ -36,7 +36,7 @@ export default function withAuth<P extends object>(WrappedComponent: React.Compo
     }, [user, loading, router]);
 
     if (loading) {
-      return <Spinner />;
+      return <LoadingSpinner message="Loading..." />;
     }
 
     return user ? <WrappedComponent {...props} /> : null;
