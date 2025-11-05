@@ -273,6 +273,12 @@ int main() {{
                     request.function_signature
                 )
 
+                # Log what we're sending to Judge0 for debugging
+                logger.info(f"Submitting to Judge0 - Test case {test_case.order_index}:")
+                logger.info(f"  Code (first 500 chars): {code[:500]}")
+                logger.info(f"  Stdin: {stdin!r}")
+                logger.info(f"  Has additional files: {additional_files is not None}")
+
                 # Submit to Judge0
                 token = await self.submit_code(
                     language=request.language,
@@ -287,6 +293,13 @@ int main() {{
                 # Get result
                 judge0_result = await self.get_submission_result(token)
                 status = self._parse_status(judge0_result)
+
+                # Log Judge0 result for debugging
+                logger.info(f"Judge0 result for test case {test_case.order_index}: "
+                           f"status={judge0_result.status.id}({judge0_result.status.description}), "
+                           f"stdout={judge0_result.stdout!r}, "
+                           f"stderr={judge0_result.stderr!r}, "
+                           f"compile_output={judge0_result.compile_output!r}")
 
                 # Handle compilation errors (affects all test cases)
                 if status == ExecutionStatus.COMPILATION_ERROR:
