@@ -497,7 +497,7 @@ function AdminQuestions() {
                             Delete Question?
                         </h3>
                         <p className="font-montserrat text-gray-500 mb-6">
-                            Are you sure you want to delete "{deleteConfirm.questionTitle}"? The question will be hidden but can be restored later.
+                            Are you sure you want to delete &ldquo;{deleteConfirm.questionTitle}&rdquo;? The question will be hidden but can be restored later.
                         </p>
                         <div className="flex gap-3 justify-end">
                             <button

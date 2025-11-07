@@ -3,6 +3,22 @@ import { config } from '../config/index.js';
 import { AuthRequest, JWTPayload, AppError } from '../types/index.js';
 import { verifyTokenWithJWKS, extractToken } from '../utils/jwks-auth.js';
 
+function parseCookieHeader(cookieHeader?: string): Record<string, string> | undefined {
+    if (!cookieHeader) return undefined;
+
+    const cookies: Record<string, string> = {};
+    cookieHeader.split(';').forEach((pair) => {
+        const [rawKey, ...rawValue] = pair.split('=');
+        if (!rawKey) return;
+        const key = rawKey.trim();
+        const value = rawValue.join('=').trim();
+        if (!key) return;
+        cookies[key] = decodeURIComponent(value || '');
+    });
+
+    return Object.keys(cookies).length > 0 ? cookies : undefined;
+}
+
 /**
  * Middleware to verify JWT token from Authorization header or cookie
  * Supports mock authentication for local testing (set ENABLE_MOCK_AUTH=true in .env)
@@ -45,7 +61,11 @@ export function authenticate(
                 authHeaderPrefix: req.headers.authorization?.substring(0, 20),
             });
 
-            const token = extractToken(req.headers.authorization, req.cookies);
+            const cookies = (req.cookies && Object.keys(req.cookies).length > 0)
+                ? req.cookies
+                : parseCookieHeader(req.headers.cookie);
+
+            const token = extractToken(req.headers.authorization, cookies);
 
             if (!token) {
                 console.warn('[Auth] ⚠️  No authentication token provided');

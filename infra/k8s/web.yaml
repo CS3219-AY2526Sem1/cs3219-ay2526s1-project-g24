@@ -48,6 +48,11 @@ spec:
             configMapKeyRef:
               name: app-config
               key: CODE_EXECUTION_SERVICE_URL
+        - name: NEXT_PUBLIC_COLLAB_SERVICE_URL
+          valueFrom:
+            configMapKeyRef:
+              name: app-config
+              key: COLLAB_SERVICE_URL
         resources:
           requests:
             memory: "128Mi"

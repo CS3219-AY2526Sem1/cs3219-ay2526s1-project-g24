@@ -3,15 +3,12 @@
  * Handles communication with the matching microservice
  */
 
-import { API_CONFIG } from '../apiConfig';
+import { API_CONFIG, createServiceUrlBuilder } from '@/lib/api-utils';
 import { MatchEvent, MatchRequest, MatchRequestResponse, MatchRequestStatus } from '@/lib/types';
 
-class MatchingServiceClient {
-    private baseUrl: string;
+const serviceUrl = createServiceUrlBuilder(API_CONFIG.MATCHING_SERVICE);
 
-    constructor() {
-        this.baseUrl = API_CONFIG.MATCHING_SERVICE;
-    }
+class MatchingServiceClient {
 
     /**
      * Create a new match request
@@ -19,7 +16,7 @@ class MatchingServiceClient {
     async createMatchRequest(
         request: MatchRequest,
     ): Promise<MatchRequestResponse> {
-        const response = await fetch(`${this.baseUrl}/api/v1/match/requests`, {
+        const response = await fetch(serviceUrl('/api/v1/match/requests'), {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -55,7 +52,7 @@ class MatchingServiceClient {
      * Get the status of a match request
      */
     async getMatchRequestStatus(reqId: string): Promise<MatchRequestStatus> {
-        const response = await fetch(`${this.baseUrl}/api/v1/match/requests/${reqId}`, {
+        const response = await fetch(serviceUrl(`/api/v1/match/requests/${reqId}`), {
             method: 'GET',
             headers: {
                 'Content-Type': 'application/json',
@@ -83,7 +80,7 @@ class MatchingServiceClient {
         alreadyMatched: boolean;
         sessionId?: string;
     }> {
-        const response = await fetch(`${this.baseUrl}/api/v1/match/requests/${reqId}`, {
+        const response = await fetch(serviceUrl(`/api/v1/match/requests/${reqId}`), {
             method: 'DELETE',
             headers: {
                 'Content-Type': 'application/json',
@@ -136,7 +133,7 @@ class MatchingServiceClient {
         onError?: (error: Error) => void,
     ): () => void {
         const eventSource = new EventSource(
-            `${this.baseUrl}/api/v1/match/requests/${reqId}/events`,
+            serviceUrl(`/api/v1/match/requests/${reqId}/events`),
             { withCredentials: true },
         );
 

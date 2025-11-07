@@ -1,8 +1,7 @@
-import { API_CONFIG } from "../apiConfig";
+import { API_CONFIG, createServiceUrlBuilder } from "@/lib/api-utils";
 import { Session, User, Role, Permission } from "@/lib/types";
 
-const API_URL = `${API_CONFIG.USER_SERVICE}/api/v1`;
-const AUTH_API_BASE = "/api/v1/auth";
+const serviceUrl = createServiceUrlBuilder(API_CONFIG.USER_SERVICE, "/api/v1");
 
 const normalizePermission = (permission: any): Permission => ({
     id: Number(permission.id),
@@ -52,7 +51,7 @@ const normalizeUser = (user: any): User => {
 // Auth Service
 
 export const getGoogleSignInUrl = async (): Promise<string> => {
-    const response = await fetch(`${AUTH_API_BASE}/google/url`, {
+    const response = await fetch(serviceUrl(`/auth/google/url`), {
         credentials: "include",
     });
     if (!response.ok) {
@@ -63,14 +62,14 @@ export const getGoogleSignInUrl = async (): Promise<string> => {
 };
 
 export const logoutUser = async (): Promise<void> => {
-    await fetch(`${API_URL}/auth/logout`, {
+    await fetch(serviceUrl(`/auth/logout`), {
         method: "POST",
         credentials: "include",
     });
 };
 
 export const getSession = async (): Promise<Session | null> => {
-    const response = await fetch(`${API_URL}/auth/session`, {
+    const response = await fetch(serviceUrl(`/auth/session`), {
         // Include credentials to send cookies
         credentials: "include",
     });
@@ -84,7 +83,7 @@ export const getSession = async (): Promise<Session | null> => {
 // User Service
 
 export const getUser = async (): Promise<User> => {
-    const response = await fetch(`${API_URL}/users/me`, {
+    const response = await fetch(serviceUrl(`/users/me`), {
         credentials: "include",
     });
     if (!response.ok) {
@@ -95,7 +94,7 @@ export const getUser = async (): Promise<User> => {
 };
 
 export const getUsers = async (): Promise<User[]> => {
-    const response = await fetch(`${API_URL}/admin/users`, {
+    const response = await fetch(serviceUrl(`/admin/users`), {
         credentials: "include",
     });
     if (!response.ok) {
@@ -106,7 +105,7 @@ export const getUsers = async (): Promise<User[]> => {
 };
 
 export const getRoles = async (): Promise<Role[]> => {
-    const response = await fetch(`${API_URL}/admin/roles`, {
+    const response = await fetch(serviceUrl(`/admin/roles`), {
         credentials: "include",
     });
     if (!response.ok) {
@@ -117,7 +116,7 @@ export const getRoles = async (): Promise<Role[]> => {
 };
 
 export const createRole = async (name: string): Promise<Role> => {
-    const response = await fetch(`${API_URL}/admin/roles`, {
+    const response = await fetch(serviceUrl(`/admin/roles`), {
         method: "POST",
         credentials: "include",
         headers: {
@@ -133,7 +132,7 @@ export const createRole = async (name: string): Promise<Role> => {
 };
 
 export const getPermissions = async (): Promise<Permission[]> => {
-    const response = await fetch(`${API_URL}/admin/permissions`, {
+    const response = await fetch(serviceUrl(`/admin/permissions`), {
         credentials: "include",
     });
     if (!response.ok) {
@@ -144,7 +143,7 @@ export const getPermissions = async (): Promise<Permission[]> => {
 };
 
 export const createPermission = async (name: string): Promise<Permission> => {
-    const response = await fetch(`${API_URL}/admin/permissions`, {
+    const response = await fetch(serviceUrl(`/admin/permissions`), {
         method: "POST",
         credentials: "include",
         headers: {
@@ -164,7 +163,7 @@ export const grantPermissionToRole = async (
     permissionId: number
 ): Promise<void> => {
     const response = await fetch(
-        `${API_URL}/admin/roles/${roleId}/permissions`,
+        serviceUrl(`/admin/roles/${roleId}/permissions`),
         {
             method: "POST",
             credentials: "include",
@@ -184,7 +183,7 @@ export const revokePermissionFromRole = async (
     permissionId: number
 ): Promise<void> => {
     const response = await fetch(
-        `${API_URL}/admin/roles/${roleId}/permissions/${permissionId}`,
+        serviceUrl(`/admin/roles/${roleId}/permissions/${permissionId}`),
         {
             method: "DELETE",
             credentials: "include",
@@ -204,7 +203,7 @@ export const updateUser = async (user: Partial<User>): Promise<User> => {
     if (user.programming_proficiency !== undefined) cleanedData.programming_proficiency = user.programming_proficiency;
     if (user.preferred_language !== undefined) cleanedData.preferred_language = user.preferred_language;
 
-    const response = await fetch(`${API_URL}/users/me`, {
+    const response = await fetch(serviceUrl(`/users/me`), {
         method: "PATCH",
         credentials: "include",
         headers: {
@@ -223,7 +222,7 @@ export const assignRoleToUser = async (
     userId: string,
     roleId: number
 ): Promise<void> => {
-    const response = await fetch(`${API_URL}/admin/users/${userId}/roles`, {
+    const response = await fetch(serviceUrl(`/admin/users/${userId}/roles`), {
         method: "POST",
         credentials: "include",
         headers: {
@@ -241,7 +240,7 @@ export const removeRoleFromUser = async (
     roleId: number
 ): Promise<void> => {
     const response = await fetch(
-        `${API_URL}/admin/users/${userId}/roles/${roleId}`,
+        serviceUrl(`/admin/users/${userId}/roles/${roleId}`),
         {
             method: "DELETE",
             credentials: "include",
@@ -253,7 +252,7 @@ export const removeRoleFromUser = async (
 };
 
 export const deleteUser = async (userId: string): Promise<void> => {
-    const response = await fetch(`${API_URL}/users/${userId}`, {
+    const response = await fetch(serviceUrl(`/users/${userId}`), {
         method: "DELETE",
         credentials: "include",
     });
@@ -263,7 +262,7 @@ export const deleteUser = async (userId: string): Promise<void> => {
 };
 
 export const getUserById = async (userId: string): Promise<User> => {
-    const response = await fetch(`${API_URL}/users/${userId}`, {
+    const response = await fetch(serviceUrl(`/users/${userId}`), {
         credentials: "include",
     });
     if (!response.ok) {
