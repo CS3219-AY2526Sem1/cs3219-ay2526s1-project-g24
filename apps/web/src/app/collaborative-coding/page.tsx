@@ -26,7 +26,6 @@ import {
   type QuestionDetail,
   type TestCaseResult,
 } from '@/lib/api/questionService';
-import { collaborationService } from '@/lib/api/collaborationService';
 import {
   clearActiveSession,
   getActiveQuestionId,
