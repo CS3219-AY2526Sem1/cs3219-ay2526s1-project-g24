@@ -21,6 +21,7 @@ data:
   QUESTION_SERVICE_URL: "https://cs3219.leyew.dev"
   USER_SERVICE_URL: "https://cs3219.leyew.dev"
   CODE_EXECUTION_SERVICE_URL: "https://cs3219.leyew.dev"
+  COLLAB_SERVICE_URL: "https://cs3219.leyew.dev"
 
   # Internal service-to-service URL
   COLLABORATION_SERVICE_URL: "http://collab-service:3003"

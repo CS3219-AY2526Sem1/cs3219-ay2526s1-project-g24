@@ -1,7 +1,18 @@
 import type { editor } from 'monaco-editor';
-import { COLLABORATION_CONFIG } from '@/lib/config/collaboration';
+import { resolveServiceEndpoints, stripTrailingSlash } from '@/lib/api-utils';
 import { getYjsModules } from './yjs-modules';
 import { RemoteCursorManager } from './RemoteCursorManager';
+
+const { wsBase } = resolveServiceEndpoints(
+    process.env.NEXT_PUBLIC_COLLAB_SERVICE_URL,
+    '3003'
+);
+
+const normalizedWsBase = wsBase ? stripTrailingSlash(wsBase) : '';
+const WS_SESSIONS_PATH = '/api/v1/ws/sessions';
+const WS_SESSIONS_BASE_URL = normalizedWsBase
+    ? `${normalizedWsBase}${WS_SESSIONS_PATH}`
+    : WS_SESSIONS_PATH;
 
 /**
  * Connection status for collaboration session
@@ -95,6 +106,9 @@ export class CollaborationManager {
     private reconnectAttempts: number = 0;
     private readonly MAX_RECONNECT_ATTEMPTS = 5;
     private cursorManager: RemoteCursorManager | null = null;
+    private initialSyncPromise: Promise<void> | null = null;
+    private syncHandler: ((isSynced: boolean) => void) | null = null;
+    private isSynced = false;
 
     constructor(userName?: string, userColor?: string) {
         this.userName = userName || getRandomName();
@@ -122,6 +136,10 @@ export class CollaborationManager {
         // Restore callbacks
         this.onPresenceChange = savedPresenceCallback;
         this.onError = savedErrorCallback;
+        // Reset sync tracking
+        this.initialSyncPromise = null;
+        this.syncHandler = null;
+        this.isSynced = false;
 
         try {
             // Get Yjs modules (singleton to prevent duplicate imports)
@@ -131,14 +149,33 @@ export class CollaborationManager {
             this.ydoc = new Y.Doc();
 
             // Create WebSocket provider
-            const wsUrl = `${COLLABORATION_CONFIG.WS_URL}/api/v1/ws/sessions/${sessionId}`;
-            this.provider = new WebsocketProvider(wsUrl, sessionId, this.ydoc, {
+            const sessionsEndpoint = WS_SESSIONS_BASE_URL;
+            this.provider = new WebsocketProvider(sessionsEndpoint, sessionId, this.ydoc, {
                 connect: true,
                 awareness: undefined,
                 params: {},
                 WebSocketPolyfill: undefined,
                 resyncInterval: 5000, // Resync every 5 seconds
                 maxBackoffTime: 5000, // Max reconnect backoff
+            });
+
+            this.initialSyncPromise = new Promise<void>((resolve) => {
+                this.syncHandler = (isSynced: boolean) => {
+                    if (isSynced) {
+                        console.log('[Collaboration] Initial sync completed');
+                        if (this.provider && this.syncHandler) {
+                            try {
+                                this.provider.off('sync', this.syncHandler);
+                            } catch (error) {
+                                console.warn('[Collaboration] Failed to detach sync handler:', error);
+                            }
+                        }
+                        this.syncHandler = null;
+                        this.isSynced = true;
+                        resolve();
+                    }
+                };
+                this.provider.on('sync', this.syncHandler);
             });
 
             // Get or create a shared text type - MUST match backend ('code')
@@ -336,6 +373,14 @@ export class CollaborationManager {
             }
         }
 
+        if (this.provider && this.syncHandler) {
+            try {
+                this.provider.off('sync', this.syncHandler);
+            } catch (error) {
+                console.warn('[Collaboration] Error detaching sync handler:', error);
+            }
+        }
+
         if (this.provider) {
             try {
                 this.provider.destroy();
@@ -356,6 +401,9 @@ export class CollaborationManager {
 
         this.awareness = null;
         this.localClientId = null;
+        this.initialSyncPromise = null;
+        this.syncHandler = null;
+        this.isSynced = false;
 
         console.log('[Collaboration] Disconnected successfully');
     }
@@ -462,6 +510,55 @@ export class CollaborationManager {
             color: this.userColor,
             clientId: this.localClientId,
         };
+    }
+
+    /**
+     * Wait for the initial sync with the collaboration server to complete.
+     */
+    async waitForInitialSync(): Promise<void> {
+        if (this.isSynced) {
+            return;
+        }
+        if (this.initialSyncPromise) {
+            await this.initialSyncPromise;
+        }
+    }
+
+    /**
+     * Get the current shared document content.
+     */
+    getSharedContent(): string {
+        if (!this.ydoc) {
+            return '';
+        }
+        const ytext = this.ydoc.getText('code');
+        return ytext.toString();
+    }
+
+    /**
+     * Check if the shared document already has content.
+     */
+    hasSharedContent(): boolean {
+        return this.getSharedContent().trim().length > 0;
+    }
+
+    /**
+     * Replace the shared document content with the provided string.
+     */
+    setSharedContent(content: string): void {
+        if (!this.ydoc) {
+            return;
+        }
+        const ytext = this.ydoc.getText('code');
+        this.ydoc.transact(() => {
+            const length = ytext.length;
+            if (length > 0) {
+                ytext.delete(0, length);
+            }
+            if (content) {
+                ytext.insert(0, content);
+            }
+        });
     }
 
     /**

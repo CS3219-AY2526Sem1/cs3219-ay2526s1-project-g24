@@ -10,6 +10,7 @@ services:
     environment:
       USER_SERVICE_URL: http://user-service:8000/api
       NEXT_PUBLIC_USER_SERVICE_URL: http://localhost:8001
+      NEXT_PUBLIC_COLLAB_SERVICE_URL: http://localhost:3003
     networks:
       - app_network
 

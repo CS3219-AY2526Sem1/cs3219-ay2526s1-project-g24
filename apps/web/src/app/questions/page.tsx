@@ -23,8 +23,8 @@ function Questions() {
     const [companies, setCompanies] = useState<CompanyResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
-    const [page, setPage] = useState(1);
-    const [totalQuestions, setTotalQuestions] = useState(0);
+    const [page, _setPage] = useState(1);
+    const [, setTotalQuestions] = useState(0);
 
     // Debounce search query
     useEffect(() => {

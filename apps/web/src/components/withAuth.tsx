@@ -1,9 +1,10 @@
 'use client';
 
-import { useAuth } from '../hooks/useAuth';
-import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../hooks/useAuth';
 import LoadingSpinner from './LoadingSpinner';
+import ActiveSessionReminder from './ActiveSessionReminder';
 
 export function withAdminAuth<P extends object>(WrappedComponent: React.ComponentType<P>) {
   function WithAdminAuth(props: P) {
@@ -39,7 +40,12 @@ export default function withAuth<P extends object>(WrappedComponent: React.Compo
       return <LoadingSpinner message="Loading..." />;
     }
 
-    return user ? <WrappedComponent {...props} /> : null;
+    return user ? (
+      <>
+        <ActiveSessionReminder />
+        <WrappedComponent {...props} />
+      </>
+    ) : null;
   }
 
   return WithAuth;
