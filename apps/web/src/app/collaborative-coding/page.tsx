@@ -279,13 +279,22 @@ function CollaborativeCodingPage() {
 
             const storedQid = getActiveQuestionId();
             if (storedQid) {
+              const questionId = Number(storedQid);
+              
+              // Validate that the question ID is a valid number
+              if (isNaN(questionId) || questionId <= 0) {
+                console.error('❌ Invalid question ID:', storedQid);
+                setQuestionError(`Invalid question ID: ${storedQid}. Please start a new session.`);
+                return;
+              }
+              
               persistActiveSession(targetSessionId, storedQid);
               console.log('✅ Found question ID, fetching question:', storedQid);
               await collaborationManagerRef.current?.waitForInitialSync();
               const hasSharedContent =
                 collaborationManagerRef.current?.hasSharedContent() ?? false;
               await fetchAndSetQuestion(
-                Number(storedQid),
+                questionId,
                 selectedLanguage,
                 targetSessionId,
                 !hasSharedContent,

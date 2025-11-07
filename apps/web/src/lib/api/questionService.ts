@@ -144,6 +144,11 @@ export async function getQuestions(params?: {
  * Endpoint: GET /api/v1/questions/{question_id}
  */
 export async function getQuestionById(id: number, userId?: string, includeDeleted?: boolean): Promise<QuestionDetail> {
+    // Validate that id is a valid number
+    if (isNaN(id) || id <= 0 || !Number.isFinite(id)) {
+        throw new Error(`Invalid question ID: ${id}. Question ID must be a positive integer.`);
+    }
+
     const queryParams = new URLSearchParams();
     if (userId) queryParams.append('user_id', userId);
     if (includeDeleted !== undefined) queryParams.append('include_deleted', includeDeleted.toString());
@@ -268,6 +273,11 @@ export interface CodeExecutionRequest {
  * Endpoint: POST /api/v1/questions/{question_id}/run
  */
 export async function runCode(questionId: number, request: CodeExecutionRequest): Promise<CodeExecutionResponse> {
+    // Validate that questionId is a valid number
+    if (isNaN(questionId) || questionId <= 0 || !Number.isFinite(questionId)) {
+        throw new Error(`Invalid question ID: ${questionId}. Question ID must be a positive integer.`);
+    }
+
     const response = await fetch(serviceUrl(`/api/v1/questions/${questionId}/run`), {
         method: 'POST',
         headers: {
@@ -308,6 +318,11 @@ export interface SubmissionRequest {
  * Endpoint: POST /api/v1/questions/{question_id}/submit
  */
 export async function submitSolution(questionId: number, request: SubmissionRequest): Promise<SubmissionResponse> {
+    // Validate that questionId is a valid number
+    if (isNaN(questionId) || questionId <= 0 || !Number.isFinite(questionId)) {
+        throw new Error(`Invalid question ID: ${questionId}. Question ID must be a positive integer.`);
+    }
+
     const response = await fetch(serviceUrl(`/api/v1/questions/${questionId}/submit`), {
         method: 'POST',
         headers: {
