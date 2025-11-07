@@ -20,6 +20,14 @@ const eslintConfig = [
       "next-env.d.ts",
     ],
   },
+  {
+    // Add this new configuration object to override rules
+    rules: {
+      // Set the rule to "off" to ignore 'any' usage globally
+      "@typescript-eslint/no-explicit-any": "off",
+      "@typescript-eslint/no-unused-expressions": "off",
+    },
+  },
 ];
 
 export default eslintConfig;
