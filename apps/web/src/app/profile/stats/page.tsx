@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import withAuth from "@/components/withAuth";
 import DifficultyTag from "@/components/DifficultyTag";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { getUserStats, getUserSolvedQuestions, getQuestionCounts, UserStats, UserSolvedQuestion } from "@/lib/api/questionService";
 
 function ProfileStats() {
@@ -50,6 +51,10 @@ function ProfileStats() {
         if (total === 0) return 0;
         return Math.min((solved / total) * 100, 100);
     };
+
+    if (isLoading) {
+        return <LoadingSpinner message="Loading statistics..." />;
+    }
 
     return (
         <div className="min-h-screen bg-[#333232] relative overflow-hidden font-montserrat">

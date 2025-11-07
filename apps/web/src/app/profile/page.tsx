@@ -8,6 +8,7 @@ import { getUser, updateUser } from "@/lib/api/userService";
 import withAuth from "@/components/withAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { User, ProficiencyLevel, ProgrammingLanguage } from "@/lib/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 type EditableUserFields = {
   username: string;
@@ -23,6 +24,7 @@ function Profile() {
   const [activeTab, setActiveTab] = useState("Profile");
   const [isEditing, setIsEditing] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
   const [formData, setFormData] = useState<EditableUserFields>({
     username: "",
     display_name: "",
@@ -33,6 +35,7 @@ function Profile() {
 
   useEffect(() => {
     const fetchUser = async () => {
+      setIsLoading(true);
       try {
         const userData = await getUser();
         setUser(userData);
@@ -47,6 +50,8 @@ function Profile() {
       } catch (error) {
         console.error("Failed to fetch user", error);
         // Handle error, e.g., redirect to login
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -112,6 +117,10 @@ function Profile() {
     }
     setIsEditing(false);
   };
+
+  if (isLoading) {
+    return <LoadingSpinner message="Loading profile..." />;
+  }
 
   return (
     <div className="min-h-screen bg-[#333232] relative overflow-hidden font-montserrat">
@@ -185,7 +194,7 @@ function Profile() {
                 type="text"
                 value={formData.username || "Loading..."}
                 disabled // Name is always read-only (from Google account)
-                className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white focus:outline-none focus:border-white/40 transition-colors cursor-not-allowed"
+                className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white focus:outline-none focus:border-white/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
 

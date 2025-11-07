@@ -20,13 +20,8 @@ export default function Landing() {
                     </div>
                     <div className="flex gap-4">
                         <Link href="/signin">
-                            <button className="glow-button secondary-glow px-6 py-2 rounded-full border border-white/30 text-white font-montserrat font-medium text-sm hover:bg-white/10 transition-all fade-in-up">
-                                Sign In
-                            </button>
-                        </Link>
-                        <Link href="/signin">
                             <button className="glow-button primary-glow bg-white text-[#1e1e1e] px-6 py-2 rounded-full font-montserrat font-medium text-sm hover:scale-105 transition-all fade-in-up">
-                                Get Started
+                                Sign In
                             </button>
                         </Link>
                     </div>

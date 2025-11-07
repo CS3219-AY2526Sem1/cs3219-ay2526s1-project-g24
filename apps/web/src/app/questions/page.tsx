@@ -5,6 +5,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import DifficultyTag from "@/components/DifficultyTag";
 import withAuth from "@/components/withAuth";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import {
     getQuestions,
     getTopics,
@@ -30,6 +31,7 @@ function Questions() {
     const [topics, setTopics] = useState<TopicResponse[]>([]);
     const [companies, setCompanies] = useState<CompanyResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [page, _setPage] = useState(1);
     const [, setTotalQuestions] = useState(0);
@@ -101,6 +103,7 @@ function Questions() {
                 setError(err instanceof Error ? err.message : 'Failed to load questions');
             } finally {
                 setIsLoading(false);
+                setIsInitialLoad(false);
             }
         };
 
@@ -133,6 +136,10 @@ function Questions() {
             console.error('Failed to get random question:', err);
         }
     };
+
+    if (isInitialLoad) {
+        return <LoadingSpinner message="Loading questions..." />;
+    }
 
     return (
         <div className="min-h-screen bg-[#333232] relative overflow-hidden font-montserrat">

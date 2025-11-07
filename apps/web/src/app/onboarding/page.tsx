@@ -8,6 +8,7 @@ import withAuth from "@/components/withAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { updateUser } from "@/lib/api/userService";
 import { ProgrammingLanguage, ProficiencyLevel } from "@/lib/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import {
   ALL_PROGRAMMING_LANGUAGES,
   ALL_PROFICIENCY_LEVELS,
@@ -16,7 +17,7 @@ import { capitalizeFirstLetter } from "@/lib/utils";
 
 function Onboarding() {
   const router = useRouter();
-  const { user, checkSession } = useAuth();
+  const { user, loading: authLoading, checkSession } = useAuth();
   const [activeTab, setActiveTab] = useState("Home");
 
   const [username, setUsername] = useState("");
@@ -65,6 +66,10 @@ function Onboarding() {
       console.error("Failed to update profile:", err);
     }
   };
+
+  if (authLoading) {
+    return <LoadingSpinner message="Loading onboarding..." />;
+  }
 
   return (
     <div className="min-h-screen bg-[#333232] relative overflow-hidden">

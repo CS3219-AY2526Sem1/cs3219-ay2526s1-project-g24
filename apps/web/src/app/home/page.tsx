@@ -8,19 +8,16 @@ import DifficultyTag from "@/components/DifficultyTag";
 import withAuth from "@/components/withAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { getDailyQuestion, QuestionDetail } from "@/lib/api/questionService";
+import LoadingSpinner from "@/components/LoadingSpinner";
 
 function Home() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("Home");
-  const UNKNOWN_USER = "Unknown User";
-  const [displayName, setDisplayName] = useState(UNKNOWN_USER);
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [dailyChallenge, setDailyChallenge] = useState<QuestionDetail | null>(null);
   const [loadingDaily, setLoadingDaily] = useState(true);
 
-  useEffect(() => {
-    setDisplayName(user?.display_name || UNKNOWN_USER);
-  }, [user]);
+  const displayName = user?.display_name || user?.username || user?.email?.split('@')[0] || "User";
 
   // Fetch daily challenge
   useEffect(() => {
@@ -44,6 +41,10 @@ function Home() {
     { name: "Questions", href: "/questions" },
     { name: "Profile", href: "/profile" },
   ];
+
+  if (authLoading || loadingDaily) {
+    return <LoadingSpinner message="Loading your dashboard..." />;
+  }
 
   return (
     <div className="min-h-screen bg-[#333232] relative overflow-hidden">
@@ -106,7 +107,7 @@ function Home() {
           </div>
 
           {/* Daily Challenge Card */}
-          {!loadingDaily && dailyChallenge && (
+          {dailyChallenge && (
             <div className="mb-8 relative bg-[#2d2d2d] rounded-3xl border border-white/10 overflow-hidden">
               {/* Thin gradient mask on the left */}
               <div className="absolute top-0 left-0 bottom-0 w-3 overflow-hidden">

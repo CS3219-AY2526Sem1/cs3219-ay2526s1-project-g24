@@ -4,6 +4,7 @@ import { useRouter, useParams } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import DifficultyTag from '@/components/DifficultyTag';
 import MarkdownContent from '@/components/MarkdownContent';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
 import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult, getSimilarQuestions, QuestionListItem } from '@/lib/api/questionService';
 import { ProgrammingLanguage } from '@/lib/types';
@@ -315,6 +316,26 @@ export default function PracticePage() {
         }
         return question.function_signature.arguments.map((arg: any) => arg.name);
     };
+
+    if (isLoadingQuestion) {
+        return <LoadingSpinner message="Loading practice question..." />;
+    }
+
+    if (questionError) {
+        return (
+            <div className="h-screen bg-[#1e1e1e] flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-red-400 text-lg mb-4">{questionError}</p>
+                    <button
+                        onClick={() => router.push('/questions')}
+                        className="px-6 py-2 bg-white text-black rounded-full hover:bg-gray-200 transition-colors"
+                    >
+                        Back to Questions
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="h-screen bg-[#1e1e1e] flex flex-col font-montserrat">
