@@ -36,8 +36,9 @@ function Profile() {
       try {
         const userData = await getUser();
         setUser(userData);
+        const name = userData.display_name || userData.username || userData.email?.split('@')[0] || "";
         setFormData({
-          username: userData.username ?? "",
+          username: name,
           display_name: userData.display_name ?? "",
           description: userData.description ?? "",
           programming_proficiency: userData.programming_proficiency ?? ProficiencyLevel.BEGINNER,
@@ -65,15 +66,17 @@ function Profile() {
     if (isEditing) {
       try {
         const updatedUser = await updateUser({
-          username: formData.username,
+          // username is not editable - it's pulled from Google account
           display_name: formData.display_name,
           description: formData.description,
           programming_proficiency: formData.programming_proficiency,
           preferred_language: formData.preferred_language,
         });
         setUser(updatedUser);
+        // Use display_name, username, or derive from email for the name field
+        const name = updatedUser.display_name || updatedUser.username || updatedUser.email?.split('@')[0] || "";
         setFormData({
-          username: updatedUser.username ?? "",
+          username: name,
           display_name: updatedUser.display_name ?? "",
           description: updatedUser.description ?? "",
           programming_proficiency: updatedUser.programming_proficiency ?? ProficiencyLevel.BEGINNER,
@@ -97,8 +100,10 @@ function Profile() {
   const handleCancelEdit = () => {
     // Reset form data to original user data
     if (user) {
+      // Use display_name, username, or derive from email for the name field
+      const name = user.display_name || user.username || user.email?.split('@')[0] || "";
       setFormData({
-        username: user.username ?? "",
+        username: name,
         display_name: user.display_name ?? "",
         description: user.description ?? "",
         programming_proficiency: user.programming_proficiency ?? ProficiencyLevel.BEGINNER,
@@ -130,8 +135,8 @@ function Profile() {
                 key={tab.name}
                 href={tab.href}
                 className={`font-montserrat font-medium text-sm transition-colors ${activeTab === tab.name
-                    ? "text-white"
-                    : "text-[#9e9e9e] hover:text-white"
+                  ? "text-white"
+                  : "text-[#9e9e9e] hover:text-white"
                   }`}
                 onClick={() => setActiveTab(tab.name)}
               >
@@ -171,19 +176,16 @@ function Profile() {
 
           {/* Form Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-            {/* Username */}
+            {/* Name (Username - Read-only, pulled from Google account) */}
             <div>
               <label className="block text-white font-semibold text-sm mb-3">
-                Username
+                Name
               </label>
               <input
                 type="text"
-                value={formData.username}
-                onChange={(e) =>
-                  setFormData({ ...formData, username: e.target.value })
-                }
-                disabled={!isEditing}
-                className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white focus:outline-none focus:border-white/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                value={formData.username || "Loading..."}
+                disabled // Name is always read-only (from Google account)
+                className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white focus:outline-none focus:border-white/40 transition-colors cursor-not-allowed"
               />
             </div>
 

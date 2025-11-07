@@ -40,7 +40,6 @@ function CollaborativeCodingPage() {
   const router = useRouter();
 
   // Log initial state on page load
-  console.log('🚀 Collaborative Coding Page loaded');
   if (typeof window !== 'undefined') {
     console.log('📦 Stored session state:', {
       sessionStorage: {
@@ -702,14 +701,6 @@ function CollaborativeCodingPage() {
                   />
                   <span className='text-xs text-gray-400'>{connectionStatus}</span>
                 </div>
-
-                {/* presence */}
-                {isConnected && (
-                  <PresenceIndicator
-                    users={connectedUsers}
-                    localClientId={collaborationManagerRef.current?.getLocalUser().clientId || null}
-                  />
-                )}
 
                 <button
                   onClick={disconnectFromSession}
