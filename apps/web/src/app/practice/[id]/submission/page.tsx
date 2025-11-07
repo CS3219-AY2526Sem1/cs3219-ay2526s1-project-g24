@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getDifficultyStyles } from '@/lib/difficulty';
+import DifficultyTag from '@/components/DifficultyTag';
 
 // Simple SVG Icon Components
 const CheckCircle = ({ className }: { className?: string }) => (
@@ -188,9 +188,7 @@ export default function SubmissionResultPage() {
 
                                 <div className="flex items-center gap-3 flex-wrap">
                                     <span className="text-white font-medium">{submission.question_title}</span>
-                                    <span className={`text-xs px-3 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(submission.difficulty)}`}>
-                                        {submission.difficulty}
-                                    </span>
+                                    <DifficultyTag difficulty={submission.difficulty} />
                                     <span className="text-[#9e9e9e] text-sm">
                                         {submission.language.charAt(0).toUpperCase() + submission.language.slice(1)}
                                     </span>

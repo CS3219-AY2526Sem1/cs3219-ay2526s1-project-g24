@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
-import { getDifficultyStyles } from "@/lib/difficulty";
+import DifficultyTag from "@/components/DifficultyTag";
 import { matchingService } from "@/lib/api/matchingService";
 import withAuth from "@/components/withAuth";
 import { getTopics, type TopicResponse } from "@/lib/api/questionService";
@@ -128,11 +128,10 @@ function Match() {
               <Link
                 key={tab.name}
                 href={tab.href}
-                className={`font-montserrat font-medium text-sm transition-colors ${
-                  activeTab === tab.name
+                className={`font-montserrat font-medium text-sm transition-colors ${activeTab === tab.name
                     ? "text-white"
                     : "text-[#9e9e9e] hover:text-white"
-                }`}
+                  }`}
                 onClick={() => setActiveTab(tab.name)}
               >
                 {tab.name}
@@ -172,18 +171,16 @@ function Match() {
                   <button
                     key={topic.id}
                     onClick={() => toggleTopic(topic.name)}
-                    className={`p-6 rounded-2xl border-2 transition-all text-center ${
-                      selectedTopics.includes(topic.name)
+                    className={`p-6 rounded-2xl border-2 transition-all text-center ${selectedTopics.includes(topic.name)
                         ? "bg-[#2d2d2d] border-white/20 opacity-100 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
                         : "bg-[#2d2d2d] border-white/10 opacity-40 hover:opacity-60"
-                    }`}
+                      }`}
                   >
                     <h4
-                      className={`font-montserrat text-lg font-semibold mb-2 leading-tight ${
-                        selectedTopics.includes(topic.name)
+                      className={`font-montserrat text-lg font-semibold mb-2 leading-tight ${selectedTopics.includes(topic.name)
                           ? "text-white"
                           : "text-gray-400"
-                      }`}
+                        }`}
                     >
                       {topic.name}
                     </h4>
@@ -207,25 +204,19 @@ function Match() {
                 <button
                   key={diff.level}
                   onClick={() => setSelectedDifficulty(diff.level)}
-                  className={`p-8 rounded-2xl border-2 transition-all text-center flex flex-col items-center ${
-                    selectedDifficulty === diff.level
+                  className={`p-8 rounded-2xl border-2 transition-all text-center flex flex-col items-center ${selectedDifficulty === diff.level
                       ? "bg-[#2d2d2d] border-white/20 opacity-100 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
                       : "bg-[#2d2d2d] border-white/10 opacity-40 hover:opacity-60"
-                  }`}
+                    }`}
                 >
                   <div className="mb-3">
-                    <span
-                      className={`font-montserrat text-xs px-3 py-1 rounded-full ${getDifficultyStyles(diff.tag)}`}
-                    >
-                      {diff.tag}
-                    </span>
+                    <DifficultyTag difficulty={diff.tag} />
                   </div>
                   <h4
-                    className={`font-montserrat text-2xl font-semibold mb-3 leading-tight whitespace-pre-line ${
-                      selectedDifficulty === diff.level
+                    className={`font-montserrat text-2xl font-semibold mb-3 leading-tight whitespace-pre-line ${selectedDifficulty === diff.level
                         ? "text-white"
                         : "text-gray-400"
-                    }`}
+                      }`}
                   >
                     {diff.display}
                   </h4>
@@ -246,28 +237,25 @@ function Match() {
                 <button
                   key={lang.name}
                   onClick={() => setSelectedLanguage(lang.name)}
-                  className={`p-8 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-4 ${
-                    selectedLanguage === lang.name
+                  className={`p-8 rounded-2xl border-2 transition-all flex flex-col items-center justify-center gap-4 ${selectedLanguage === lang.name
                       ? "bg-[#2d2d2d] border-white/20 opacity-100 shadow-[0_0_20px_rgba(255,255,255,0.1)]"
                       : "bg-[#2d2d2d] border-white/10 opacity-40 hover:opacity-60"
-                  }`}
+                    }`}
                 >
                   <Image
                     src={lang.icon}
                     alt={lang.name}
                     width={64}
                     height={64}
-                    className={`w-16 h-16 ${
-                      selectedLanguage === lang.name ? "" : "grayscale"
-                    }`}
+                    className={`w-16 h-16 ${selectedLanguage === lang.name ? "" : "grayscale"
+                      }`}
                     unoptimized
                   />
                   <h4
-                    className={`font-montserrat text-xl font-medium ${
-                      selectedLanguage === lang.name
+                    className={`font-montserrat text-xl font-medium ${selectedLanguage === lang.name
                         ? "text-white"
                         : "text-gray-400"
-                    }`}
+                      }`}
                   >
                     {lang.display}
                   </h4>
@@ -285,9 +273,8 @@ function Match() {
             <button
               onClick={handleMatch}
               disabled={isLoading}
-              className={`glow-button primary-glow bg-white text-[#1e1e1e] px-12 py-3 rounded-full font-montserrat font-medium text-lg transition-all ${
-                isLoading ? "opacity-50 cursor-not-allowed" : "hover:scale-105"
-              }`}
+              className={`glow-button primary-glow bg-white text-[#1e1e1e] px-12 py-3 rounded-full font-montserrat font-medium text-lg transition-all ${isLoading ? "opacity-50 cursor-not-allowed" : "hover:scale-105"
+                }`}
             >
               {isLoading ? "Finding Match..." : "Match"}
             </button>
