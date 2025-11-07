@@ -66,43 +66,16 @@ export default function ActiveSessionReminder() {
     isCheckingRef.current = true;
 
     try {
-      // Show a provisional reminder immediately so the user sees the prompt
-      setReminder((current) => {
-        if (current?.sessionId === stored.sessionId) {
-          return {
-            ...current,
-            questionId: current.questionId ?? stored.questionId,
-            storedAt: current.storedAt ?? stored.storedAt,
-            status: current.status ?? "UNKNOWN",
-          };
-        }
-        return {
-          sessionId: stored.sessionId,
-          questionId: stored.questionId,
-          storedAt: stored.storedAt,
-          status: "UNKNOWN",
-        };
+      const session = await collaborationService.rejoinSession(stored.sessionId);
+      // Ensure we keep the latest question ID in storage for reconnect flow.
+      const questionId = stored.questionId ?? session.questionId;
+      persistActiveSession(stored.sessionId, questionId);
+      setReminder({
+        sessionId: stored.sessionId,
+        questionId,
+        storedAt: stored.storedAt,
+        status: session.status,
       });
-
-      const session = await collaborationService.getSession(stored.sessionId);
-      if (session.status === "ACTIVE") {
-        // Ensure we keep the latest question ID in storage for reconnect flow.
-        const questionId = stored.questionId ?? session.questionId;
-        persistActiveSession(stored.sessionId, questionId);
-        setReminder({
-          sessionId: stored.sessionId,
-          questionId,
-          storedAt: stored.storedAt,
-          status: session.status,
-        });
-      } else {
-        setReminder({
-          sessionId: stored.sessionId,
-          questionId: stored.questionId,
-          storedAt: stored.storedAt,
-          status: session.status,
-        });
-      }
     } catch (error: any) {
       const status = error?.status as number | undefined;
       console.warn(
@@ -110,12 +83,7 @@ export default function ActiveSessionReminder() {
         stored.sessionId,
         { status, error },
       );
-      setReminder({
-        sessionId: stored.sessionId,
-        questionId: stored.questionId,
-        storedAt: stored.storedAt,
-        status: "UNAVAILABLE",
-      });
+      setReminder(null);
     } finally {
       isCheckingRef.current = false;
     }
@@ -155,7 +123,11 @@ export default function ActiveSessionReminder() {
     return () => window.removeEventListener("storage", handleStorage);
   }, [evaluateActiveSession]);
 
-  if (!reminder || reminder.sessionId === dismissedSessionId) {
+  if (
+    !reminder ||
+    reminder.sessionId === dismissedSessionId ||
+    reminder.status !== "ACTIVE"
+  ) {
     return null;
   }
 
@@ -194,12 +166,6 @@ export default function ActiveSessionReminder() {
               You still have an ongoing collaboration room. Rejoin to continue
               where you left off.
             </p>
-            {reminder.status !== "ACTIVE" && (
-              <p className="mt-2 text-xs text-amber-300">
-                Session status could not be verified (last known: {reminder.status}
-                ). You can try reconnecting or clear the reminder.
-              </p>
-            )}
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 onClick={handleReconnect}

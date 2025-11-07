@@ -69,6 +69,48 @@ class CollaborationServiceClient {
     error.status = response.status;
     throw error;
   }
+
+  /**
+   * Attempt to rejoin a collaboration session.
+   * Succeeds only when the backend confirms the session is still active and can be rejoined.
+   */
+  async rejoinSession(sessionId: string): Promise<CollaborationSession> {
+    const response = await fetch(
+      serviceUrl(`/sessions/${encodeURIComponent(sessionId)}/rejoin`),
+      {
+        method: "POST",
+        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    if (response.ok) {
+      const payload = (await response.json()) as ApiResponse<CollaborationSession>;
+      return payload.data;
+    }
+
+    const errorPayload = (await response.json().catch(() => null)) as unknown;
+    const message =
+      typeof errorPayload === "object" &&
+      errorPayload !== null &&
+      "message" in errorPayload &&
+      typeof (errorPayload as { message?: string }).message === "string"
+        ? (errorPayload as { message?: string }).message
+        : typeof errorPayload === "object" &&
+          errorPayload !== null &&
+          "error" in errorPayload &&
+          typeof (errorPayload as { error?: string }).error === "string"
+        ? (errorPayload as { error?: string }).error
+        : undefined;
+
+    const error = new Error(
+      message || `Failed to rejoin session ${sessionId}`,
+    ) as Error & { status?: number };
+    error.status = response.status;
+    throw error;
+  }
 }
 
 export const collaborationService = new CollaborationServiceClient();
