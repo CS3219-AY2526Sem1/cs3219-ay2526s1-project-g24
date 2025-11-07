@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { TIMER_INTERVAL_MS, TIME_FORMAT } from '@/lib/constants';
 import { matchingService } from '@/lib/api/matchingService';
 import withAuth from '@/components/withAuth';
+import { persistActiveSession } from '@/components/session/activeSession';
 
 function Wait() {
   const router = useRouter();
@@ -35,21 +36,12 @@ function Wait() {
         }
 
         if (event.status === 'matched' && event.sessionId) {
-          // Store session ID and question ID (if available)
-          console.log('🎉 Match found! Storing session data:', {
+          console.log('🎉 Match found! Persisting session data:', {
             sessionId: event.sessionId,
             questionId: event.questionId,
           });
 
-          sessionStorage.setItem('sessionId', event.sessionId);
-          console.log('✅ Session ID stored:', event.sessionId);
-
-          if (event.questionId) {
-            sessionStorage.setItem('questionId', event.questionId);
-            console.log('✅ Question ID stored:', event.questionId);
-          } else {
-            console.warn('⚠️ No question ID in match event');
-          }
+          persistActiveSession(event.sessionId, event.questionId || undefined);
 
           console.log('📦 SessionStorage contents:', {
             sessionId: sessionStorage.getItem('sessionId'),
@@ -99,7 +91,7 @@ function Wait() {
 
           if (result.sessionId) {
             // Store session ID and redirect to collaborative coding
-            sessionStorage.setItem('sessionId', result.sessionId);
+            persistActiveSession(result.sessionId);
             sessionStorage.removeItem('matchRequestId');
             sessionStorage.removeItem('matchUserId');
             router.push('/collaborative-coding');
@@ -145,7 +137,7 @@ function Wait() {
         <>
           <h2 className='font-montserrat text-4xl font-semibold text-white mb-4'>Finding your coding partner...</h2>
 
-          <p className='font-montserrat text-white text-lg mb-8'>We're matching you with someone at your skill level</p>
+          <p className='font-montserrat text-white text-lg mb-8'>We&rsquo;re matching you with someone at your skill level</p>
         </>
       )}
 

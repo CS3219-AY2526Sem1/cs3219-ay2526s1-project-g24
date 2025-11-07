@@ -26,16 +26,30 @@ import {
   type QuestionDetail,
   type TestCaseResult,
 } from '@/lib/api/questionService';
+import { collaborationService } from '@/lib/api/collaborationService';
+import {
+  clearActiveSession,
+  getActiveQuestionId,
+  getActiveSessionFromLocalStorage,
+  getActiveSessionId,
+  hydrateSessionStorageFromLocal,
+  persistActiveSession,
+} from '@/components/session/activeSession';
 
 function CollaborativeCodingPage() {
   const router = useRouter();
 
   // Log initial state on page load
   console.log('🚀 Collaborative Coding Page loaded');
-  console.log('📦 Initial sessionStorage state:', {
-    sessionId: typeof window !== 'undefined' ? sessionStorage.getItem('sessionId') : null,
-    questionId: typeof window !== 'undefined' ? sessionStorage.getItem('questionId') : null,
-  });
+  if (typeof window !== 'undefined') {
+    console.log('📦 Stored session state:', {
+      sessionStorage: {
+        sessionId: sessionStorage.getItem('sessionId'),
+        questionId: sessionStorage.getItem('questionId'),
+      },
+      localStorage: getActiveSessionFromLocalStorage(),
+    });
+  }
 
   // layout
   const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
@@ -74,6 +88,16 @@ function CollaborativeCodingPage() {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    hydrateSessionStorageFromLocal();
+  }, []);
+
+  useEffect(() => {
+    if (sessionId && question?.id) {
+      persistActiveSession(sessionId, String(question.id));
+    }
+  }, [sessionId, question?.id]);
 
   // fallback language templates (when question has no template for that lang)
   const languageConfig = {
@@ -160,20 +184,36 @@ function CollaborativeCodingPage() {
   };
 
   // -------------- QUESTION FETCH + SEED --------------
-  const fetchAndSetQuestion = async (qid: number, lang: 'python' | 'javascript' | 'java' | 'cpp') => {
+  const fetchAndSetQuestion = async (
+    qid: number,
+    lang: 'python' | 'javascript' | 'java' | 'cpp',
+    sessionIdentifier?: string,
+    seedSharedDoc = false,
+  ) => {
     try {
       setIsLoadingQuestion(true);
       setQuestionError(null);
       const data = await getQuestionById(qid);
       setQuestion(data);
 
-      // seed editor if empty
+      const sessionForPersistence =
+        sessionIdentifier || sessionId || getActiveSessionId();
+      if (sessionForPersistence) {
+        persistActiveSession(sessionForPersistence, String(data.id));
+      }
+
       const template = data.code_templates?.[lang];
-      if (template && editorRef.current) {
+
+      if (seedSharedDoc && collaborationManagerRef.current) {
+        const content = template ?? languageConfig[lang].defaultCode;
+        setCode(content);
+        collaborationManagerRef.current.setSharedContent(content);
+      } else if (!sessionId && editorRef.current) {
         const currentVal = editorRef.current.getValue();
         if (!currentVal || currentVal.trim() === '') {
-          editorRef.current.setValue(template);
-          setCode(template);
+          const content = template ?? languageConfig[lang].defaultCode;
+          editorRef.current.setValue(content);
+          setCode(content);
         }
       }
     } catch (err) {
@@ -238,17 +278,23 @@ function CollaborativeCodingPage() {
             console.log('🎉 Successfully connected to session:', targetSessionId);
             addToast('Successfully connected to session', 'success', 3000);
 
-            // try to get questionId from somewhere
-            // 1) from sessionStorage (simple)
-            const storedQid = sessionStorage.getItem('questionId');
-            console.log('📚 Checking for question ID:', storedQid);
+            const storedQid = getActiveQuestionId();
             if (storedQid) {
+              persistActiveSession(targetSessionId, storedQid);
               console.log('✅ Found question ID, fetching question:', storedQid);
-              await fetchAndSetQuestion(Number(storedQid), selectedLanguage);
+              await collaborationManagerRef.current?.waitForInitialSync();
+              const hasSharedContent =
+                collaborationManagerRef.current?.hasSharedContent() ?? false;
+              await fetchAndSetQuestion(
+                Number(storedQid),
+                selectedLanguage,
+                targetSessionId,
+                !hasSharedContent,
+              );
             } else {
-              console.warn('⚠️ No question ID found in sessionStorage');
+              console.warn('⚠️ No question ID available for this session');
+              setQuestionError('No question is linked to this session.');
             }
-            // 2) if your collab server returns metadata, use meta.questionId here
           }
         }
       );
@@ -287,9 +333,8 @@ function CollaborativeCodingPage() {
     setIsFromMatchFlow(false);
 
     // Clean up session storage
-    sessionStorage.removeItem('sessionId');
-    sessionStorage.removeItem('questionId');
-    console.log('🗑️ Cleared session ID and question ID from sessionStorage');
+    clearActiveSession();
+    console.log('🗑️ Cleared active session metadata from storage');
 
     // reset editor to a local template
     if (editorRef.current) {
@@ -353,9 +398,11 @@ function CollaborativeCodingPage() {
   // auto-connect from match flow
   useEffect(() => {
     console.log('🔍 Checking for stored session ID...');
-    const storedSessionId = sessionStorage.getItem('sessionId');
-    console.log('📦 Retrieved from sessionStorage:', {
+    const storedSessionId = getActiveSessionId();
+    const storedQuestionId = getActiveQuestionId();
+    console.log('📦 Retrieved from storage:', {
       sessionId: storedSessionId,
+      questionId: storedQuestionId,
       isEditorReady: isEditorReady,
     });
 
@@ -582,14 +629,13 @@ function CollaborativeCodingPage() {
     setIsConnected(false);
     setConnectionStatus('disconnected');
     setConnectedUsers([]);
-    setIsFromMatchFlow(false);
+   setIsFromMatchFlow(false);
 
     // Clean up session storage
-    sessionStorage.removeItem('sessionId');
-    sessionStorage.removeItem('questionId');
+    clearActiveSession();
     sessionStorage.removeItem('matchRequestId');
     sessionStorage.removeItem('matchUserId');
-    console.log('🗑️ Cleared all session data from sessionStorage');
+    console.log('🗑️ Cleared all session data from storage');
 
     router.push('/home');
   };
@@ -780,15 +826,17 @@ function CollaborativeCodingPage() {
                         if (question && question.code_templates && question.code_templates[newLang]) {
                           const tmpl = question.code_templates[newLang];
                           setCode(tmpl);
-
-                          // only force-set when not shared OR doc empty
-                          if (editorRef.current && (!sessionId || editorRef.current.getValue().trim() === '')) {
+                          if (sessionId && collaborationManagerRef.current) {
+                            collaborationManagerRef.current.setSharedContent(tmpl);
+                          } else if (editorRef.current) {
                             editorRef.current.setValue(tmpl);
                           }
                         } else {
                           const fallback = languageConfig[newLang].defaultCode;
                           setCode(fallback);
-                          if (editorRef.current && (!sessionId || editorRef.current.getValue().trim() === '')) {
+                          if (sessionId && collaborationManagerRef.current) {
+                            collaborationManagerRef.current.setSharedContent(fallback);
+                          } else if (editorRef.current) {
                             editorRef.current.setValue(fallback);
                           }
                         }
