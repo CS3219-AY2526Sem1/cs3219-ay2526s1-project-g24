@@ -49,13 +49,26 @@ module "eks" {
   cluster_endpoint_public_access_cidrs = ["0.0.0.0/0"]
 
   eks_managed_node_groups = {
+    # Using AL2 for all nodes (needed for Judge0 cgroup v1 compatibility)
     ng = {
-      name = "baseline"
+      name = "baseline-al2"
+      ami_type = "AL2_x86_64"  # Changed from AL2023 to AL2 for Judge0
       subnet_ids = module.vpc.public_subnets
       instance_types = ["t3.medium"]
       desired_size = 2
       min_size = 1
       max_size = 3
+      
+      labels = {
+        "os" = "al2"
+        "node-pool" = "general"
+        "workload" = "all"
+      }
+      
+      tags = {
+        "Name" = "${var.cluster_name}-node-al2"
+        "Purpose" = "General workloads with cgroup v1 support"
+      }
     }
   }
 
