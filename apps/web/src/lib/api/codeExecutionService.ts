@@ -3,9 +3,9 @@
  * Handles all interactions with the Code Execution Service backend
  */
 
-import { API_CONFIG } from '../apiConfig';
+import { API_CONFIG, createServiceUrlBuilder } from '@/lib/api-utils';
 
-const CODE_EXECUTION_SERVICE_URL = API_CONFIG.CODE_EXECUTION_SERVICE;
+const serviceUrl = createServiceUrlBuilder(API_CONFIG.CODE_EXECUTION_SERVICE);
 
 export type Language = 'python' | 'javascript' | 'java' | 'cpp';
 
@@ -60,7 +60,7 @@ export interface CodeExecutionResponse {
  * Execute code against test cases
  */
 export async function executeCode(request: CodeExecutionRequest): Promise<CodeExecutionResponse> {
-    const response = await fetch(`${CODE_EXECUTION_SERVICE_URL}/api/v1/execution/execute`, {
+    const response = await fetch(serviceUrl('/api/v1/execution/execute'), {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
