@@ -60,7 +60,7 @@ jobs:
   # STAGE 1: Test (runs on all PRs and pushes)
   # ============================================
   test:
-    name: 🧪 Test
+    name: Test
     if: ${{ !inputs.skip_tests }}
     timeout-minutes: 10
     runs-on: ubuntu-latest
@@ -83,10 +83,11 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Generate Prisma Client
+      - name: Generate Prisma Client & TSOA routes
         run: |
           pnpm --filter user_service exec prisma generate
           pnpm --filter collab-service exec prisma generate
+          pnpm --filter user_service exec tsoa spec-and-routes
 
       - name: Run tests
         run: pnpm test
