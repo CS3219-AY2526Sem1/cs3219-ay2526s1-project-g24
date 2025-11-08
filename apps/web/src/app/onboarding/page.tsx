@@ -8,6 +8,7 @@ import withAuth from "@/components/withAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { updateUser } from "@/lib/api/userService";
 import { ProgrammingLanguage, ProficiencyLevel } from "@/lib/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import {
   ALL_PROGRAMMING_LANGUAGES,
   ALL_PROFICIENCY_LEVELS,
@@ -16,7 +17,7 @@ import { capitalizeFirstLetter } from "@/lib/utils";
 
 function Onboarding() {
   const router = useRouter();
-  const { user, checkSession } = useAuth();
+  const { user, loading: authLoading, checkSession } = useAuth();
   const [activeTab, setActiveTab] = useState("Home");
 
   const [username, setUsername] = useState("");
@@ -28,7 +29,8 @@ function Onboarding() {
 
   useEffect(() => {
     if (user) {
-      setUsername(user.username || "");
+      const name = user.display_name || user.username || user.email?.split('@')[0] || "";
+      setUsername(name);
       setProficiency(
         user.programming_proficiency ? user.programming_proficiency : ""
       );
@@ -45,13 +47,13 @@ function Onboarding() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!username || !proficiency || !codingLanguage) {
+    if (!proficiency || !codingLanguage) {
       setError("Please fill out all required fields.");
       return;
     }
     try {
       await updateUser({
-        username: username,
+        username: username, // Username from Google account (read-only in UI)
         preferred_language: codingLanguage.toLowerCase() as ProgrammingLanguage,
         programming_proficiency: proficiency.toLowerCase() as ProficiencyLevel,
       });
@@ -64,6 +66,10 @@ function Onboarding() {
       console.error("Failed to update profile:", err);
     }
   };
+
+  if (authLoading) {
+    return <LoadingSpinner message="Loading onboarding..." />;
+  }
 
   return (
     <div className="min-h-screen bg-[#333232] relative overflow-hidden">
@@ -84,9 +90,8 @@ function Onboarding() {
               {tabs.map((tab) => (
                 <button
                   key={tab.name}
-                  className={`font-montserrat font-medium text-sm transition-colors ${
-                    activeTab === tab.name ? "text-white" : "text-[#9e9e9e]"
-                  }`}
+                  className={`font-montserrat font-medium text-sm transition-colors ${activeTab === tab.name ? "text-white" : "text-[#9e9e9e]"
+                    }`}
                 >
                   {tab.name}
                 </button>
@@ -277,15 +282,14 @@ function Onboarding() {
             <div className="grid grid-cols-2 gap-6">
               <div>
                 <label className="font-montserrat font-semibold text-white text-sm block mb-3">
-                  Username
+                  Name
                 </label>
                 <input
                   type="text"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
-                  placeholder="Enter your username"
-                  required
-                  className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white placeholder:text-[#585858] focus:outline-none focus:border-white/40 transition-colors"
+                  value={username || "Loading..."}
+                  disabled
+                  placeholder="Name from Google account"
+                  className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white placeholder:text-[#585858] focus:outline-none focus:border-white/40 transition-colors cursor-not-allowed"
                 />
               </div>
 

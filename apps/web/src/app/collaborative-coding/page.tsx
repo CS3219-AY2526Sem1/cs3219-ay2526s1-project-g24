@@ -5,7 +5,8 @@ import { useRouter } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
 import { removeExamplesFromDescription } from '@/lib/utils';
-import { getDifficultyStyles } from '@/lib/difficulty';
+import DifficultyTag from '@/components/DifficultyTag';
+import MarkdownContent from '@/components/MarkdownContent';
 
 import type { editor } from 'monaco-editor';
 import {
@@ -40,7 +41,6 @@ function CollaborativeCodingPage() {
   const router = useRouter();
 
   // Log initial state on page load
-  console.log('🚀 Collaborative Coding Page loaded');
   if (typeof window !== 'undefined') {
     console.log('📦 Stored session state:', {
       sessionStorage: {
@@ -341,14 +341,14 @@ function CollaborativeCodingPage() {
             const storedQid = getActiveQuestionId();
             if (storedQid) {
               const questionId = Number(storedQid);
-              
+
               // Validate that the question ID is a valid number
               if (isNaN(questionId) || questionId <= 0) {
                 console.error('❌ Invalid question ID:', storedQid);
                 setQuestionError(`Invalid question ID: ${storedQid}. Please start a new session.`);
                 return;
               }
-              
+
               persistActiveSession(targetSessionId, storedQid);
               console.log('✅ Found question ID, fetching question:', storedQid);
               await collaborationManagerRef.current?.waitForInitialSync();
@@ -698,7 +698,7 @@ function CollaborativeCodingPage() {
     setIsConnected(false);
     setConnectionStatus('disconnected');
     setConnectedUsers([]);
-   setIsFromMatchFlow(false);
+    setIsFromMatchFlow(false);
 
     // Clean up session storage
     clearActiveSession();
@@ -763,14 +763,6 @@ function CollaborativeCodingPage() {
                   <span className='text-xs text-gray-400'>{connectionStatus}</span>
                 </div>
 
-                {/* presence */}
-                {isConnected && (
-                  <PresenceIndicator
-                    users={connectedUsers}
-                    localClientId={collaborationManagerRef.current?.getLocalUser().clientId || null}
-                  />
-                )}
-
                 <button
                   onClick={disconnectFromSession}
                   className='px-3 py-1 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors'
@@ -814,9 +806,7 @@ function CollaborativeCodingPage() {
                 <div className='mb-6'>
                   <div className='flex items-center gap-3 mb-3'>
                     <h2 className='text-2xl font-semibold text-white'>{question.title}</h2>
-                    <span className={getDifficultyStyles(question.difficulty)}>
-                      {question.difficulty}
-                    </span>
+                    <DifficultyTag difficulty={question.difficulty} />
                   </div>
                   <div className='flex gap-2 flex-wrap'>
                     {question.topics.map((topic) => (
@@ -827,8 +817,8 @@ function CollaborativeCodingPage() {
                   </div>
                 </div>
 
-                <div className='space-y-4 text-gray-300 text-sm leading-relaxed'>
-                  <p className='whitespace-pre-line'>{removeExamplesFromDescription(question.description)}</p>
+                <div className='space-y-4'>
+                  <MarkdownContent content={removeExamplesFromDescription(question.description)} />
 
                   {question.sample_test_cases?.map((ex, idx) => (
                     <div key={idx} className='bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]'>

@@ -2,7 +2,9 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import Editor from '@monaco-editor/react';
-import { getDifficultyStyles } from '@/lib/difficulty';
+import DifficultyTag from '@/components/DifficultyTag';
+import MarkdownContent from '@/components/MarkdownContent';
+import LoadingSpinner from '@/components/LoadingSpinner';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
 import { getQuestionById, QuestionDetail, runCode, submitSolution, TestCaseResult, getSimilarQuestions, QuestionListItem } from '@/lib/api/questionService';
 import { ProgrammingLanguage } from '@/lib/types';
@@ -315,6 +317,26 @@ export default function PracticePage() {
         return question.function_signature.arguments.map((arg: any) => arg.name);
     };
 
+    if (isLoadingQuestion) {
+        return <LoadingSpinner message="Loading practice question..." />;
+    }
+
+    if (questionError) {
+        return (
+            <div className="h-screen bg-[#1e1e1e] flex items-center justify-center">
+                <div className="text-center">
+                    <p className="text-red-400 text-lg mb-4">{questionError}</p>
+                    <button
+                        onClick={() => router.push('/questions')}
+                        className="px-6 py-2 bg-white text-black rounded-full hover:bg-gray-200 transition-colors"
+                    >
+                        Back to Questions
+                    </button>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="h-screen bg-[#1e1e1e] flex flex-col font-montserrat">
             {/* Header */}
@@ -377,9 +399,7 @@ export default function PracticePage() {
                                 <div className="mb-6">
                                     <div className="flex items-center gap-3 mb-3">
                                         <h2 className="text-2xl font-semibold text-white">{question.title}</h2>
-                                        <span className={`text-xs px-3 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
-                                            {question.difficulty}
-                                        </span>
+                                        <DifficultyTag difficulty={question.difficulty} />
                                         {question.deleted_at && (
                                             <span className="px-3 py-1 bg-red-900/30 text-red-400 text-xs rounded-md font-medium border border-red-700/30">
                                                 Question Removed
@@ -393,8 +413,8 @@ export default function PracticePage() {
                                     </div>
                                 </div>
 
-                                <div className="space-y-4 text-gray-300 text-sm leading-relaxed">
-                                    <p className="whitespace-pre-line">{question.description.replace(/\*\*Example \d+:\*\*[\s\S]*?(?=\*\*Example \d+:\*\*|$)/g, '').trim()}</p>
+                                <div className="space-y-4">
+                                    <MarkdownContent content={removeExamplesFromDescription(question.description)} />
 
                                     {question.sample_test_cases.map((testCase: any, idx: number) => (
                                         <div key={idx} className="bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]">
@@ -423,9 +443,7 @@ export default function PracticePage() {
                                                 >
                                                     <div className="flex items-center justify-between mb-2">
                                                         <span className="text-white text-sm transition-colors">{similar.title}</span>
-                                                        <span className={`text-xs px-3 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(similar.difficulty)}`}>
-                                                            {similar.difficulty}
-                                                        </span>
+                                                        <DifficultyTag difficulty={similar.difficulty} />
                                                     </div>
                                                     <div className="flex gap-2">
                                                         {similar.topics.slice(0, 3).map((topic) => (
