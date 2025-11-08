@@ -3,9 +3,10 @@ name: Deploy to EKS
 on:
   workflow_dispatch: {}
   workflow_run:
-    workflows: ["Push Images to GHCR (manual)"]
+    workflows: ["Build and Push Images to GHCR"]
     types:
       - completed
+    branches: ["master", "main", "dev"]
 
 permissions:
   id-token: write
