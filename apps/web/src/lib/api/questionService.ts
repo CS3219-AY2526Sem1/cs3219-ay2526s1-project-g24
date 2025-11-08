@@ -345,7 +345,7 @@ export async function submitSolution(questionId: number, request: SubmissionRequ
  * Endpoint: GET /api/v1/topics
  */
 export async function getTopics(): Promise<TopicResponse[]> {
-    const response = await fetch(serviceUrl(`/api/v1/topics`), {
+    const response = await fetch(serviceUrl(`/api/v1/topics/`), {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',
@@ -365,7 +365,7 @@ export async function getTopics(): Promise<TopicResponse[]> {
  * Endpoint: GET /api/v1/companies
  */
 export async function getCompanies(): Promise<CompanyResponse[]> {
-    const response = await fetch(serviceUrl(`/api/v1/companies`), {
+    const response = await fetch(serviceUrl(`/api/v1/companies/`), {
         method: 'GET',
         headers: {
             'Content-Type': 'application/json',

@@ -153,25 +153,15 @@ function CollaborativeCodingPage() {
       setExecutionLock(null);
       setIsRunning(false);
 
-      const { success, results, error, action } = message.data;
+      const { success, results, error, action, submissionData } = message.data;
 
       if (success) {
-        if (action === 'submit') {
-          const { status, passed_test_cases, total_test_cases } = message.data;
-          if (status === 'accepted') {
-            addToast(`✅ All ${total_test_cases} test cases passed!`, 'success', 4000);
-            setTestResults([]);
-            setExecutionError(null);
-          } else {
-            addToast(
-              `❌ ${passed_test_cases}/${total_test_cases} test cases passed\nStatus: ${status}`,
-              'warning',
-              6000
-            );
-            setTestResults([]);
-            setExecutionError(`Status: ${status}`);
-          }
-        } else {
+        if (action === 'submit' && submissionData) {
+          // Redirect to submission results page (both users see the same results)
+          const dataParam = encodeURIComponent(JSON.stringify(submissionData));
+          router.push(`/practice/${submissionData.question_id}/submission?data=${dataParam}`);
+        } else if (action === 'run') {
+          // For "Run Code", just show results in the UI
           setTestResults(results || []);
           setExecutionError(null);
           setActiveTab('testResults');
@@ -634,30 +624,38 @@ function CollaborativeCodingPage() {
         code: codeToSubmit,
       });
 
-      if (resp.status === 'accepted') {
-        addToast(`✅ All ${resp.total_test_cases} test cases passed!`, 'success', 4000);
-        setTestResults([]);
-        setExecutionError(null);
-      } else {
-        addToast(
-          `❌ ${resp.passed_test_cases}/${resp.total_test_cases} test cases passed\nStatus: ${resp.status}`,
-          'warning',
-          6000
-        );
-        setTestResults([]);
-        setExecutionError(`Status: ${resp.status}`);
-      }
+      // Prepare submission result data to pass to results page (same as solo practice)
+      const submissionData = {
+        submission_id: resp.submission_id,
+        question_id: question.id,
+        question_title: question.title,
+        difficulty: question.difficulty,
+        status: resp.status,
+        passed_test_cases: resp.passed_test_cases,
+        total_test_cases: resp.total_test_cases,
+        runtime_ms: resp.runtime_ms,
+        memory_mb: resp.memory_mb,
+        runtime_percentile: resp.runtime_percentile,
+        memory_percentile: resp.memory_percentile,
+        timestamp: new Date().toISOString(),
+        language: selectedLanguage,
+        // Add session info for collaborative mode
+        sessionId: sessionId,
+        isCollaborative: true,
+      };
 
-      // Broadcast results
+      // Broadcast results to other user with full submission data
       if (isConnected && collaborationManagerRef.current) {
         collaborationManagerRef.current.sendMessage('code-execution-result', {
           action: 'submit',
           success: true,
-          status: resp.status,
-          passed_test_cases: resp.passed_test_cases,
-          total_test_cases: resp.total_test_cases,
+          submissionData: submissionData,
         });
       }
+
+      // Redirect to submission results page with data (like solo practice)
+      const dataParam = encodeURIComponent(JSON.stringify(submissionData));
+      router.push(`/practice/${question.id}/submission?data=${dataParam}`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit code';
       setExecutionError(errorMessage);
@@ -671,7 +669,7 @@ function CollaborativeCodingPage() {
           error: errorMessage,
         });
       }
-    } finally {
+      
       setIsRunning(false);
       setExecutionLock(null);
     }
