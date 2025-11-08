@@ -153,25 +153,15 @@ function CollaborativeCodingPage() {
       setExecutionLock(null);
       setIsRunning(false);
 
-      const { success, results, error, action } = message.data;
+      const { success, results, error, action, submissionData } = message.data;
 
       if (success) {
-        if (action === 'submit') {
-          const { status, passed_test_cases, total_test_cases } = message.data;
-          if (status === 'accepted') {
-            addToast(`✅ All ${total_test_cases} test cases passed!`, 'success', 4000);
-            setTestResults([]);
-            setExecutionError(null);
-          } else {
-            addToast(
-              `❌ ${passed_test_cases}/${total_test_cases} test cases passed\nStatus: ${status}`,
-              'warning',
-              6000
-            );
-            setTestResults([]);
-            setExecutionError(`Status: ${status}`);
-          }
-        } else {
+        if (action === 'submit' && submissionData) {
+          // Redirect to submission results page (both users see the same results)
+          const dataParam = encodeURIComponent(JSON.stringify(submissionData));
+          router.push(`/practice/${submissionData.question_id}/submission?data=${dataParam}`);
+        } else if (action === 'run') {
+          // For "Run Code", just show results in the UI
           setTestResults(results || []);
           setExecutionError(null);
           setActiveTab('testResults');
@@ -350,16 +340,22 @@ function CollaborativeCodingPage() {
               }
 
               persistActiveSession(targetSessionId, storedQid);
-              console.log('✅ Found question ID, fetching question:', storedQid);
-              await collaborationManagerRef.current?.waitForInitialSync();
-              const hasSharedContent =
-                collaborationManagerRef.current?.hasSharedContent() ?? false;
-              await fetchAndSetQuestion(
-                questionId,
-                selectedLanguage,
-                targetSessionId,
-                !hasSharedContent,
-              );
+              
+              // Check if question is already loaded (from parallel fetch)
+              if (question && question.id === questionId) {
+                console.log('✅ Question already loaded, skipping fetch');
+              } else {
+                console.log('✅ Fetching question after connection:', storedQid);
+                await collaborationManagerRef.current?.waitForInitialSync();
+                const hasSharedContent =
+                  collaborationManagerRef.current?.hasSharedContent() ?? false;
+                await fetchAndSetQuestion(
+                  questionId,
+                  selectedLanguage,
+                  targetSessionId,
+                  !hasSharedContent,
+                );
+              }
             } else {
               console.warn('⚠️ No question ID available for this session');
               setQuestionError('No question is linked to this session.');
@@ -469,15 +465,50 @@ function CollaborativeCodingPage() {
     console.log('🔍 Checking for stored session ID...');
     const storedSessionId = getActiveSessionId();
     const storedQuestionId = getActiveQuestionId();
+    const storedMatchType = typeof window !== 'undefined' ? sessionStorage.getItem('questionMatchType') as ('exact' | 'partial' | 'difficulty' | 'random') | null : null;
+    
     console.log('📦 Retrieved from storage:', {
       sessionId: storedSessionId,
       questionId: storedQuestionId,
+      questionMatchType: storedMatchType,
       isEditorReady: isEditorReady,
     });
 
     if (storedSessionId && isEditorReady && !sessionId) {
       console.log('✅ Found session ID and editor is ready. Auto-connecting to session:', storedSessionId);
       setIsFromMatchFlow(true);
+      
+      // Show match quality notification to user
+      if (storedMatchType) {
+        const matchTypeMessages = {
+          'exact': { message: 'Perfect Match! This question covers all your selected topics.', type: 'success' as const },
+          'partial': { message: '✨ Partial Match! This question covers only some of your selected topics, but matches your difficulty level.', type: 'info' as const },
+          'difficulty': { message: 'Difficulty Match! No topic matches found - this question matches your difficulty level only.', type: 'warning' as const },
+          'random': { message: '🎲 Random Question! No matches found for your criteria - here\'s a random question to practice with.', type: 'warning' as const }
+        };
+        
+        const matchInfo = matchTypeMessages[storedMatchType];
+        if (matchInfo) {
+          addToast(matchInfo.message, matchInfo.type, 6000);
+        }
+        
+        // Clear the match type from storage after showing notification
+        sessionStorage.removeItem('questionMatchType');
+      }
+      
+      // Optimize: Fetch question in parallel with connecting to session
+      // This reduces perceived lag by starting the fetch immediately
+      if (storedQuestionId) {
+        const questionId = Number(storedQuestionId);
+        if (!isNaN(questionId) && questionId > 0) {
+          console.log('🚀 Pre-fetching question in parallel with connection:', questionId);
+          // Don't await - let it run in parallel with connection
+          fetchAndSetQuestion(questionId, selectedLanguage, storedSessionId, false).catch(err => {
+            console.error('❌ Pre-fetch question failed:', err);
+          });
+        }
+      }
+      
       connectToSession(storedSessionId);
       // Don't remove session ID yet - keep it for the duration of the session
       console.log('📌 Session ID kept in sessionStorage for the duration of the session');
@@ -634,30 +665,38 @@ function CollaborativeCodingPage() {
         code: codeToSubmit,
       });
 
-      if (resp.status === 'accepted') {
-        addToast(`✅ All ${resp.total_test_cases} test cases passed!`, 'success', 4000);
-        setTestResults([]);
-        setExecutionError(null);
-      } else {
-        addToast(
-          `❌ ${resp.passed_test_cases}/${resp.total_test_cases} test cases passed\nStatus: ${resp.status}`,
-          'warning',
-          6000
-        );
-        setTestResults([]);
-        setExecutionError(`Status: ${resp.status}`);
-      }
+      // Prepare submission result data to pass to results page (same as solo practice)
+      const submissionData = {
+        submission_id: resp.submission_id,
+        question_id: question.id,
+        question_title: question.title,
+        difficulty: question.difficulty,
+        status: resp.status,
+        passed_test_cases: resp.passed_test_cases,
+        total_test_cases: resp.total_test_cases,
+        runtime_ms: resp.runtime_ms,
+        memory_mb: resp.memory_mb,
+        runtime_percentile: resp.runtime_percentile,
+        memory_percentile: resp.memory_percentile,
+        timestamp: new Date().toISOString(),
+        language: selectedLanguage,
+        // Add session info for collaborative mode
+        sessionId: sessionId,
+        isCollaborative: true,
+      };
 
-      // Broadcast results
+      // Broadcast results to other user with full submission data
       if (isConnected && collaborationManagerRef.current) {
         collaborationManagerRef.current.sendMessage('code-execution-result', {
           action: 'submit',
           success: true,
-          status: resp.status,
-          passed_test_cases: resp.passed_test_cases,
-          total_test_cases: resp.total_test_cases,
+          submissionData: submissionData,
         });
       }
+
+      // Redirect to submission results page with data (like solo practice)
+      const dataParam = encodeURIComponent(JSON.stringify(submissionData));
+      router.push(`/practice/${question.id}/submission?data=${dataParam}`);
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to submit code';
       setExecutionError(errorMessage);
@@ -671,7 +710,7 @@ function CollaborativeCodingPage() {
           error: errorMessage,
         });
       }
-    } finally {
+      
       setIsRunning(false);
       setExecutionLock(null);
     }

@@ -92,6 +92,7 @@ export interface MatchEvent {
     status: MatchStatus;
     sessionId?: string;
     questionId?: string;
+    questionMatchType?: 'exact' | 'partial' | 'difficulty' | 'random';
     timestamp: number;
     elapsed?: number;
 }
