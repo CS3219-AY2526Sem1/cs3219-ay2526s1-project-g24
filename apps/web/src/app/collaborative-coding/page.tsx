@@ -19,6 +19,7 @@ import PresenceIndicator from '@/components/PresenceIndicator';
 import ToastNotification, { Toast } from '@/components/ToastNotification';
 
 import withAuth from '@/components/withAuth';
+import { collaborationService } from '@/lib/api/collaborationService';
 import {
   getQuestionById,
   runCode,
@@ -244,9 +245,69 @@ function CollaborativeCodingPage() {
       return;
     }
 
-    console.log('✅ Connecting to session ID:', targetSessionId);
-    setSessionId(targetSessionId);
+    console.log('✅ Validating session before connecting:', targetSessionId);
     setConnectionStatus('connecting');
+    setIsConnected(false);
+
+    // Validate session existence and status
+    try {
+      const sessionDetails = await collaborationService.getSession(targetSessionId);
+
+      if (!sessionDetails) {
+        throw new Error('Session lookup returned empty result');
+      }
+
+      // Check if session is active
+      if (sessionDetails.status !== 'ACTIVE') {
+        console.warn('⚠️ Session is not active:', {
+          sessionId: targetSessionId,
+          status: sessionDetails.status,
+        });
+
+        if (autoSessionId) {
+          clearActiveSession();
+          setIsFromMatchFlow(false);
+          setSessionInputValue('');
+        }
+
+        setConnectionStatus('error');
+        addToast('This session is no longer active. Please start a new session.', 'warning');
+        return;
+      }
+
+      // Persist details immediately so rejoin reminders stay in sync even if connect fails later.
+      if (sessionDetails.questionId) {
+        persistActiveSession(targetSessionId, sessionDetails.questionId);
+      }
+
+      setSessionId(targetSessionId);
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      console.error('[CollaborativeCoding] Failed to validate session before connecting:', {
+        error,
+        status,
+      });
+
+      if (autoSessionId) {
+        // Clean up stored session info if we failed to validate during auto-connect
+        clearActiveSession();
+        setIsFromMatchFlow(false);
+        setSessionInputValue('');
+      }
+
+      setConnectionStatus('error');
+      setConnectedUsers([]);
+      setIsConnected(false);
+
+      if (status === 404) {
+        addToast('Session not found. Please check the ID or start a new session.', 'error');
+      } else if (status === 403) {
+        addToast('You do not have access to this session.', 'error');
+      } else {
+        addToast('Failed to verify session. Please try again later.', 'error');
+      }
+      return;
+    }
 
     try {
       if (!collaborationManagerRef.current) {

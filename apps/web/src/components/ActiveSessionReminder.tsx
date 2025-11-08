@@ -1,149 +1,26 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
-import {
-  collaborationService,
-  type CollaborationSessionStatus,
-} from "@/lib/api/collaborationService";
-import {
-  type ActiveSessionState,
-  clearActiveSession,
-  getActiveSessionFromLocalStorage,
-  hydrateSessionStorageFromLocal,
-  persistActiveSession,
-} from "@/components/session/activeSession";
-
-const STORAGE_KEY = "peerprep.activeSession";
-
-type ReminderStatus = CollaborationSessionStatus | "UNKNOWN" | "UNAVAILABLE";
-
-interface ReminderState extends ActiveSessionState {
-  questionId?: string;
-  status: ReminderStatus;
-}
+import { useRouter } from "next/navigation";
+import { hydrateSessionStorageFromLocal } from "@/components/session/activeSession";
+import { useActiveSessionReminder } from "@/hooks/useActiveSessionReminder";
 
 /**
  * Displays a global reminder prompting the user to rejoin an active collaboration session.
- * The reminder checks localStorage for a stored session ID, verifies it with the collaboration
- * service, and renders a CTA to rejoin from anywhere in the app.
+ * This component is responsible for rendering the UI of the reminder, while the logic
+ * for session detection and state management is handled by the `useActiveSessionReminder` hook.
  */
 export default function ActiveSessionReminder() {
   const router = useRouter();
-  const pathname = usePathname();
-  const [reminder, setReminder] = useState<ReminderState | null>(null);
-  const [dismissedSessionId, setDismissedSessionId] = useState<string | null>(
-    null,
-  );
-  const isCheckingRef = useRef(false);
-
-  const shouldSkipForPath = pathname?.startsWith("/collaborative-coding") ?? false;
-
-  const evaluateActiveSession = useCallback(async () => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    if (shouldSkipForPath) {
-      setReminder(null);
-      return;
-    }
-
-    const stored = getActiveSessionFromLocalStorage();
-    if (!stored?.sessionId) {
-      setReminder(null);
-      return;
-    }
-
-    if (dismissedSessionId === stored.sessionId) {
-      setReminder(null);
-      return;
-    }
-
-    if (isCheckingRef.current) {
-      return;
-    }
-    isCheckingRef.current = true;
-
-    try {
-      const session = await collaborationService.rejoinSession(stored.sessionId);
-      // Ensure we keep the latest question ID in storage for reconnect flow.
-      const questionId = stored.questionId ?? session.questionId;
-      persistActiveSession(stored.sessionId, questionId);
-      setReminder({
-        sessionId: stored.sessionId,
-        questionId,
-        storedAt: stored.storedAt,
-        status: session.status,
-      });
-    } catch (error: any) {
-      const status = error?.status as number | undefined;
-      console.warn(
-        "[ActiveSessionReminder] Failed to verify session",
-        stored.sessionId,
-        { status, error },
-      );
-      setReminder(null);
-    } finally {
-      isCheckingRef.current = false;
-    }
-  }, [dismissedSessionId, shouldSkipForPath]);
-
-  useEffect(() => {
-    evaluateActiveSession();
-  }, [evaluateActiveSession]);
-
-  useEffect(() => {
-    if (typeof document === "undefined") {
-      return;
-    }
-
-    const handleVisibility = () => {
-      if (!document.hidden) {
-        evaluateActiveSession();
-      }
-    };
-
-    document.addEventListener("visibilitychange", handleVisibility);
-    return () => document.removeEventListener("visibilitychange", handleVisibility);
-  }, [evaluateActiveSession]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") {
-      return;
-    }
-
-    const handleStorage = (event: StorageEvent) => {
-      if (event.key === STORAGE_KEY) {
-        evaluateActiveSession();
-      }
-    };
-
-    window.addEventListener("storage", handleStorage);
-    return () => window.removeEventListener("storage", handleStorage);
-  }, [evaluateActiveSession]);
-
-  if (
-    !reminder ||
-    reminder.sessionId === dismissedSessionId ||
-    reminder.status !== "ACTIVE"
-  ) {
-    return null;
-  }
+  const { shouldShow, handleDismiss, handleClear } = useActiveSessionReminder();
 
   const handleReconnect = () => {
     hydrateSessionStorageFromLocal();
     router.push("/collaborative-coding");
   };
 
-  const handleDismiss = () => {
-    setDismissedSessionId(reminder.sessionId);
-  };
-
-  const handleClear = () => {
-    clearActiveSession();
-    setReminder(null);
-  };
+  if (!shouldShow) {
+    return null;
+  }
 
   return (
     <div className="pointer-events-none fixed bottom-6 right-6 z-50 flex max-w-sm flex-col gap-3">
