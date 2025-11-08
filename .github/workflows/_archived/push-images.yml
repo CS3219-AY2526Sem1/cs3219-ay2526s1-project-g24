@@ -1,22 +1,35 @@
-name: Build Images (no push)
+name: Build and Push Images to GHCR
 
 on:
-  pull_request:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Git ref (branch, tag, or SHA) to build"
+        required: false
+        default: "dev"
+      tag_latest:
+        description: "Also tag images as 'latest'"
+        required: false
+        type: boolean
+        default: true
+  workflow_run:
+    workflows: ["Build and Test"]
+    types:
+      - completed
     branches: ["master", "main", "dev"]
-  push:
-    branches: ["master", "main"]
-  workflow_dispatch: {}
 
 permissions:
   contents: read
-  packages: read
+  packages: write
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.ref || github.ref }}
   cancel-in-progress: true
 
 jobs:
+  # Detect what changed to only build/push necessary images
   detect-changes:
+    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') }}
     runs-on: ubuntu-latest
     outputs:
       web: ${{ steps.filter.outputs.web }}
@@ -29,6 +42,9 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.event.workflow_run.head_branch || 'dev' }}
+          fetch-depth: 2
 
       - name: Check for changed files
         uses: dorny/paths-filter@v3
@@ -56,9 +72,8 @@ jobs:
               - 'pnpm-lock.yaml'
               - 'pnpm-workspace.yaml'
               - 'turbo.json'
-              - '.github/workflows/**'
 
-  build:
+  push:
     needs: detect-changes
     if: |
       needs.detect-changes.outputs.web == 'true' ||
@@ -67,7 +82,8 @@ jobs:
       needs.detect-changes.outputs.matching == 'true' ||
       needs.detect-changes.outputs.collab == 'true' ||
       needs.detect-changes.outputs.code-execution == 'true' ||
-      needs.detect-changes.outputs.shared == 'true'
+      needs.detect-changes.outputs.shared == 'true' ||
+      github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -76,35 +92,42 @@ jobs:
           - service: web
             context: .
             dockerfile: ./apps/web/Dockerfile
-            condition: ${{ needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+            condition: ${{ needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.shared == 'true' || github.event_name == 'workflow_dispatch' }}
           - service: question-service
             context: ./apps/question_service
             dockerfile: ./apps/question_service/dockerfile
-            condition: ${{ needs.detect-changes.outputs.question == 'true' }}
+            condition: ${{ needs.detect-changes.outputs.question == 'true' || github.event_name == 'workflow_dispatch' }}
           - service: user-service
             context: .
             dockerfile: ./apps/user_service/Dockerfile
-            condition: ${{ needs.detect-changes.outputs.user == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+            condition: ${{ needs.detect-changes.outputs.user == 'true' || needs.detect-changes.outputs.shared == 'true' || github.event_name == 'workflow_dispatch' }}
           - service: matching-service
             context: .
             dockerfile: ./apps/matching-service/Dockerfile
-            condition: ${{ needs.detect-changes.outputs.matching == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+            condition: ${{ needs.detect-changes.outputs.matching == 'true' || needs.detect-changes.outputs.shared == 'true' || github.event_name == 'workflow_dispatch' }}
           - service: collab-service
             context: .
             dockerfile: ./apps/collab-service/Dockerfile
-            condition: ${{ needs.detect-changes.outputs.collab == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+            condition: ${{ needs.detect-changes.outputs.collab == 'true' || needs.detect-changes.outputs.shared == 'true' || github.event_name == 'workflow_dispatch' }}
           - service: code-execution-service
             context: ./apps/code_execution_service
             dockerfile: ./apps/code_execution_service/Dockerfile
-            condition: ${{ needs.detect-changes.outputs.code-execution == 'true' }}
+            condition: ${{ needs.detect-changes.outputs.code-execution == 'true' || github.event_name == 'workflow_dispatch' }}
     steps:
       - name: Skip if no changes
         if: ${{ matrix.condition == 'false' }}
-        run: echo "Skipping ${{ matrix.service }} - no changes detected"
+        run: echo "⏭️  Skipping ${{ matrix.service }} - no changes detected"
 
       - name: Checkout
         if: ${{ matrix.condition == 'true' }}
         uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.event.workflow_run.head_branch || 'dev' }}
+
+      - name: Resolve ref SHA
+        if: ${{ matrix.condition == 'true' }}
+        id: git
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
 
       - name: Set lowercase repository owner
         if: ${{ matrix.condition == 'true' }}
@@ -119,22 +142,34 @@ jobs:
         if: ${{ matrix.condition == 'true' }}
         uses: docker/setup-buildx-action@v3
 
-      - name: Build ${{ matrix.service }} (no push)
+      - name: Login to GHCR
+        if: ${{ matrix.condition == 'true' }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.service }}
         if: ${{ matrix.condition == 'true' }}
         uses: docker/build-push-action@v6
         with:
           context: ${{ matrix.context }}
           file: ${{ matrix.dockerfile }}
-          push: false
-          load: false
+          push: true
           provenance: false
+          # Use GitHub Actions cache to speed up builds
           cache-from: type=gha
           cache-to: type=gha,mode=max
           tags: |
-            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:${{ github.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:${{ steps.git.outputs.sha }}
+            ${{ inputs.tag_latest == true && format('ghcr.io/{0}/cs3219-g24-{1}:latest', steps.repo.outputs.owner_lc, matrix.service) || '' }}
 
       - name: Output build info
         if: ${{ matrix.condition == 'true' }}
         run: |
-          echo "✅ Built ${{ matrix.service }}"
-          echo "Image: ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:${{ github.sha }}"
+          echo "✅ Built and pushed ${{ matrix.service }}"
+          echo "Image: ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:${{ steps.git.outputs.sha }}"
+          if [ "${{ inputs.tag_latest }}" == "true" ]; then
+            echo "Also tagged as: ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:latest"
+          fi
