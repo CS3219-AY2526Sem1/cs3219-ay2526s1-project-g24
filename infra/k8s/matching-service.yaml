@@ -15,6 +15,7 @@ spec:
       labels:
         app: matching-service
     spec:
+      serviceAccountName: ghcr-pull
       containers:
       - name: matching-service
         image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-matching-service:latest
@@ -40,6 +41,8 @@ spec:
             configMapKeyRef:
               name: app-config
               key: COLLABORATION_SERVICE_URL
+        - name: QUESTION_SERVICE_URL
+          value: "http://question-service:8000"
         - name: MATCH_TIMEOUT_SECONDS
           valueFrom:
             configMapKeyRef:
@@ -56,7 +59,9 @@ spec:
               name: app-config
               key: LOG_LEVEL
         - name: AUTH_JWKS_URI
-          value: "http://user-service:8000/.well-known/jwks.json"
+          value: "http://user-service:8000/api/v1/.well-known/jwks.json"
+        - name: CORS_ORIGIN
+          value: "https://cs3219.leyew.dev,http://localhost:3000"
         resources:
           requests:
             memory: "256Mi"

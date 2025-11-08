@@ -8,6 +8,7 @@ resources:
   # NOTE: secrets.yaml is a TEMPLATE ONLY - create secrets manually!
   # See README.md for instructions on secret management
   # - secrets.yaml  # ← DO NOT UNCOMMENT - use kubectl create instead
+  - serviceaccount.yaml
   - configmap.yaml
   - resource-quota.yaml
   - network-policy.yaml
@@ -20,15 +21,18 @@ resources:
   - matching-service.yaml
   - collab-service.yaml
   - code-execution-service.yaml
-  - api.yaml
   - web.yaml
   - hpa.yaml
   - ingress.yaml
 
-# Common labels for all resources
-commonLabels:
-  project: cs3219
-  managed-by: kustomize
+# Common labels for all resources (kustomize v5+)
+labels:
+  - pairs:
+      project: cs3219
+      managed-by: kustomize
+    # Avoid mutating selectors so Services continue matching Pods by their original labels
+    includeSelectors: false
+    includeTemplates: true
 
 # Images can be updated here for all deployments
 # Uncomment and set after building images
@@ -44,7 +48,4 @@ commonLabels:
 #     newTag: latest
 #   - name: REPLACE_WITH_ECR_WEB_IMAGE
 #     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/web
-#     newTag: latest
-#   - name: REPLACE_WITH_ECR_API_IMAGE
-#     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/api
 #     newTag: latest

@@ -15,6 +15,37 @@ spec:
       labels:
         app: collab-service
     spec:
+      serviceAccountName: ghcr-pull
+      initContainers:
+      - name: wait-for-collab-db
+        image: postgres:15-alpine
+        command:
+          - sh
+          - -c
+          - |
+            echo "⏳ Waiting for collab-db to be ready..."
+            for i in $(seq 1 60); do
+              if pg_isready -h collab-db -p 5432 -U "$POSTGRES_USER" -d "$POSTGRES_DB"; then
+                echo "✅ collab-db is ready"; exit 0; fi;
+              echo "...still waiting ($i)"; sleep 2;
+            done
+            echo "❌ Timeout waiting for collab-db"; exit 1
+        env:
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: collab-db-user
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: collab-db-password
+        - name: POSTGRES_DB
+          valueFrom:
+            secretKeyRef:
+              name: db-secrets
+              key: collab-db-name
       containers:
       - name: collab-service
         image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-collab-service:latest
@@ -47,11 +78,21 @@ spec:
           value: "matching-redis"
         - name: REDIS_PORT
           value: "6379"
+        - name: USER_SERVICE_URL
+          value: "http://user-service:8000"
+        - name: QUESTION_SERVICE_URL
+          value: "http://question-service:8000"
+        - name: JWT_ALGORITHM
+          value: "RS256"
+        - name: ENABLE_MOCK_AUTH
+          value: "false"
         - name: JWT_SECRET
           valueFrom:
             secretKeyRef:
               name: app-secrets
               key: jwt-secret
+        - name: CORS_ORIGINS
+          value: "https://cs3219.leyew.dev,http://localhost:3000"
         resources:
           requests:
             memory: "256Mi"

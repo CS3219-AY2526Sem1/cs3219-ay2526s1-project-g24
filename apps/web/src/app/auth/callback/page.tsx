@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import Spinner from "@/components/spinner";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { useAuth } from "@/hooks/useAuth";
 
 export default function AuthCallback() {
@@ -41,5 +41,5 @@ export default function AuthCallback() {
     }
   }, [user, loading, router]);
 
-  return <Spinner text="Signing you in..." />;
+  return <LoadingSpinner message="Signing you in..." />;
 }

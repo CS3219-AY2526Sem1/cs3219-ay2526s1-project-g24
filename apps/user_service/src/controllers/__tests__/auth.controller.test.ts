@@ -7,6 +7,7 @@ const fakeUuid = "123e4567-e89b-12d3-a456-426614174000";
 
 vi.mock("jose", () => ({
   createRemoteJWKSet: () => (() => Promise.resolve({})) as any,
+  importSPKI: async () => ({}) as any, // Mock importSPKI to return a dummy key
   jwtVerify: async () => ({
     payload: {
       userId: "user_id",

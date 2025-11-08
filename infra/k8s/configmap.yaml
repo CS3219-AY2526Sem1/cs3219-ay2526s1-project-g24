@@ -16,12 +16,12 @@ data:
   USER_SERVICE_ENV: "production"
   
   # Service URLs for web (via Ingress paths; relative to ALB host)
-  # These are exposed to the browser, so use ingress path prefixes
-  # Use same-origin base in browser; clients will append /api/v1/... paths
-  MATCHING_SERVICE_URL: ""
-  QUESTION_SERVICE_URL: ""
-  USER_SERVICE_URL: ""
-  CODE_EXECUTION_SERVICE_URL: ""
+  # Use https:// with the custom domain for production
+  MATCHING_SERVICE_URL: "https://cs3219.leyew.dev"
+  QUESTION_SERVICE_URL: "https://cs3219.leyew.dev"
+  USER_SERVICE_URL: "https://cs3219.leyew.dev"
+  CODE_EXECUTION_SERVICE_URL: "https://cs3219.leyew.dev"
+  COLLAB_SERVICE_URL: "https://cs3219.leyew.dev"
 
   # Internal service-to-service URL
   COLLABORATION_SERVICE_URL: "http://collab-service:3003"

@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Editor from '@monaco-editor/react';
 import { EDITOR_CONFIG, LAYOUT_DEFAULTS } from '@/lib/constants';
+import { removeExamplesFromDescription } from '@/lib/utils';
+import { getDifficultyStyles } from '@/lib/difficulty';
 
 import type { editor } from 'monaco-editor';
 import {
@@ -11,88 +13,93 @@ import {
   ConnectionStatus,
   UserPresence,
   CollaborationErrorInfo,
+  CollaborationMessage,
 } from '@/lib/collaboration/CollaborationManager';
 import PresenceIndicator from '@/components/PresenceIndicator';
 import ToastNotification, { Toast } from '@/components/ToastNotification';
 
 import withAuth from '@/components/withAuth';
-import { useAuth } from '@/hooks/useAuth';
-
-const questions = [
-  {
-    title: 'Divide Two Integers',
-    difficulty: 'MEDIUM',
-    topics: ['Bit Manipulation', 'Math'],
-    description: `Given two integers dividend and divisor, divide two integers without using multiplication, division, and mod operator.
-
-The integer division should truncate toward zero, which means losing its fractional part. For example, 8.345 would be truncated to 8, and -2.7335 would be truncated to -2.
-
-Return the quotient after dividing dividend by divisor.`,
-    note: `Assume we are dealing with an environment that could only store integers within the 32-bit signed integer range: [-2³¹, 2³¹ − 1]. For this problem, if the quotient is strictly greater than 2³¹ - 1, then return 2³¹ - 1, and if the quotient is strictly less than -2³¹, then return -2³¹.`,
-    examples: [
-      {
-        input: 'dividend = 10, divisor = 3',
-        output: '3',
-        explanation: '10/3 = 3.33333.. which is truncated to 3',
-      },
-      {
-        input: 'dividend = 7, divisor = -3',
-        output: '-2',
-        explanation: '7/-3 = -2.33333.. which is truncated to -2.',
-      },
-    ],
-    constraints: ['-2³¹ <= dividend, divisor <= 2³¹ - 1', 'divisor != 0'],
-  },
-];
+import { collaborationService } from '@/lib/api/collaborationService';
+import {
+  getQuestionById,
+  runCode,
+  submitSolution,
+  type QuestionDetail,
+  type TestCaseResult,
+} from '@/lib/api/questionService';
+import {
+  clearActiveSession,
+  getActiveQuestionId,
+  getActiveSessionFromLocalStorage,
+  getActiveSessionId,
+  hydrateSessionStorageFromLocal,
+  persistActiveSession,
+} from '@/components/session/activeSession';
 
 function CollaborativeCodingPage() {
   const router = useRouter();
-  const { user } = useAuth();
-  const [currentQuestion] = useState(0);
+
+  // Log initial state on page load
+  console.log('🚀 Collaborative Coding Page loaded');
+  if (typeof window !== 'undefined') {
+    console.log('📦 Stored session state:', {
+      sessionStorage: {
+        sessionId: sessionStorage.getItem('sessionId'),
+        questionId: sessionStorage.getItem('questionId'),
+      },
+      localStorage: getActiveSessionFromLocalStorage(),
+    });
+  }
+
+  // layout
   const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
   const [codeHeight, setCodeHeight] = useState<number>(LAYOUT_DEFAULTS.CODE_HEIGHT_PERCENT);
   const [isDraggingVertical, setIsDraggingVertical] = useState(false);
   const [isDraggingHorizontal, setIsDraggingHorizontal] = useState(false);
   const [activeTab, setActiveTab] = useState<'testResults' | 'customInput'>('testResults');
-  const [selectedTestCase, setSelectedTestCase] = useState(1);
-  const [selectedLanguage, setSelectedLanguage] = useState<'python' | 'javascript' | 'java' | 'cpp'>('python');
-  const [code, setCode] = useState(
-    '# Write your solution here\n\nclass Solution:\n    def divide(self, dividend: int, divisor: int) -> int:\n        pass'
-  );
+  const [selectedTestCase, setSelectedTestCase] = useState(0);
 
-  // Collaboration state
+  // language/code
+  const [selectedLanguage, setSelectedLanguage] = useState<'python' | 'javascript' | 'java' | 'cpp'>('python');
+  const [code, setCode] = useState('');
+
+  // collab
   const [sessionId, setSessionId] = useState('');
   const [sessionInputValue, setSessionInputValue] = useState('');
-  const [userIdInputValue, setUserIdInputValue] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [connectedUsers, setConnectedUsers] = useState<UserPresence[]>([]);
   const [toasts, setToasts] = useState<Toast[]>([]);
+  const [isFromMatchFlow, setIsFromMatchFlow] = useState(false);
+  const [isEditorReady, setIsEditorReady] = useState(false);
 
-  // Collaboration manager and editor ref
+  // question + run/submit state
+  const [question, setQuestion] = useState<QuestionDetail | null>(null);
+  const [isLoadingQuestion, setIsLoadingQuestion] = useState(false);
+  const [questionError, setQuestionError] = useState<string | null>(null);
+
+  const [testResults, setTestResults] = useState<TestCaseResult[]>([]);
+  const [executionError, setExecutionError] = useState<string | null>(null);
+  const [isRunning, setIsRunning] = useState(false);
+  const [executionLock, setExecutionLock] = useState<{ clientId: number; userName: string } | null>(null);
+
+  // refs
   const collaborationManagerRef = useRef<CollaborationManager | null>(null);
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
-
   const containerRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
 
-  const question = questions[currentQuestion];
+  useEffect(() => {
+    hydrateSessionStorageFromLocal();
+  }, []);
 
-  // Toast notification helpers
-  const addToast = (message: string, type: Toast['type'] = 'info', duration?: number) => {
-    const id = `toast-${Date.now()}-${Math.random()}`;
-    setToasts((prev) => [...prev, { id, message, type, duration }]);
-  };
+  useEffect(() => {
+    if (sessionId && question?.id) {
+      persistActiveSession(sessionId, String(question.id));
+    }
+  }, [sessionId, question?.id]);
 
-  const dismissToast = (id: string) => {
-    setToasts((prev) => prev.filter((toast) => toast.id !== id));
-  };
-
-  const handleCollaborationError = (error: CollaborationErrorInfo) => {
-    console.error('[Collaboration Error]', error);
-    addToast(error.message, 'error', error.recoverable ? 5000 : 10000);
-  };
-
+  // fallback language templates (when question has no template for that lang)
   const languageConfig = {
     python: {
       language: 'python',
@@ -116,53 +123,249 @@ function CollaborativeCodingPage() {
     },
   };
 
-  // Connect to collaboration session
-  const connectToSession = async () => {
-    if (!sessionInputValue.trim()) {
+  // toast helpers
+  const addToast = (message: string, type: Toast['type'] = 'info', duration?: number) => {
+    const id = `toast-${Date.now()}-${Math.random()}`;
+    setToasts((prev) => [...prev, { id, message, type, duration }]);
+  };
+
+  const dismissToast = (id: string) => {
+    setToasts((prev) => prev.filter((toast) => toast.id !== id));
+  };
+
+  const handleCollaborationError = (error: CollaborationErrorInfo) => {
+    console.error('[Collaboration Error]', error);
+    addToast(error.message, 'error', error.recoverable ? 5000 : 10000);
+  };
+
+  // Handle collaboration messages (code execution events)
+  const handleCollaborationMessage = (message: CollaborationMessage) => {
+    const senderUser = connectedUsers.find((u) => u.clientId === message.sender);
+    const senderName = senderUser?.name || 'Another user';
+
+    if (message.type === 'code-execution-start') {
+      console.log(`[CodeExecution] ${senderName} started running code`);
+      setExecutionLock({ clientId: message.sender, userName: senderName });
+      setIsRunning(true);
+      addToast(`${senderName} is running the code...`, 'info', 3000);
+    } else if (message.type === 'code-execution-result') {
+      console.log('[CodeExecution] Received execution results from', senderName);
+      setExecutionLock(null);
+      setIsRunning(false);
+
+      const { success, results, error, action } = message.data;
+
+      if (success) {
+        if (action === 'submit') {
+          const { status, passed_test_cases, total_test_cases } = message.data;
+          if (status === 'accepted') {
+            addToast(`✅ All ${total_test_cases} test cases passed!`, 'success', 4000);
+            setTestResults([]);
+            setExecutionError(null);
+          } else {
+            addToast(
+              `❌ ${passed_test_cases}/${total_test_cases} test cases passed\nStatus: ${status}`,
+              'warning',
+              6000
+            );
+            setTestResults([]);
+            setExecutionError(`Status: ${status}`);
+          }
+        } else {
+          setTestResults(results || []);
+          setExecutionError(null);
+          setActiveTab('testResults');
+        }
+      } else {
+        setExecutionError(error || 'Code execution failed');
+        setTestResults([]);
+      }
+    }
+  };
+
+  // -------------- QUESTION FETCH + SEED --------------
+  const fetchAndSetQuestion = async (
+    qid: number,
+    lang: 'python' | 'javascript' | 'java' | 'cpp',
+    sessionIdentifier?: string,
+    seedSharedDoc = false,
+  ) => {
+    try {
+      setIsLoadingQuestion(true);
+      setQuestionError(null);
+      const data = await getQuestionById(qid);
+      setQuestion(data);
+
+      const sessionForPersistence =
+        sessionIdentifier || sessionId || getActiveSessionId();
+      if (sessionForPersistence) {
+        persistActiveSession(sessionForPersistence, String(data.id));
+      }
+
+      const template = data.code_templates?.[lang];
+
+      if (seedSharedDoc && collaborationManagerRef.current) {
+        const content = template ?? languageConfig[lang].defaultCode;
+        setCode(content);
+        collaborationManagerRef.current.setSharedContent(content);
+      } else if (!sessionId && editorRef.current) {
+        const currentVal = editorRef.current.getValue();
+        if (!currentVal || currentVal.trim() === '') {
+          const content = template ?? languageConfig[lang].defaultCode;
+          editorRef.current.setValue(content);
+          setCode(content);
+        }
+      }
+    } catch (err) {
+      setQuestionError(err instanceof Error ? err.message : 'Failed to load question');
+    } finally {
+      setIsLoadingQuestion(false);
+    }
+  };
+
+  // -------------- CONNECT TO SESSION --------------
+  const connectToSession = async (autoSessionId?: string) => {
+    const targetSessionId = autoSessionId || sessionInputValue.trim();
+
+    console.log('🔌 Attempting to connect to session:', {
+      autoSessionId,
+      sessionInputValue,
+      targetSessionId,
+    });
+
+    if (!targetSessionId) {
+      console.warn('❌ No session ID provided');
       addToast('Please enter a session ID', 'warning');
       return;
     }
 
-    if (!userIdInputValue.trim()) {
-      addToast('Please enter a user ID', 'warning');
-      return;
-    }
-
     if (!editorRef.current) {
+      console.warn('❌ Editor not ready');
       addToast('Editor not ready. Please try again.', 'warning');
       return;
     }
 
-    const trimmedSessionId = sessionInputValue.trim();
-    const trimmedUserId = userIdInputValue.trim();
-    setSessionId(trimmedSessionId);
+    console.log('✅ Validating session before connecting:', targetSessionId);
     setConnectionStatus('connecting');
+    setIsConnected(false);
+
+    // Validate session existence and status
+    try {
+      const sessionDetails = await collaborationService.getSession(targetSessionId);
+
+      if (!sessionDetails) {
+        throw new Error('Session lookup returned empty result');
+      }
+
+      // Check if session is active
+      if (sessionDetails.status !== 'ACTIVE') {
+        console.warn('⚠️ Session is not active:', {
+          sessionId: targetSessionId,
+          status: sessionDetails.status,
+        });
+
+        if (autoSessionId) {
+          clearActiveSession();
+          setIsFromMatchFlow(false);
+          setSessionInputValue('');
+        }
+
+        setConnectionStatus('error');
+        addToast('This session is no longer active. Please start a new session.', 'warning');
+        return;
+      }
+
+      // Persist details immediately so rejoin reminders stay in sync even if connect fails later.
+      if (sessionDetails.questionId) {
+        persistActiveSession(targetSessionId, sessionDetails.questionId);
+      }
+
+      setSessionId(targetSessionId);
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      console.error('[CollaborativeCoding] Failed to validate session before connecting:', {
+        error,
+        status,
+      });
+
+      if (autoSessionId) {
+        // Clean up stored session info if we failed to validate during auto-connect
+        clearActiveSession();
+        setIsFromMatchFlow(false);
+        setSessionInputValue('');
+      }
+
+      setConnectionStatus('error');
+      setConnectedUsers([]);
+      setIsConnected(false);
+
+      if (status === 404) {
+        addToast('Session not found. Please check the ID or start a new session.', 'error');
+      } else if (status === 403) {
+        addToast('You do not have access to this session.', 'error');
+      } else {
+        addToast('Failed to verify session. Please try again later.', 'error');
+      }
+      return;
+    }
 
     try {
       if (!collaborationManagerRef.current) {
         collaborationManagerRef.current = new CollaborationManager();
       }
 
-      // Set up presence update callback
       collaborationManagerRef.current.onPresenceUpdate((users) => {
         setConnectedUsers(users);
       });
 
-      // Set up error notification callback
       collaborationManagerRef.current.onErrorNotification(handleCollaborationError);
 
+      // Listen for code execution messages from other users
+      collaborationManagerRef.current.onMessage((message: CollaborationMessage) => {
+        console.log('[CodeExecution] Received message:', message);
+        handleCollaborationMessage(message);
+      });
+
+      // connect
       await collaborationManagerRef.current.connect(
-        trimmedSessionId,
+        targetSessionId,
         editorRef.current,
-        (status) => {
+        async (status /*, meta?: any */) => {
           setConnectionStatus(status);
           setIsConnected(status === 'connected');
 
           if (status === 'connected') {
+            console.log('🎉 Successfully connected to session:', targetSessionId);
             addToast('Successfully connected to session', 'success', 3000);
+
+            const storedQid = getActiveQuestionId();
+            if (storedQid) {
+              const questionId = Number(storedQid);
+              
+              // Validate that the question ID is a valid number
+              if (isNaN(questionId) || questionId <= 0) {
+                console.error('❌ Invalid question ID:', storedQid);
+                setQuestionError(`Invalid question ID: ${storedQid}. Please start a new session.`);
+                return;
+              }
+              
+              persistActiveSession(targetSessionId, storedQid);
+              console.log('✅ Found question ID, fetching question:', storedQid);
+              await collaborationManagerRef.current?.waitForInitialSync();
+              const hasSharedContent =
+                collaborationManagerRef.current?.hasSharedContent() ?? false;
+              await fetchAndSetQuestion(
+                questionId,
+                selectedLanguage,
+                targetSessionId,
+                !hasSharedContent,
+              );
+            } else {
+              console.warn('⚠️ No question ID available for this session');
+              setQuestionError('No question is linked to this session.');
+            }
           }
-        },
-        trimmedUserId
+        }
       );
     } catch (error) {
       console.error('[CollaborativeCoding] Failed to connect:', error);
@@ -172,45 +375,123 @@ function CollaborativeCodingPage() {
     }
   };
 
-  // Disconnect from collaboration session
+  // -------------- DISCONNECT --------------
   const disconnectFromSession = () => {
-    console.log('[CollaborativeCoding] Disconnecting from session');
+    const confirmed = window.confirm(
+      'Are you sure you want to disconnect from this session? Your partner will continue to be in the session.'
+    );
+    if (!confirmed) return;
+
+    console.log('🔌 Disconnecting from session');
 
     if (collaborationManagerRef.current) {
-      collaborationManagerRef.current.disconnect();
-      collaborationManagerRef.current = null;
+      try {
+        collaborationManagerRef.current.disconnect();
+      } catch (e) {
+        console.warn('[Collaboration] error destroying provider', e);
+      } finally {
+        collaborationManagerRef.current = null;
+      }
     }
 
     setSessionId('');
     setSessionInputValue('');
-    setUserIdInputValue('');
     setIsConnected(false);
     setConnectionStatus('disconnected');
     setConnectedUsers([]);
+    setIsFromMatchFlow(false);
 
-    // Reset code to default
+    // Clean up session storage
+    clearActiveSession();
+    console.log('🗑️ Cleared active session metadata from storage');
+
+    // reset editor to a local template
     if (editorRef.current) {
-      editorRef.current.setValue(languageConfig[selectedLanguage].defaultCode);
+      const fallback = languageConfig[selectedLanguage].defaultCode;
+      editorRef.current.setValue(fallback);
+      setCode(fallback);
     }
 
     addToast('Disconnected from session', 'info', 3000);
-    console.log('[CollaborativeCoding] Disconnected successfully');
   };
 
-  // Handle editor mount
-  const handleEditorDidMount = (editor: editor.IStandaloneCodeEditor) => {
-    editorRef.current = editor;
+  // -------------- EDITOR MOUNT --------------
+  const handleEditorDidMount = (editorInstance: editor.IStandaloneCodeEditor) => {
+    editorRef.current = editorInstance;
+    setIsEditorReady(true);
   };
 
-  // Cleanup on component unmount
+  // cleanup on unmount
   useEffect(() => {
     return () => {
       if (collaborationManagerRef.current) {
         collaborationManagerRef.current.disconnect();
+        collaborationManagerRef.current = null;
       }
     };
   }, []);
 
+  // unload / visibility
+  // cleanup on unmount + gentle unload
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      // only try to disconnect if we actually have a manager and we are connected
+      if (collaborationManagerRef.current) {
+        try {
+          collaborationManagerRef.current.disconnect();
+        } catch (e) {
+          console.warn('[Collaboration] error during beforeunload disconnect', e);
+        } finally {
+          collaborationManagerRef.current = null;
+        }
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+
+    return () => {
+      // React unmount
+      if (collaborationManagerRef.current) {
+        try {
+          collaborationManagerRef.current.disconnect();
+        } catch (e) {
+          console.warn('[Collaboration] error during unmount disconnect', e);
+        } finally {
+          collaborationManagerRef.current = null;
+        }
+      }
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+    };
+  }, []);
+
+  // auto-connect from match flow
+  useEffect(() => {
+    console.log('🔍 Checking for stored session ID...');
+    const storedSessionId = getActiveSessionId();
+    const storedQuestionId = getActiveQuestionId();
+    console.log('📦 Retrieved from storage:', {
+      sessionId: storedSessionId,
+      questionId: storedQuestionId,
+      isEditorReady: isEditorReady,
+    });
+
+    if (storedSessionId && isEditorReady && !sessionId) {
+      console.log('✅ Found session ID and editor is ready. Auto-connecting to session:', storedSessionId);
+      setIsFromMatchFlow(true);
+      connectToSession(storedSessionId);
+      // Don't remove session ID yet - keep it for the duration of the session
+      console.log('📌 Session ID kept in sessionStorage for the duration of the session');
+    } else if (storedSessionId && !isEditorReady) {
+      console.log('⏳ Found session ID but editor not ready. Will connect once ready.');
+      setIsFromMatchFlow(true);
+      setSessionInputValue(storedSessionId);
+    } else if (!storedSessionId) {
+      console.log('ℹ️ No stored session ID found. User needs to manually enter session ID.');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEditorReady]);
+
+  // -------------- DRAG HANDLERS --------------
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
       if (isDraggingVertical && containerRef.current) {
@@ -256,76 +537,233 @@ function CollaborativeCodingPage() {
     }
   }, [isDraggingVertical, isDraggingHorizontal]);
 
+  // -------------- RUN / SUBMIT --------------
+  const handleRunCode = async () => {
+    if (!question || !editorRef.current) return;
+
+    // Check if someone else is running code
+    if (executionLock && executionLock.clientId !== collaborationManagerRef.current?.getLocalUser().clientId) {
+      addToast(`${executionLock.userName} is already running code. Please wait...`, 'warning', 3000);
+      return;
+    }
+
+    console.log('[CodeExecution] Starting code execution (run)');
+    const localUser = collaborationManagerRef.current?.getLocalUser();
+
+    // Broadcast execution start
+    if (isConnected && collaborationManagerRef.current) {
+      setExecutionLock({
+        clientId: localUser?.clientId ?? 0,
+        userName: localUser?.name ?? 'You',
+      });
+      collaborationManagerRef.current.sendMessage('code-execution-start', {
+        action: 'run',
+      });
+    }
+
+    setIsRunning(true);
+    setExecutionError(null);
+    setActiveTab('testResults');
+
+    try {
+      const codeToRun = editorRef.current.getValue();
+      const resp = await runCode(question.id, {
+        language: selectedLanguage,
+        code: codeToRun,
+      });
+      setTestResults(resp.results);
+
+      // Broadcast results
+      if (isConnected && collaborationManagerRef.current) {
+        collaborationManagerRef.current.sendMessage('code-execution-result', {
+          action: 'run',
+          success: true,
+          results: resp.results,
+        });
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to run code';
+      setExecutionError(errorMessage);
+      setTestResults([]);
+
+      // Broadcast error
+      if (isConnected && collaborationManagerRef.current) {
+        collaborationManagerRef.current.sendMessage('code-execution-result', {
+          action: 'run',
+          success: false,
+          error: errorMessage,
+        });
+      }
+    } finally {
+      setIsRunning(false);
+      setExecutionLock(null);
+    }
+  };
+
+  const handleSubmitCode = async () => {
+    if (!question || !editorRef.current) return;
+
+    // Check if someone else is running code
+    if (executionLock && executionLock.clientId !== collaborationManagerRef.current?.getLocalUser().clientId) {
+      addToast(`${executionLock.userName} is already running code. Please wait...`, 'warning', 3000);
+      return;
+    }
+
+    console.log('[CodeExecution] Starting code execution (submit)');
+    const localUser = collaborationManagerRef.current?.getLocalUser();
+
+    // Broadcast execution start
+    if (isConnected && collaborationManagerRef.current) {
+      setExecutionLock({
+        clientId: localUser?.clientId ?? 0,
+        userName: localUser?.name ?? 'You',
+      });
+      collaborationManagerRef.current.sendMessage('code-execution-start', {
+        action: 'submit',
+      });
+    }
+
+    setIsRunning(true);
+    setExecutionError(null);
+    setActiveTab('testResults');
+
+    try {
+      const codeToSubmit = editorRef.current.getValue();
+      const resp = await submitSolution(question.id, {
+        language: selectedLanguage,
+        code: codeToSubmit,
+      });
+
+      if (resp.status === 'accepted') {
+        addToast(`✅ All ${resp.total_test_cases} test cases passed!`, 'success', 4000);
+        setTestResults([]);
+        setExecutionError(null);
+      } else {
+        addToast(
+          `❌ ${resp.passed_test_cases}/${resp.total_test_cases} test cases passed\nStatus: ${resp.status}`,
+          'warning',
+          6000
+        );
+        setTestResults([]);
+        setExecutionError(`Status: ${resp.status}`);
+      }
+
+      // Broadcast results
+      if (isConnected && collaborationManagerRef.current) {
+        collaborationManagerRef.current.sendMessage('code-execution-result', {
+          action: 'submit',
+          success: true,
+          status: resp.status,
+          passed_test_cases: resp.passed_test_cases,
+          total_test_cases: resp.total_test_cases,
+        });
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Failed to submit code';
+      setExecutionError(errorMessage);
+      setTestResults([]);
+
+      // Broadcast error
+      if (isConnected && collaborationManagerRef.current) {
+        collaborationManagerRef.current.sendMessage('code-execution-result', {
+          action: 'submit',
+          success: false,
+          error: errorMessage,
+        });
+      }
+    } finally {
+      setIsRunning(false);
+      setExecutionLock(null);
+    }
+  };
+
+  // -------------- TERMINATE --------------
   const handleTerminate = () => {
+    if (isConnected) {
+      const confirmed = window.confirm(
+        'Are you sure you want to terminate this session? You will be disconnected from the collaborative coding session.'
+      );
+      if (!confirmed) return;
+    }
+
+    console.log('🛑 Terminating session');
+
+    if (collaborationManagerRef.current) {
+      collaborationManagerRef.current.disconnect();
+      collaborationManagerRef.current = null;
+    }
+
+    setSessionId('');
+    setSessionInputValue('');
+    setIsConnected(false);
+    setConnectionStatus('disconnected');
+    setConnectedUsers([]);
+   setIsFromMatchFlow(false);
+
+    // Clean up session storage
+    clearActiveSession();
+    sessionStorage.removeItem('matchRequestId');
+    sessionStorage.removeItem('matchUserId');
+    console.log('🗑️ Cleared all session data from storage');
+
     router.push('/home');
   };
 
   return (
     <div className='h-screen bg-[#1e1e1e] flex flex-col font-montserrat'>
+      {/* HEADER */}
       <header className='bg-[#2e2e2e] px-6 py-2.5 flex items-center justify-between border-b border-[#3e3e3e]'>
         <div className='flex items-center gap-6'>
-          <h1 
-            className='font-mclaren text-xl text-white cursor-pointer hover:opacity-80 transition-opacity'
-            onClick={() => router.push('/home')}
-          >
-            PeerPrep
-          </h1>
-          <span className='text-gray-400 text-sm'>ID 22031001</span>
+          <h1 className='font-mclaren text-xl text-white'>PeerPrep</h1>
+          <span className='text-gray-400 text-sm'>Collaborative Coding</span>
 
-          {/* Session Connection UI */}
+          {/* Session controls */}
           <div className='flex items-center gap-2'>
             {!sessionId ? (
               <>
-                <input
-                  type='text'
-                  value={userIdInputValue}
-                  onChange={(e) => setUserIdInputValue(e.target.value)}
-                  placeholder='User ID'
-                  className='bg-[#1e1e1e] border border-[#3e3e3e] text-white text-sm px-3 py-1 rounded focus:outline-none focus:border-[#5e5e5e] w-32'
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      connectToSession();
-                    }
-                  }}
-                />
-                <input
-                  type='text'
-                  value={sessionInputValue}
-                  onChange={(e) => setSessionInputValue(e.target.value)}
-                  placeholder='Session ID'
-                  className='bg-[#1e1e1e] border border-[#3e3e3e] text-white text-sm px-3 py-1 rounded focus:outline-none focus:border-[#5e5e5e] w-40'
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      connectToSession();
-                    }
-                  }}
-                />
-                <button
-                  onClick={connectToSession}
-                  className='px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white text-sm font-medium transition-colors rounded'
-                >
-                  Connect
-                </button>
+                {isFromMatchFlow ? (
+                  <span className='text-sm text-blue-400 animate-pulse'>Connecting to matched session...</span>
+                ) : (
+                  <>
+                    <input
+                      type='text'
+                      value={sessionInputValue}
+                      onChange={(e) => setSessionInputValue(e.target.value)}
+                      placeholder='Session ID'
+                      className='bg-[#1e1e1e] border border-[#3e3e3e] text-white text-sm px-3 py-1 rounded focus:outline-none focus:border-[#5e5e5e] w-40'
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          connectToSession();
+                        }
+                      }}
+                    />
+                    <button
+                      onClick={() => connectToSession()}
+                      className='px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white text-sm font-medium transition-colors rounded'
+                    >
+                      Connect
+                    </button>
+                  </>
+                )}
               </>
             ) : (
               <>
-                <span className='text-sm text-gray-400'>Session: {sessionId.substring(0, 12)}...</span>
+                <span className='text-sm text-gray-400'>Session: {sessionId}</span>
                 <div className='flex items-center gap-1'>
                   <div
-                    className={`w-2 h-2 rounded-full ${
-                      connectionStatus === 'connected'
-                        ? 'bg-green-500'
-                        : connectionStatus === 'connecting'
-                          ? 'bg-yellow-500 animate-pulse'
-                          : connectionStatus === 'error'
-                            ? 'bg-red-500'
-                            : 'bg-gray-500'
-                    }`}
+                    className={`w-2 h-2 rounded-full ${connectionStatus === 'connected'
+                      ? 'bg-[#F1FCAC]'
+                      : connectionStatus === 'connecting'
+                        ? 'bg-yellow-500 animate-pulse'
+                        : connectionStatus === 'error'
+                          ? 'bg-red-500'
+                          : 'bg-gray-500'
+                      }`}
                   />
                   <span className='text-xs text-gray-400'>{connectionStatus}</span>
                 </div>
 
-                {/* Presence Indicator */}
+                {/* presence */}
                 {isConnected && (
                   <PresenceIndicator
                     users={connectedUsers}
@@ -335,7 +773,7 @@ function CollaborativeCodingPage() {
 
                 <button
                   onClick={disconnectFromSession}
-                  className='px-3 py-1 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors rounded'
+                  className='px-3 py-1 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors'
                 >
                   Disconnect
                 </button>
@@ -343,7 +781,7 @@ function CollaborativeCodingPage() {
             )}
           </div>
         </div>
-        <span className='text-white text-sm'>{user?.display_name || 'User'} (you){connectedUsers.length > 0 && ` x ${connectedUsers.map(u => u.name).join(', ')}`}</span>
+
         <button
           onClick={handleTerminate}
           className='px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors'
@@ -352,7 +790,9 @@ function CollaborativeCodingPage() {
         </button>
       </header>
 
+      {/* MAIN */}
       <div ref={containerRef} className='flex-1 flex overflow-hidden'>
+        {/* LEFT: QUESTION */}
         <div
           className='bg-[#252525] overflow-y-auto'
           style={{
@@ -361,64 +801,65 @@ function CollaborativeCodingPage() {
           }}
         >
           <div className='p-6'>
-            <div className='mb-6'>
-              <div className='flex items-center gap-3 mb-3'>
-                <h2 className='text-2xl font-semibold text-white'>{question.title}</h2>
-                <span className='text-xs px-3 py-1 rounded bg-[#854d0e] text-[#fbbf24] font-medium uppercase'>
-                  {question.difficulty}
-                </span>
+            {isLoadingQuestion ? (
+              <div className='flex items-center justify-center py-12'>
+                <div className='text-white'>Loading question...</div>
               </div>
-              <div className='flex gap-2'>
-                {question.topics.map((topic) => (
-                  <span key={topic} className='text-sm text-gray-400'>
-                    {topic}
-                  </span>
-                ))}
+            ) : questionError ? (
+              <div className='flex items-center justify-center py-12'>
+                <div className='text-red-500'>{questionError}</div>
               </div>
-            </div>
-
-            <div className='space-y-4 text-gray-300 text-sm leading-relaxed'>
-              <p className='whitespace-pre-line'>{question.description}</p>
-
-              {question.note && (
-                <div>
-                  <p className='font-semibold text-white mb-2'>Note:</p>
-                  <p className='text-gray-400'>{question.note}</p>
-                </div>
-              )}
-
-              {question.examples.map((example, idx) => (
-                <div key={idx} className='bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]'>
-                  <p className='font-semibold text-white mb-2'>Example {idx + 1}:</p>
-                  <div className='font-mono text-xs space-y-1'>
-                    <p>
-                      <span className='text-gray-500'>Input:</span>{' '}
-                      <span className='text-gray-300'>{example.input}</span>
-                    </p>
-                    <p>
-                      <span className='text-gray-500'>Output:</span>{' '}
-                      <span className='text-gray-300'>{example.output}</span>
-                    </p>
-                    <p>
-                      <span className='text-gray-500'>Explanation:</span>{' '}
-                      <span className='text-gray-400'>{example.explanation}</span>
-                    </p>
+            ) : question ? (
+              <>
+                <div className='mb-6'>
+                  <div className='flex items-center gap-3 mb-3'>
+                    <h2 className='text-2xl font-semibold text-white'>{question.title}</h2>
+                    <span className={getDifficultyStyles(question.difficulty)}>
+                      {question.difficulty}
+                    </span>
+                  </div>
+                  <div className='flex gap-2 flex-wrap'>
+                    {question.topics.map((topic) => (
+                      <span key={topic.id ?? topic.name} className='text-sm text-gray-400'>
+                        {topic.name ?? topic}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              ))}
 
-              <div>
-                <p className='font-semibold text-white mb-2'>Constraints:</p>
-                <ul className='list-disc list-inside text-gray-400 space-y-1 text-xs'>
-                  {question.constraints.map((constraint, idx) => (
-                    <li key={idx}>{constraint}</li>
+                <div className='space-y-4 text-gray-300 text-sm leading-relaxed'>
+                  <p className='whitespace-pre-line'>{removeExamplesFromDescription(question.description)}</p>
+
+                  {question.sample_test_cases?.map((ex, idx) => (
+                    <div key={idx} className='bg-[#1e1e1e] p-4 rounded-lg border border-[#3e3e3e]'>
+                      <p className='font-semibold text-white mb-2'>Example {idx + 1}:</p>
+                      <div className='font-mono text-xs space-y-1'>
+                        <p>
+                          <span className='text-gray-500'>Input:</span>{' '}
+                          <span className='text-gray-300'>{JSON.stringify(ex.input_data)}</span>
+                        </p>
+                        <p>
+                          <span className='text-gray-500'>Output:</span>{' '}
+                          <span className='text-gray-300'>{JSON.stringify(ex.expected_output)}</span>
+                        </p>
+                        {ex.explanation && (
+                          <p>
+                            <span className='text-gray-500'>Explanation:</span>{' '}
+                            <span className='text-gray-400'>{ex.explanation}</span>
+                          </p>
+                        )}
+                      </div>
+                    </div>
                   ))}
-                </ul>
-              </div>
-            </div>
+                </div>
+              </>
+            ) : (
+              <div className='text-gray-400 text-sm'>Connect to a session that provides a question.</div>
+            )}
           </div>
         </div>
 
+        {/* VERTICAL RESIZER */}
         <div
           className='w-1 bg-[#3e3e3e] hover:bg-[#5e5e5e] cursor-col-resize transition-colors relative z-50'
           onMouseDown={(e) => {
@@ -429,6 +870,7 @@ function CollaborativeCodingPage() {
           }}
         />
 
+        {/* RIGHT: EDITOR + TESTS */}
         <div
           ref={rightPanelRef}
           className='flex-1 flex flex-col bg-[#1e1e1e]'
@@ -436,8 +878,10 @@ function CollaborativeCodingPage() {
             pointerEvents: isDraggingVertical || isDraggingHorizontal ? 'none' : 'auto',
           }}
         >
+          {/* EDITOR */}
           <div className='bg-[#1e1e1e] overflow-hidden' style={{ height: `${codeHeight}%` }}>
             <div className='h-full flex flex-col'>
+              {/* editor header */}
               <div className='bg-[#2e2e2e] px-4 py-2.5 flex items-center justify-between border-b border-[#3e3e3e]'>
                 <div className='flex items-center gap-3'>
                   <div className='relative'>
@@ -446,7 +890,25 @@ function CollaborativeCodingPage() {
                       onChange={(e) => {
                         const newLang = e.target.value as 'python' | 'javascript' | 'java' | 'cpp';
                         setSelectedLanguage(newLang);
-                        setCode(languageConfig[newLang].defaultCode);
+
+                        // prefer question template
+                        if (question && question.code_templates && question.code_templates[newLang]) {
+                          const tmpl = question.code_templates[newLang];
+                          setCode(tmpl);
+                          if (sessionId && collaborationManagerRef.current) {
+                            collaborationManagerRef.current.setSharedContent(tmpl);
+                          } else if (editorRef.current) {
+                            editorRef.current.setValue(tmpl);
+                          }
+                        } else {
+                          const fallback = languageConfig[newLang].defaultCode;
+                          setCode(fallback);
+                          if (sessionId && collaborationManagerRef.current) {
+                            collaborationManagerRef.current.setSharedContent(fallback);
+                          } else if (editorRef.current) {
+                            editorRef.current.setValue(fallback);
+                          }
+                        }
                       }}
                       className='bg-transparent border-2 border-white/20 rounded-full pl-4 pr-10 py-1.5 font-montserrat font-medium text-sm text-white appearance-none cursor-pointer focus:outline-none focus:border-white/40 transition-colors'
                     >
@@ -476,26 +938,46 @@ function CollaborativeCodingPage() {
                     </div>
                   </div>
                 </div>
-                <div className='flex gap-2'>
-                  <button className='px-4 py-1.5 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors'>
-                    Run Code
+                <div className='flex gap-2 items-center'>
+                  {executionLock &&
+                    executionLock.clientId !== collaborationManagerRef.current?.getLocalUser().clientId && (
+                      <span className='text-xs text-yellow-400 animate-pulse'>
+                        {executionLock.userName} is running code...
+                      </span>
+                    )}
+                  <button
+                    onClick={handleRunCode}
+                    disabled={isRunning || !question}
+                    className='px-4 py-1.5 bg-[#3e3e3e] hover:bg-[#4e4e4e] text-white text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+                  >
+                    {isRunning ? 'Running...' : 'Run Code'}
                   </button>
-                  <button className='px-4 py-1.5 bg-profile-avatar hover:bg-profile-avatar-hover text-black text-sm font-medium transition-colors'>
-                    Run Test
+                  <button
+                    onClick={handleSubmitCode}
+                    disabled={isRunning || !question}
+                    className='px-4 py-1.5 bg-profile-avatar hover:bg-profile-avatar-hover text-black text-sm font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed'
+                  >
+                    {isRunning ? 'Submitting...' : 'Submit'}
                   </button>
                 </div>
               </div>
 
+              {/* editor body */}
               <div className='flex-1 bg-[#1e1e1e] overflow-hidden'>
                 <Editor
                   height='100%'
-                  language={languageConfig[selectedLanguage].language}
+                  language={
+                    question && question.code_templates && question.code_templates[selectedLanguage]
+                      ? selectedLanguage
+                      : languageConfig[selectedLanguage].language
+                  }
                   value={code}
                   onChange={(value) => {
-                    // Only update state if not connected (local editing)
+                    // if not connected, local edit
                     if (!sessionId) {
                       setCode(value || '');
                     }
+                    // if connected, collab manager will push changes
                   }}
                   onMount={handleEditorDidMount}
                   theme='vs-dark'
@@ -515,13 +997,13 @@ function CollaborativeCodingPage() {
                     bracketPairColorization: {
                       enabled: true,
                     },
-                    readOnly: false,
                   }}
                 />
               </div>
             </div>
           </div>
 
+          {/* HORIZONTAL RESIZER */}
           <div
             className='h-1 bg-[#3e3e3e] hover:bg-[#5e5e5e] cursor-row-resize transition-colors relative z-50'
             onMouseDown={(e) => {
@@ -532,73 +1014,132 @@ function CollaborativeCodingPage() {
             }}
           />
 
+          {/* BOTTOM PANEL */}
           <div className='flex-1 bg-[#252525] overflow-hidden flex flex-col'>
+            {/* tabs */}
             <div className='bg-[#2e2e2e] px-4 flex items-center gap-1 border-b border-[#3e3e3e]'>
               <button
                 onClick={() => setActiveTab('testResults')}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-                  activeTab === 'testResults' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
-                }`}
+                className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${activeTab === 'testResults' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
+                  }`}
               >
                 Test Results
-                {activeTab === 'testResults' && <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-white'></div>}
+                {activeTab === 'testResults' && <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-white' />}
               </button>
               <button
                 onClick={() => setActiveTab('customInput')}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
-                  activeTab === 'customInput' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
-                }`}
+                className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${activeTab === 'customInput' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
+                  }`}
               >
                 Custom Input
-                {activeTab === 'customInput' && <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-white'></div>}
+                {activeTab === 'customInput' && <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-white' />}
               </button>
             </div>
 
+            {/* tab content */}
             <div className='flex-1 overflow-y-auto p-4'>
               {activeTab === 'testResults' ? (
                 <div>
-                  <div className='flex items-center gap-2 mb-4'>
-                    <button
-                      onClick={() => setSelectedTestCase(1)}
-                      className={`flex items-center gap-1 ${selectedTestCase === 1 ? '' : 'opacity-50'}`}
-                    >
-                      <span className='w-5 h-5 flex items-center justify-center rounded-full bg-profile-avatar text-black text-xs font-bold'>
-                        ✓
-                      </span>
-                      <span className='text-white text-sm font-medium ml-1'>Test 1</span>
-                    </button>
-                    <button
-                      onClick={() => setSelectedTestCase(2)}
-                      className={`w-8 h-8 flex items-center justify-center rounded text-sm font-medium transition-colors ${
-                        selectedTestCase === 2
-                          ? 'bg-[#3e3e3e] text-white'
-                          : 'text-gray-400 hover:text-white hover:bg-[#2e2e2e]'
-                      }`}
-                    >
-                      2
-                    </button>
-                  </div>
+                  {executionError && (
+                    <div className='mb-4 p-3 bg-red-900/20 border border-red-500 rounded text-red-300 text-sm'>
+                      {executionError}
+                    </div>
+                  )}
 
-                  <div className='space-y-4'>
-                    <div>
-                      <label className='text-white block mb-2 text-sm font-medium'>Input (stdin)</label>
-                      <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
-                        {selectedTestCase === 1 ? '2' : '10\n3'}
+                  {testResults.length === 0 ? (
+                    <div className='text-gray-400 text-center py-8'>Run your code to see test results</div>
+                  ) : (
+                    <>
+                      <div className='flex items-center gap-2 mb-4 flex-wrap'>
+                        {testResults.map((result, idx) => (
+                          <button
+                            key={idx}
+                            onClick={() => setSelectedTestCase(idx)}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded transition-colors ${selectedTestCase === idx ? 'bg-[#3e3e3e]' : 'bg-[#2e2e2e] hover:bg-[#3a3a3a]'
+                              }`}
+                          >
+                            <span
+                              className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${result.passed ? 'bg-[#F1FCAC] text-black' : 'bg-red-500 text-white'
+                                }`}
+                            >
+                              {result.passed ? '✓' : '✗'}
+                            </span>
+                            <span className='text-white text-sm font-medium ml-1'>Test {idx + 1}</span>
+                          </button>
+                        ))}
                       </div>
-                    </div>
-                    <div>
-                      <label className='text-white block mb-2 text-sm font-medium'>Your Output (stdout)</label>
-                      <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
-                        {selectedTestCase === 1 ? '1' : '3'}
-                      </div>
-                    </div>
-                    <div>
-                      <label className='text-white block mb-2 text-sm font-medium'>Expected Output</label>
-                      <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
-                        {selectedTestCase === 1 ? '1' : '3'}
-                      </div>
-                    </div>
-                  </div>
+
+                      {testResults[selectedTestCase] && (
+                        <div className='space-y-4'>
+                          <div>
+                            <label className='text-white block mb-2 text-sm font-medium'>Result</label>
+                            <div
+                              className={`p-3 rounded font-medium text-sm ${testResults[selectedTestCase].passed
+                                ? 'bg-[#F1FCAC]/10 border border-[#F1FCAC] text-[#F1FCAC]'
+                                : 'bg-red-900/20 border border-red-500 text-red-300'
+                                }`}
+                            >
+                              {testResults[selectedTestCase].passed ? '✓ Passed' : '✗ Failed'}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className='text-white block mb-2 text-sm font-medium'>Input</label>
+                            <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                              {JSON.stringify(testResults[selectedTestCase].input_data, null, 2)}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className='text-white block mb-2 text-sm font-medium'>Your Output</label>
+                            <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                              {testResults[selectedTestCase].actual_output !== null
+                                ? JSON.stringify(testResults[selectedTestCase].actual_output, null, 2)
+                                : 'No output'}
+                            </div>
+                          </div>
+
+                          <div>
+                            <label className='text-white block mb-2 text-sm font-medium'>Expected Output</label>
+                            <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                              {JSON.stringify(testResults[selectedTestCase].expected_output, null, 2)}
+                            </div>
+                          </div>
+
+                          {testResults[selectedTestCase].error && (
+                            <div>
+                              <label className='text-white block mb-2 text-sm font-medium'>Error</label>
+                              <div className='bg-[#1e1e1e] border border-red-500 p-3 rounded font-mono text-sm text-red-300'>
+                                {testResults[selectedTestCase].error}
+                              </div>
+                            </div>
+                          )}
+
+                          {(testResults[selectedTestCase].runtime_ms !== null ||
+                            testResults[selectedTestCase].memory_mb !== null) && (
+                              <div className='grid grid-cols-2 gap-4'>
+                                {testResults[selectedTestCase].runtime_ms !== null && (
+                                  <div>
+                                    <label className='text-white block mb-2 text-sm font-medium'>Runtime</label>
+                                    <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                                      {testResults[selectedTestCase].runtime_ms?.toFixed(2)} ms
+                                    </div>
+                                  </div>
+                                )}
+                                {testResults[selectedTestCase].memory_mb !== null && (
+                                  <div>
+                                    <label className='text-white block mb-2 text-sm font-medium'>Memory</label>
+                                    <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                                      {testResults[selectedTestCase].memory_mb?.toFixed(2)} MB
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                        </div>
+                      )}
+                    </>
+                  )}
                 </div>
               ) : (
                 <div className='space-y-4'>
@@ -628,7 +1169,7 @@ function CollaborativeCodingPage() {
         </div>
       </div>
 
-      {/* Toast Notifications */}
+      {/* TOASTS */}
       <ToastNotification toasts={toasts} onDismiss={dismissToast} />
     </div>
   );

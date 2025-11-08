@@ -1,9 +1,10 @@
-"use client";
+'use client';
 
-import { useAuth } from '../hooks/useAuth';
-import { useRouter } from 'next/navigation';
 import { useEffect } from 'react';
-import Spinner from './spinner';
+import { useRouter } from 'next/navigation';
+import { useAuth } from '../hooks/useAuth';
+import LoadingSpinner from './LoadingSpinner';
+import ActiveSessionReminder from './ActiveSessionReminder';
 
 export function withAdminAuth<P extends object>(WrappedComponent: React.ComponentType<P>) {
   function WithAdminAuth(props: P) {
@@ -12,21 +13,19 @@ export function withAdminAuth<P extends object>(WrappedComponent: React.Componen
 
     useEffect(() => {
       if (!loading && (!user || !isAdmin)) {
-        router.replace("/signin");
+        router.replace('/signin');
       }
     }, [user, loading, isAdmin, router]);
 
     if (loading) {
-      return <Spinner />;
+      return <LoadingSpinner message="Loading..." />;
     }
     return user && isAdmin ? <WrappedComponent {...props} /> : null;
   }
   return WithAdminAuth;
 }
 
-export default function withAuth<P extends object>(
-  WrappedComponent: React.ComponentType<P>
-) {
+export default function withAuth<P extends object>(WrappedComponent: React.ComponentType<P>) {
   function WithAuth(props: P) {
     const { user, loading } = useAuth();
     const router = useRouter();
@@ -38,10 +37,15 @@ export default function withAuth<P extends object>(
     }, [user, loading, router]);
 
     if (loading) {
-      return <Spinner />;
+      return <LoadingSpinner message="Loading..." />;
     }
 
-    return user ? <WrappedComponent {...props} /> : null;
+    return user ? (
+      <>
+        <ActiveSessionReminder />
+        <WrappedComponent {...props} />
+      </>
+    ) : null;
   }
 
   return WithAuth;

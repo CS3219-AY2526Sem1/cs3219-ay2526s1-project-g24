@@ -1,102 +1,126 @@
 import { Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
-import { config } from '../config';
-import { AuthRequest, JWTPayload, AppError } from '../types';
+import { config } from '../config/index.js';
+import { AuthRequest, JWTPayload, AppError } from '../types/index.js';
+import { verifyTokenWithJWKS, extractToken } from '../utils/jwks-auth.js';
+
+function parseCookieHeader(cookieHeader?: string): Record<string, string> | undefined {
+    if (!cookieHeader) return undefined;
+
+    const cookies: Record<string, string> = {};
+    cookieHeader.split(';').forEach((pair) => {
+        const [rawKey, ...rawValue] = pair.split('=');
+        if (!rawKey) return;
+        const key = rawKey.trim();
+        const value = rawValue.join('=').trim();
+        if (!key) return;
+        cookies[key] = decodeURIComponent(value || '');
+    });
+
+    return Object.keys(cookies).length > 0 ? cookies : undefined;
+}
 
 /**
- * Middleware to verify JWT token from Authorization header
+ * Middleware to verify JWT token from Authorization header or cookie
  * Supports mock authentication for local testing (set ENABLE_MOCK_AUTH=true in .env)
+ * Uses JWKS (JSON Web Key Set) for RS256 token verification from User Service
  */
 export function authenticate(
     req: AuthRequest,
     _res: Response,
     next: NextFunction
 ): void {
-    try {
-        // Mock authentication for local testing
-        if (config.enableMockAuth) {
-            console.log('🔓 Mock authentication enabled - bypassing JWT verification');
+    // Async wrapper to handle promise
+    (async () => {
+        try {
+            // Mock authentication for local testing
+            if (config.enableMockAuth) {
+                console.log('[Auth] 🔓 Mock authentication enabled - bypassing JWT verification');
 
-            // Extract userId from header if provided, otherwise use default
-            const authHeader = req.headers.authorization;
-            let userId = '123e4567-e89b-12d3-a456-426614174001'; // Default mock user
+                // Extract userId from Authorization: Bearer <userId> if provided; else default mock user
+                const authHeader = req.headers.authorization;
+                let userId = '123e4567-e89b-12d3-a456-426614174001'; // Default mock user
 
-            if (authHeader && authHeader.startsWith('Bearer ')) {
-                const token = authHeader.substring(7);
-                userId = token.split(' ')[1] || '123e4567-e89b-12d3-a456-426614174001'; // Use token as userId directly
+                if (authHeader && authHeader.startsWith('Bearer ')) {
+                    const token = authHeader.substring(7);
+                    userId = token && token.length > 0 ? token : userId;
+                }
+
+                req.user = {
+                    userId,
+                    email: `${userId}@mock.local`,
+                };
+
+                console.log('[Auth] ✓ Mock user authenticated:', userId);
+                return next();
             }
 
-            req.user = {
-                userId: userId,
-                email: `${userId}@mock.local`,
-            };
+            // Extract token from Authorization header or cookies
+            console.log('[Auth] Extracting token from:', {
+                hasAuthHeader: !!req.headers.authorization,
+                hasCookies: !!req.cookies,
+                authHeaderPrefix: req.headers.authorization?.substring(0, 20),
+            });
 
-            return next();
-        }
+            const cookies = (req.cookies && Object.keys(req.cookies).length > 0)
+                ? req.cookies
+                : parseCookieHeader(req.headers.cookie);
 
-        // Real JWT authentication
-        const authHeader = req.headers.authorization;
+            const token = extractToken(req.headers.authorization, cookies);
 
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
-            throw new AppError('No token provided', 401);
-        }
+            if (!token) {
+                console.warn('[Auth] ⚠️  No authentication token provided');
+                throw new AppError('No authentication token provided', 401);
+            }
 
-        const token = authHeader.substring(7); // Remove 'Bearer ' prefix
+            console.log('[Auth] Token extracted, verifying with JWKS...');
 
-        const decoded = jwt.verify(token, config.jwtSecret) as JWTPayload;
-        req.user = decoded;
+            // Verify token using JWKS
+            const payload = await verifyTokenWithJWKS(token);
+            req.user = payload;
 
-        next();
-    } catch (error) {
-        if (error instanceof jwt.JsonWebTokenError) {
-            next(new AppError('Invalid token', 401));
-        } else if (error instanceof jwt.TokenExpiredError) {
-            next(new AppError('Token expired', 401));
-        } else {
+            console.log('[Auth] ✓ Token verified successfully:', {
+                userId: payload.userId,
+                email: payload.email,
+            });
+
+            next();
+        } catch (error) {
+            console.error('[Auth] ❌ Authentication failed:', {
+                error: error instanceof Error ? error.message : String(error),
+                hasAuthHeader: !!req.headers.authorization,
+                hasCookies: !!req.cookies,
+            });
             next(error);
         }
-    }
+    })();
 }
 
 /**
  * Extract JWT payload from token string (for WebSocket)
  * Supports mock authentication for local testing (set ENABLE_MOCK_AUTH=true in .env)
+ * Uses JWKS (JSON Web Key Set) for RS256 token verification from User Service
  */
-export function verifyToken(token: string): JWTPayload {
-    try {
-        // Mock authentication for local testing
-        if (config.enableMockAuth) {
-            console.log('🔓 Mock authentication enabled for WebSocket - bypassing JWT verification');
+export function verifyToken(token: string): Promise<JWTPayload> {
+    // Async function
+    return (async () => {
+        try {
+            // Mock authentication for local testing
+            if (config.enableMockAuth) {
+                console.log('🔓 Mock authentication enabled for WebSocket - bypassing JWT verification');
 
-            // Try to decode token without verification to extract userId
-            let userId = '123e4567-e89b-12d3-a456-426614174001'; // Default mock user
+                // For mock auth, token can be just a userId
+                const userId = token && token.length > 0 ? token : '123e4567-e89b-12d3-a456-426614174001';
 
-            try {
-                const decoded = jwt.decode(token) as any;
-                if (decoded && decoded.userId) {
-                    userId = decoded.userId;
-                }
-            } catch {
-                // If decode fails, check if token is just a userId
-                if (token && token.length > 0) {
-                    userId = token;
-                }
+                return {
+                    userId,
+                    email: `${userId}@mock.local`,
+                };
             }
 
-            return {
-                userId,
-                email: `${userId}@mock.local`,
-            };
+            // Real JWT authentication using JWKS
+            return await verifyTokenWithJWKS(token);
+        } catch (error) {
+            throw error;
         }
-
-        // Real JWT authentication
-        return jwt.verify(token, config.jwtSecret) as JWTPayload;
-    } catch (error) {
-        if (error instanceof jwt.JsonWebTokenError) {
-            throw new AppError('Invalid token', 401);
-        } else if (error instanceof jwt.TokenExpiredError) {
-            throw new AppError('Token expired', 401);
-        }
-        throw error;
-    }
+    })();
 }

@@ -1,7 +1,18 @@
 import type { editor } from 'monaco-editor';
-import { COLLABORATION_CONFIG } from '@/lib/config/collaboration';
+import { resolveServiceEndpoints, stripTrailingSlash } from '@/lib/api-utils';
 import { getYjsModules } from './yjs-modules';
 import { RemoteCursorManager } from './RemoteCursorManager';
+
+const { wsBase } = resolveServiceEndpoints(
+    process.env.NEXT_PUBLIC_COLLAB_SERVICE_URL,
+    '3003'
+);
+
+const normalizedWsBase = wsBase ? stripTrailingSlash(wsBase) : '';
+const WS_SESSIONS_PATH = '/api/v1/ws/sessions';
+const WS_SESSIONS_BASE_URL = normalizedWsBase
+    ? `${normalizedWsBase}${WS_SESSIONS_PATH}`
+    : WS_SESSIONS_PATH;
 
 /**
  * Connection status for collaboration session
@@ -34,6 +45,21 @@ export interface UserPresence {
         line: number;
         column: number;
     };
+}
+
+/**
+ * Custom message types for collaboration
+ */
+export type CollaborationMessageType = 'code-execution-start' | 'code-execution-result';
+
+/**
+ * Custom message structure
+ */
+export interface CollaborationMessage {
+    type: CollaborationMessageType;
+    data: any;
+    sender: number;
+    timestamp: number;
 }
 
 /**
@@ -73,12 +99,16 @@ export class CollaborationManager {
     private awareness: any = null;
     private onPresenceChange: ((users: UserPresence[]) => void) | null = null;
     private onError: ErrorCallback | null = null;
+    private onCustomMessage: ((message: CollaborationMessage) => void) | null = null;
     private localClientId: number | null = null;
     private userName: string;
     private userColor: string;
     private reconnectAttempts: number = 0;
     private readonly MAX_RECONNECT_ATTEMPTS = 5;
     private cursorManager: RemoteCursorManager | null = null;
+    private initialSyncPromise: Promise<void> | null = null;
+    private syncHandler: ((isSynced: boolean) => void) | null = null;
+    private isSynced = false;
 
     constructor(userName?: string, userColor?: string) {
         this.userName = userName || getRandomName();
@@ -90,13 +120,11 @@ export class CollaborationManager {
      * @param sessionId - The collaboration session ID
      * @param editor - Monaco editor instance
      * @param onStatusChange - Callback for connection status changes
-     * @param userId - Optional user ID for authentication (defaults to TEST_TOKEN)
      */
     async connect(
         sessionId: string,
         editor: editor.IStandaloneCodeEditor,
-        onStatusChange: (status: ConnectionStatus) => void,
-        userId?: string
+        onStatusChange: (status: ConnectionStatus) => void
     ): Promise<void> {
         // Preserve callbacks before disconnect
         const savedPresenceCallback = this.onPresenceChange;
@@ -108,6 +136,10 @@ export class CollaborationManager {
         // Restore callbacks
         this.onPresenceChange = savedPresenceCallback;
         this.onError = savedErrorCallback;
+        // Reset sync tracking
+        this.initialSyncPromise = null;
+        this.syncHandler = null;
+        this.isSynced = false;
 
         try {
             // Get Yjs modules (singleton to prevent duplicate imports)
@@ -116,18 +148,34 @@ export class CollaborationManager {
             // Create Yjs document
             this.ydoc = new Y.Doc();
 
-            // Use provided userId or fall back to TEST_TOKEN
-            const token = userId || COLLABORATION_CONFIG.TEST_TOKEN;
-
             // Create WebSocket provider
-            const wsUrl = `${COLLABORATION_CONFIG.WS_URL}/api/v1/ws/sessions/${sessionId}?token=${token}`;
-            this.provider = new WebsocketProvider(wsUrl, sessionId, this.ydoc, {
+            const sessionsEndpoint = WS_SESSIONS_BASE_URL;
+            this.provider = new WebsocketProvider(sessionsEndpoint, sessionId, this.ydoc, {
                 connect: true,
                 awareness: undefined,
                 params: {},
                 WebSocketPolyfill: undefined,
                 resyncInterval: 5000, // Resync every 5 seconds
                 maxBackoffTime: 5000, // Max reconnect backoff
+            });
+
+            this.initialSyncPromise = new Promise<void>((resolve) => {
+                this.syncHandler = (isSynced: boolean) => {
+                    if (isSynced) {
+                        console.log('[Collaboration] Initial sync completed');
+                        if (this.provider && this.syncHandler) {
+                            try {
+                                this.provider.off('sync', this.syncHandler);
+                            } catch (error) {
+                                console.warn('[Collaboration] Failed to detach sync handler:', error);
+                            }
+                        }
+                        this.syncHandler = null;
+                        this.isSynced = true;
+                        resolve();
+                    }
+                };
+                this.provider.on('sync', this.syncHandler);
             });
 
             // Get or create a shared text type - MUST match backend ('code')
@@ -216,6 +264,16 @@ export class CollaborationManager {
                 if (this.cursorManager && this.localClientId !== null) {
                     this.cursorManager.updateCursors(this.awareness.getStates(), this.localClientId);
                 }
+
+                // Handle custom messages
+                changes.updated.forEach((clientId: number) => {
+                    if (clientId !== this.localClientId) {
+                        const state = this.awareness.getStates().get(clientId);
+                        if (state?.message) {
+                            this.handleCustomMessage(state.message);
+                        }
+                    }
+                });
             });
 
             // Trigger initial presence update
@@ -315,6 +373,14 @@ export class CollaborationManager {
             }
         }
 
+        if (this.provider && this.syncHandler) {
+            try {
+                this.provider.off('sync', this.syncHandler);
+            } catch (error) {
+                console.warn('[Collaboration] Error detaching sync handler:', error);
+            }
+        }
+
         if (this.provider) {
             try {
                 this.provider.destroy();
@@ -335,6 +401,9 @@ export class CollaborationManager {
 
         this.awareness = null;
         this.localClientId = null;
+        this.initialSyncPromise = null;
+        this.syncHandler = null;
+        this.isSynced = false;
 
         console.log('[Collaboration] Disconnected successfully');
     }
@@ -441,5 +510,100 @@ export class CollaborationManager {
             color: this.userColor,
             clientId: this.localClientId,
         };
+    }
+
+    /**
+     * Wait for the initial sync with the collaboration server to complete.
+     */
+    async waitForInitialSync(): Promise<void> {
+        if (this.isSynced) {
+            return;
+        }
+        if (this.initialSyncPromise) {
+            await this.initialSyncPromise;
+        }
+    }
+
+    /**
+     * Get the current shared document content.
+     */
+    getSharedContent(): string {
+        if (!this.ydoc) {
+            return '';
+        }
+        const ytext = this.ydoc.getText('code');
+        return ytext.toString();
+    }
+
+    /**
+     * Check if the shared document already has content.
+     */
+    hasSharedContent(): boolean {
+        return this.getSharedContent().trim().length > 0;
+    }
+
+    /**
+     * Replace the shared document content with the provided string.
+     */
+    setSharedContent(content: string): void {
+        if (!this.ydoc) {
+            return;
+        }
+        const ytext = this.ydoc.getText('code');
+        this.ydoc.transact(() => {
+            const length = ytext.length;
+            if (length > 0) {
+                ytext.delete(0, length);
+            }
+            if (content) {
+                ytext.insert(0, content);
+            }
+        });
+    }
+
+    /**
+     * Send a custom message to all users in the session
+     */
+    sendMessage(type: CollaborationMessageType, data: any): void {
+        if (!this.awareness || this.localClientId === null) {
+            console.warn('[Collaboration] Cannot send message: not connected');
+            return;
+        }
+
+        const message: CollaborationMessage = {
+            type,
+            data,
+            sender: this.localClientId,
+            timestamp: Date.now(),
+        };
+
+        console.log('[Collaboration] Sending message:', message);
+
+        // Broadcast message through awareness
+        this.awareness.setLocalStateField('message', message);
+
+        // Clear message after a short delay (awareness is state-based, not event-based)
+        setTimeout(() => {
+            if (this.awareness) {
+                this.awareness.setLocalStateField('message', null);
+            }
+        }, 100);
+    }
+
+    /**
+     * Handle custom messages from other users
+     */
+    private handleCustomMessage(message: CollaborationMessage): void {
+        console.log('[Collaboration] Received message:', message);
+        if (this.onCustomMessage) {
+            this.onCustomMessage(message);
+        }
+    }
+
+    /**
+     * Set callback for custom messages
+     */
+    onMessage(callback: (message: CollaborationMessage) => void): void {
+        this.onCustomMessage = callback;
     }
 }

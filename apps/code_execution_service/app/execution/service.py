@@ -124,7 +124,6 @@ if (functionMatch) {{
     const args = paramNames.map(paramName => inputData[paramName]);
     
     const result = eval(functionName)(...args);
-    console.log(JSON.stringify(result));
 }} else {{
     console.error('No function found');
 }}
@@ -315,7 +314,8 @@ int main() {{
                 error_message = None
 
                 # Parse stdout if available (regardless of status)
-                if judge0_result.stdout:
+                # Even if Judge0 reports internal_error, if we have stdout, use it
+                if judge0_result.stdout and judge0_result.stdout.strip():
                     try:
                         actual_output = json.loads(judge0_result.stdout.strip())
                     except json.JSONDecodeError:
@@ -330,7 +330,9 @@ int main() {{
                         status = ExecutionStatus.ACCEPTED
                     else:
                         status = ExecutionStatus.WRONG_ANSWER
-                elif judge0_result.stderr:
+                
+                # Capture stderr as error message only if the test case did not pass
+                if not passed and judge0_result.stderr and judge0_result.stderr.strip():
                     error_message = judge0_result.stderr
 
                 # Parse runtime and memory

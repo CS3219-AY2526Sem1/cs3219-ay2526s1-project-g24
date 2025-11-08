@@ -5,24 +5,20 @@ FROM node:18-alpine AS base
 
 FROM base AS builder
 # Check https://github.com/nodejs/docker-node/tree/b4117f9333da4138b03a546ec926ef50a31506c3#nodealpine to understand why libc6-compat might be needed.
-RUN apk update
-RUN apk add --no-cache libc6-compat
+RUN apk update && apk add --no-cache libc6-compat
 # Set working directory
 WORKDIR /app
 
 RUN corepack enable pnpm
 ENV PNPM_HOME="/pnpm"
 ENV PATH="$PNPM_HOME:$PATH"
-RUN mkdir -p $PNPM_HOME
-RUN pnpm config set global-bin-dir $PNPM_HOME
-RUN pnpm add -g turbo
+RUN mkdir -p $PNPM_HOME && pnpm config set global-bin-dir $PNPM_HOME
 COPY . .
-RUN turbo prune web --docker
+RUN npx turbo prune web --docker
 
 # Add lockfile and package.json's of isolated subworkspace
 FROM base AS installer
-RUN apk update
-RUN apk add --no-cache libc6-compat
+RUN apk update && apk add --no-cache libc6-compat
 WORKDIR /app
 
 RUN corepack enable pnpm

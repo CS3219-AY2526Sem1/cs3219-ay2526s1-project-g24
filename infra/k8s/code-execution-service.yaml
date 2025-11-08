@@ -15,6 +15,7 @@ spec:
       labels:
         app: code-execution-service
     spec:
+      serviceAccountName: ghcr-pull
       containers:
       - name: code-execution-service
         image: ghcr.io/cs3219-ay2526sem1/cs3219-g24-code-execution-service:latest
@@ -35,6 +36,8 @@ spec:
               name: app-secrets
               key: judge0-auth-token
               optional: true
+        - name: CORS_ORIGINS
+          value: "https://cs3219.leyew.dev,http://localhost:3000,http://127.0.0.1:3000"
         resources:
           requests:
             memory: "256Mi"

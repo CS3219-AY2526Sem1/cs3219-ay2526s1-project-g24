@@ -3,17 +3,28 @@ import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { AuthContext } from "../auth/types.js";
 import { logger } from "../observability/logger.js";
 
-const DEFAULT_JWKS_URI = "http://localhost:8001/.well-known/jwks.json";
+const DEFAULT_JWKS_URI = "http://localhost:8001/api/v1/.well-known/jwks.json";
 
-let jwksUri = process.env.AUTH_JWKS_URI || DEFAULT_JWKS_URI;
-let jwks = createRemoteJWKSet(new URL(jwksUri));
+let jwksCache: ReturnType<typeof createRemoteJWKSet> | null = null;
+let jwksCacheTime: number = 0;
+const JWKS_CACHE_TTL = 3600000; // 1 hour in milliseconds
 
-function refreshJwksIfNeeded() {
-  const currentUri = process.env.AUTH_JWKS_URI || DEFAULT_JWKS_URI;
-  if (currentUri !== jwksUri) {
-    jwksUri = currentUri;
-    jwks = createRemoteJWKSet(new URL(jwksUri));
+function getJWKS() {
+  const now = Date.now();
+  
+  // Return cached JWKS if still valid
+  if (jwksCache && (now - jwksCacheTime) < JWKS_CACHE_TTL) {
+    return jwksCache;
   }
+
+  // Create new JWKS instance
+  const jwksUri = process.env.AUTH_JWKS_URI || DEFAULT_JWKS_URI;
+  logger.info({ jwksUri }, "Initializing JWKS");
+  
+  jwksCache = createRemoteJWKSet(new URL(jwksUri));
+  jwksCacheTime = now;
+
+  return jwksCache;
 }
 
 type MutableRequest = Request & { auth?: AuthContext; cookies?: Record<string, string> };
@@ -69,13 +80,14 @@ export async function authenticate(req: Request, res: Response, next: NextFuncti
   }
 
   try {
-    refreshJwksIfNeeded();
     const token = extractToken(req);
 
     if (!token) {
       logger.warn({ path: req.path }, "Missing authentication token");
       return res.status(401).json({ error: "Unauthorized" });
     }
+
+    const jwks = getJWKS();
 
     const { payload } = await jwtVerify(token, jwks, {
       algorithms: ["RS256"],

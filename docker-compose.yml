@@ -7,17 +7,10 @@ services:
     restart: always
     ports:
       - 3000:3000
-    networks:
-      - app_network
-
-  api:
-    container_name: api
-    build:
-      context: .
-      dockerfile: ./apps/api/Dockerfile
-    restart: always
-    ports:
-      - 3001:3001
+    environment:
+      USER_SERVICE_URL: http://user-service:8000/api
+      NEXT_PUBLIC_USER_SERVICE_URL: http://localhost:8001
+      NEXT_PUBLIC_COLLAB_SERVICE_URL: http://localhost:3003
     networks:
       - app_network
 
@@ -30,13 +23,13 @@ services:
       POSTGRES_PASSWORD: ${QUESTION_DB_PASSWORD:-questionpass123}
       POSTGRES_DB: questiondb
     ports:
-      - "5434:5432"
+      - '5434:5432'
     volumes:
       - question_db_data:/var/lib/postgresql/data
     networks:
       - app_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U questionuser -d questiondb"]
+      test: [ 'CMD-SHELL', 'pg_isready -U questionuser -d questiondb' ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -48,12 +41,12 @@ services:
       dockerfile: dockerfile
     restart: always
     ports:
-      - "8000:80"
+      - '8000:80'
     environment:
       DATABASE_URL: postgresql://questionuser:${QUESTION_DB_PASSWORD:-questionpass123}@question-db:5432/questiondb
       ENV: development
       USER_SERVICE_URL: http://user-service:8000
-      CODE_EXECUTOR_URL: http://code-execution:8003
+      CODE_EXECUTOR_URL: http://code-execution-service:3010
     depends_on:
       question-db:
         condition: service_healthy
@@ -79,13 +72,13 @@ services:
       POSTGRES_PASSWORD: ${USER_DB_PASSWORD:-password123}
       POSTGRES_DB: userdb
     ports:
-        - "5433:5432"
+      - '5433:5432'
     volumes:
       - user_db_data:/var/lib/postgresql/data
     networks:
       - app_network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U user -d userdb"]
+      test: [ 'CMD-SHELL', 'pg_isready -U user -d userdb' ]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -97,7 +90,7 @@ services:
       dockerfile: ./apps/user_service/Dockerfile
     restart: always
     ports:
-      - "8001:8000"
+      - '8001:8000'
     env_file:
       - ./apps/user_service/.env
     environment:
@@ -119,19 +112,18 @@ services:
         echo '🚀 Starting user service...' &&
         pnpm --filter user_service start"
 
-
   # Redis for matching service
   matching_redis:
     container_name: matching_redis
     image: redis:7-alpine
     restart: always
     ports:
-      - "6379:6379"
+      - '6379:6379'
     command: redis-server --appendonly yes
     volumes:
       - matching_redis_data:/data
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ 'CMD', 'redis-cli', 'ping' ]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -146,25 +138,26 @@ services:
       dockerfile: ./apps/matching-service/Dockerfile
     restart: always
     ports:
-      - "3002:3000"
+      - '3002:3000'
     environment:
       NODE_ENV: production
       PORT: 3000
       REDIS_HOST: matching_redis
       REDIS_PORT: 6379
-      REDIS_PASSWORD: ""
-      COLLABORATION_SERVICE_URL: http://collaboration_service:4000
+      REDIS_PASSWORD: ''
+      COLLABORATION_SERVICE_URL: http://collab-service:3003
+      QUESTION_SERVICE_URL: http://question-service:80
       MATCH_TIMEOUT_SECONDS: 30
       REQUEST_TTL_SECONDS: 60
       LOG_LEVEL: info
-      AUTH_JWKS_URI: http://user-service:8000/.well-known/jwks.json
+      AUTH_JWKS_URI: http://user-service:8000/api/v1/.well-known/jwks.json
       # CORS configuration - allow web service and localhost for development
       CORS_ORIGIN: http://web:3000,http://localhost:3000
     depends_on:
       matching_redis:
         condition: service_healthy
     healthcheck:
-      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })"]
+      test: [ 'CMD', 'node', '-e', "require('http').get('http://localhost:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })" ]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -172,7 +165,87 @@ services:
     networks:
       - app_network
 
-# Define volumes for persistent data
+  collab-db:
+    container_name: collab-db
+    image: postgres:15-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${COLLAB_DB_PASSWORD:-postgres}
+      POSTGRES_DB: collab_dev
+    ports:
+      - '5435:5432'
+    volumes:
+      - collab_db_data:/var/lib/postgresql/data
+    networks:
+      - app_network
+    healthcheck:
+      test: [ 'CMD-SHELL', 'pg_isready -U postgres -d collab_dev' ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  collab-redis:
+    container_name: collab-redis
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - '6380:6379'
+    command: redis-server --appendonly yes
+    volumes:
+      - collab_redis_data:/data
+    healthcheck:
+      test: [ 'CMD', 'redis-cli', 'ping' ]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - app_network
+
+  collab-service:
+    container_name: collab-service
+    build:
+      context: .
+      dockerfile: ./apps/collab-service/Dockerfile
+    restart: always
+    ports:
+      - '3003:3003'
+    environment:
+      NODE_ENV: production
+      PORT: 3003
+      DATABASE_URL: postgresql://postgres:${COLLAB_DB_PASSWORD:-postgres}@collab-db:5432/collab_dev
+      REDIS_HOST: collab-redis
+      REDIS_PORT: 6379
+      # REDIS_PASSWORD: ""  # Uncomment and set if you secure Redis
+      USER_SERVICE_URL: http://user-service:8000
+      JWT_ALGORITHM: RS256
+      ENABLE_MOCK_AUTH: 'false' # Set to "true" for local testing without user service
+      QUESTION_SERVICE_URL: http://question-service:80
+    command: >
+      sh -c "
+        echo '⏳ waiting for db...' &&
+        sleep 3 &&
+        cd apps/collab-service &&
+        if [ -d prisma/migrations ] && [ \"\$(ls -A prisma/migrations)\" ]; then
+          echo '📦 Running migrations...' &&
+          npx prisma migrate deploy;
+        else
+          echo '🔨 No migrations found, using db push for development...' &&
+          npx prisma db push --accept-data-loss;
+        fi &&
+        node dist/index.js
+      "
+    depends_on:
+      collab-db:
+        condition: service_healthy
+      collab-redis:
+        condition: service_healthy
+      user-service:
+        condition: service_started
+    networks:
+      - app_network
+
+  # Define volumes for persistent data
   code-execution-service:
     container_name: code-execution-service
     build:
@@ -180,7 +253,7 @@ services:
       dockerfile: Dockerfile
     restart: always
     ports:
-      - "3010:3010"
+      - '3010:3010'
     environment:
       JUDGE0_URL: http://judgezero-server:2358
       JUDGE0_AUTH_TOKEN: ${JUDGE0_AUTH_TOKEN:-}
@@ -213,7 +286,7 @@ services:
   judgezero-workers:
     container_name: judgezero-workers
     image: judge0/judge0:1.13.1
-    command: ["./scripts/workers"]
+    command: [ './scripts/workers' ]
     volumes:
       - ./judge0.conf:/judge0.conf:ro
     networks:
@@ -239,7 +312,7 @@ services:
       - app_network
     restart: always
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U judge0"]
+      test: [ 'CMD-SHELL', 'pg_isready -U judge0' ]
       interval: 10s
       retries: 5
       start_period: 10s
@@ -247,17 +320,14 @@ services:
   judgezero-redis:
     container_name: judgezero-redis
     image: redis:7.2.4
-    command: [
-      "bash", "-c",
-      'docker-entrypoint.sh --appendonly no --requirepass "$$REDIS_PASSWORD"'
-    ]
+    command: [ 'bash', '-c', 'docker-entrypoint.sh --appendonly no --requirepass "$$REDIS_PASSWORD"' ]
     environment:
       REDIS_PASSWORD: ${JUDGE0_REDIS_PASSWORD:-YourPasswordHere}
     networks:
       - app_network
     restart: always
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ 'CMD', 'redis-cli', 'ping' ]
       interval: 10s
       retries: 5
       start_period: 10s
@@ -270,6 +340,10 @@ volumes:
   matching_redis_data:
     driver: local
   judgezero_db_data:
+    driver: local
+  collab_db_data:
+    driver: local
+  collab_redis_data:
     driver: local
 
 networks:

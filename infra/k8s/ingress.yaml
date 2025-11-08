@@ -28,15 +28,6 @@ spec:
             port:
               number: 3000
       
-      # API Gateway (optional)
-      - path: /api
-        pathType: Prefix
-        backend:
-          service:
-            name: api
-            port:
-              number: 3001
-      
       # Question Service
       - path: /api/v1/questions
         pathType: Prefix
@@ -59,8 +50,22 @@ spec:
             name: question-service
             port:
               number: 8000
-      # Question Service - user progress endpoints
-      - path: /api/v1/users/me
+      # Question Service - user progress endpoints (must be before /api/v1/users)
+      - path: /api/v1/users/me/stats
+        pathType: Prefix
+        backend:
+          service:
+            name: question-service
+            port:
+              number: 8000
+      - path: /api/v1/users/me/solved
+        pathType: Prefix
+        backend:
+          service:
+            name: question-service
+            port:
+              number: 8000
+      - path: /api/v1/users/me/attempts
         pathType: Prefix
         backend:
           service:

@@ -26,22 +26,33 @@ export const getGoogleAuthUrl = () => {
 };
 
 export const getGoogleUser = async (code: string) => {
-  const { tokens } = await oauth2Client.getToken({
-    code,
-    redirect_uri: oauthConfig.redirectUri,
-  });
-  oauth2Client.setCredentials(tokens);
+  try {
+    const { tokens } = await oauth2Client.getToken({
+      code,
+      redirect_uri: oauthConfig.redirectUri,
+    });
+    oauth2Client.setCredentials(tokens);
 
-  const { data } = await axios.get(
-    "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
-    {
-      headers: {
-        Authorization: `Bearer ${tokens.access_token}`,
+    const { data } = await axios.get(
+      "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
+      {
+        headers: {
+          Authorization: `Bearer ${tokens.access_token}`,
+        },
       },
-    },
-  );
+    );
 
-  return data;
+    return data;
+  } catch (error: any) {
+    const errorDetails = {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      data: error.response?.data,
+      redirectUri: oauthConfig.redirectUri,
+    };
+    throw new Error(JSON.stringify(errorDetails));
+  }
 };
 
 export const hasRole = async (

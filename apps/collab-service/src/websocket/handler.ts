@@ -1,10 +1,10 @@
 import { IncomingMessage } from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { URL } from 'url';
-import { verifyToken } from '../middleware/auth';
-import { SessionService } from '../services/session.service';
-import { YjsWebSocketHandler } from './yjs-handler';
-import { AuthenticatedWebSocket, AppError } from '../types';
+import { verifyToken } from '../middleware/auth.js';
+import { SessionService } from '../services/session.service.js';
+import { YjsWebSocketHandler } from './yjs-handler.js';
+import { AuthenticatedWebSocket, AppError } from '../types/index.js';
 
 /**
  * Main WebSocket connection handler
@@ -27,38 +27,83 @@ export class WebSocketHandler {
             const authWs = ws as AuthenticatedWebSocket;
 
             try {
+                console.log('[WebSocket] New connection attempt from:', request.socket.remoteAddress);
+
                 // Parse URL and extract sessionId and token
                 const url = new URL(request.url || '', `http://${request.headers.host}`);
                 const pathParts = url.pathname.split('/');
 
                 // Expected path: /api/v1/ws/sessions/:sessionId
                 const sessionId = pathParts[pathParts.length - 1];
-                const token = url.searchParams.get('token');
+
+                // Try to get token from query parameter first, then from cookies
+                let token = url.searchParams.get('token');
+
+                // If no token in query, try to extract from cookies
+                if (!token && request.headers.cookie) {
+                    const cookies = request.headers.cookie.split(';').reduce((acc, cookie) => {
+                        const [key, value] = cookie.trim().split('=');
+                        acc[key] = value;
+                        return acc;
+                    }, {} as Record<string, string>);
+                    token = cookies['access_token'] || null;
+                    console.log('[WebSocket] Token extracted from cookie:', !!token);
+                }
+
+                console.log('[WebSocket] Connection details:', {
+                    path: url.pathname,
+                    sessionId,
+                    hasToken: !!token,
+                    tokenPrefix: token?.substring(0, 20),
+                    tokenSource: url.searchParams.get('token') ? 'query' : 'cookie',
+                });
 
                 if (!sessionId) {
+                    console.warn('[WebSocket] ⚠️  Missing session ID');
                     throw new AppError('Session ID is required', 400);
                 }
 
                 if (!token) {
+                    console.warn('[WebSocket] ⚠️  Missing authentication token');
                     throw new AppError('Authentication token is required', 401);
                 }
 
+                console.log('[WebSocket] Verifying JWT token...');
+
                 // Verify JWT token
-                const payload = verifyToken(token);
+                const payload = await verifyToken(token);
                 const userId = payload.userId;
+
+                console.log('[WebSocket] ✓ Token verified for user:', userId);
 
                 // Verify session exists and user is a participant
                 const session = await SessionService.getSession(sessionId);
                 if (!session) {
+                    console.warn('[WebSocket] ⚠️  Session not found:', sessionId);
                     throw new AppError('Session not found', 404);
                 }
 
+                console.log('[WebSocket] ✓ Session found:', {
+                    sessionId,
+                    status: session.status,
+                    user1Id: session.user1Id,
+                    user2Id: session.user2Id,
+                });
+
                 const isParticipant = await SessionService.isParticipant(sessionId, userId);
                 if (!isParticipant) {
+                    console.warn('[WebSocket] ⚠️  User is not a participant:', {
+                        userId,
+                        sessionId,
+                    });
                     throw new AppError('User is not a participant in this session', 403);
                 }
 
                 if (session.status !== 'ACTIVE') {
+                    console.warn('[WebSocket] ⚠️  Session is not active:', {
+                        sessionId,
+                        status: session.status,
+                    });
                     throw new AppError('Session is not active', 400);
                 }
 
@@ -67,7 +112,7 @@ export class WebSocketHandler {
                 authWs.sessionId = sessionId;
                 authWs.isAlive = true;
 
-                console.log(`🔗 WebSocket connected: user=${userId}, session=${sessionId}`);
+                console.log(`[WebSocket] 🔗 Connection established: user=${userId}, session=${sessionId}`);
 
                 // Create Yjs handler for this connection
                 const yjsHandler = new YjsWebSocketHandler(sessionId, userId, authWs);
@@ -75,6 +120,7 @@ export class WebSocketHandler {
 
                 // Initialize Yjs connection
                 await yjsHandler.initialize();
+                console.log('[WebSocket] ✓ Yjs handler initialized');
 
                 // Set up message handler
                 ws.on('message', async (data: Buffer) => {
@@ -85,10 +131,14 @@ export class WebSocketHandler {
                         if (Buffer.isBuffer(data)) {
                             await yjsHandler.handleMessage(new Uint8Array(data));
                         } else {
-                            console.warn('Received non-binary message, ignoring');
+                            console.warn('[WebSocket] ⚠️  Received non-binary message, ignoring');
                         }
                     } catch (error) {
-                        console.error('Error handling WebSocket message:', error);
+                        console.error('[WebSocket] ❌ Error handling message:', {
+                            error: error instanceof Error ? error.message : String(error),
+                            sessionId,
+                            userId,
+                        });
                     }
                 });
 

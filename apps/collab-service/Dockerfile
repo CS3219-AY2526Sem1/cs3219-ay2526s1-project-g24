@@ -1,76 +1,59 @@
-# ---- Base stage ----
-FROM node:18-alpine AS base
+# ---- Node 22 on Alpine Linux ----
+FROM node:22-alpine AS base
+ENV PNPM_HOME="/pnpm"
+ENV PATH="$PNPM_HOME:$PATH"
+RUN corepack enable
+
+# ---- builder: prune for collab-service ----
+FROM base AS builder
+RUN apk update && apk add --no-cache libc6-compat
 WORKDIR /app
-RUN npm install -g pnpm
+COPY . .
+# 👇 just change the scope
+RUN npx turbo prune --scope=collab-service --docker
 
-# ---- Dependencies stage ----
-FROM base AS dependencies
+# ---- installer: install deps for pruned repo ----
+FROM base AS installer
+RUN apk update && apk add --no-cache libc6-compat
 WORKDIR /app
 
-# Install OpenSSL for Prisma
-RUN apk add --no-cache openssl
+# 1) install from pruned json
+COPY --from=builder /app/out/json/ .
+RUN pnpm install --frozen-lockfile
 
-# Copy workspace configuration and lockfile
-COPY pnpm-workspace.yaml package.json pnpm-lock.yaml ./
+# 2) now copy the actual source
+COPY --from=builder /app/out/full/ .
 
-# Copy only package.json files first (better caching)
-COPY apps/collab-service/package.json ./apps/collab-service/
-COPY apps/collab-service/prisma ./apps/collab-service/prisma/
+# Ensure Prisma schema and migrations are present (turbo prune may exclude migrations)
+# Copy directly from the original source context preserved in the builder stage
+COPY --from=builder /app/apps/collab-service/prisma ./apps/collab-service/prisma
 
-# Install all dependencies (including dev for building)
-RUN pnpm install --frozen-lockfile --filter collab-service...
-
-# Generate Prisma Client
+# 3) Generate Prisma Client before building
 WORKDIR /app/apps/collab-service
 RUN npx prisma generate
-
-# ---- Build stage ----
-FROM base AS builder
 WORKDIR /app
 
-# Copy installed dependencies
-COPY --from=dependencies /app/node_modules ./node_modules
-COPY --from=dependencies /app/apps/collab-service/node_modules ./apps/collab-service/node_modules
-COPY --from=dependencies /app/apps/collab-service/prisma ./apps/collab-service/prisma
+# 4) build only collab-service
+# this will now find prisma because we just installed deps in this stage
+RUN npx turbo build --filter=collab-service
 
-# Copy source code and config
-COPY apps/collab-service/src ./apps/collab-service/src
-COPY apps/collab-service/tsconfig.json ./apps/collab-service/
-COPY apps/collab-service/package.json ./apps/collab-service/
-
-# Build the application
-WORKDIR /app/apps/collab-service
-RUN pnpm build
-
-# ---- Production stage ----
+# ---- runner ----
 FROM base AS runner
 WORKDIR /app
 
-# Install OpenSSL for Prisma runtime
+# Install openssl for Prisma
 RUN apk add --no-cache openssl
 
-ENV NODE_ENV=production
+RUN addgroup --system --gid 1001 nodejs \
+  && adduser --system --uid 1001 collab-service
 
-# Copy entire node_modules from dependencies stage (includes all packages and Prisma client)
-COPY --from=dependencies /app/node_modules ./node_modules
-COPY --from=dependencies /app/apps/collab-service/node_modules ./apps/collab-service/node_modules
+COPY --from=installer --chown=collab-service:nodejs /app .
 
-# Copy built application from builder
-WORKDIR /app/apps/collab-service
-COPY --from=builder /app/apps/collab-service/dist ./dist
-COPY --from=builder /app/apps/collab-service/package.json ./package.json
+# Copy entrypoint script that runs migrations before starting the app
+# This ensures the database schema is always up-to-date on container start
+COPY --chown=collab-service:nodejs apps/collab-service/docker-entrypoint.sh /app/apps/collab-service/
+RUN chmod +x /app/apps/collab-service/docker-entrypoint.sh
 
-# Create non-root user for security
-RUN addgroup --system --gid 1001 nodejs && \
-    adduser --system --uid 1001 collab-service
 USER collab-service
 
-# Expose port
-EXPOSE 3003
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=40s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:3003/health', (r) => { if (r.statusCode !== 200) throw new Error('Health check failed'); })"
-
-# Start server
-CMD ["node", "dist/index.js"]
+ENTRYPOINT ["/app/apps/collab-service/docker-entrypoint.sh"]

@@ -1,0 +1,151 @@
+name: Test Docker Builds (no push)
+
+on:
+  pull_request:
+    branches: ["master", "main", "dev"]
+    paths:
+      - 'apps/**/Dockerfile'
+      - 'apps/**/dockerfile'
+      - '**/package.json'
+      - 'pnpm-lock.yaml'
+  workflow_dispatch: {}
+  workflow_run:
+    workflows: ["Build and Test"]
+    types:
+      - completed
+    branches: ["master", "main", "dev"]
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      question: ${{ steps.filter.outputs.question }}
+      user: ${{ steps.filter.outputs.user }}
+      matching: ${{ steps.filter.outputs.matching }}
+      collab: ${{ steps.filter.outputs.collab }}
+      code-execution: ${{ steps.filter.outputs.code-execution }}
+      shared: ${{ steps.filter.outputs.shared }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Check for changed files
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+              - 'packages/**'
+            question:
+              - 'apps/question_service/**'
+            user:
+              - 'apps/user_service/**'
+              - 'packages/**'
+            matching:
+              - 'apps/matching-service/**'
+              - 'packages/**'
+            collab:
+              - 'apps/collab-service/**'
+              - 'packages/**'
+            code-execution:
+              - 'apps/code_execution_service/**'
+            shared:
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+              - '.github/workflows/**'
+
+  build:
+    needs: detect-changes
+    # Only run if changes detected OR triggered after successful build-and-test OR manual trigger
+    if: |
+      needs.detect-changes.outputs.web == 'true' ||
+      needs.detect-changes.outputs.question == 'true' ||
+      needs.detect-changes.outputs.user == 'true' ||
+      needs.detect-changes.outputs.matching == 'true' ||
+      needs.detect-changes.outputs.collab == 'true' ||
+      needs.detect-changes.outputs.code-execution == 'true' ||
+      needs.detect-changes.outputs.shared == 'true' ||
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success')
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: web
+            context: .
+            dockerfile: ./apps/web/Dockerfile
+            condition: ${{ needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+          - service: question-service
+            context: ./apps/question_service
+            dockerfile: ./apps/question_service/dockerfile
+            condition: ${{ needs.detect-changes.outputs.question == 'true' }}
+          - service: user-service
+            context: .
+            dockerfile: ./apps/user_service/Dockerfile
+            condition: ${{ needs.detect-changes.outputs.user == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+          - service: matching-service
+            context: .
+            dockerfile: ./apps/matching-service/Dockerfile
+            condition: ${{ needs.detect-changes.outputs.matching == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+          - service: collab-service
+            context: .
+            dockerfile: ./apps/collab-service/Dockerfile
+            condition: ${{ needs.detect-changes.outputs.collab == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+          - service: code-execution-service
+            context: ./apps/code_execution_service
+            dockerfile: ./apps/code_execution_service/Dockerfile
+            condition: ${{ needs.detect-changes.outputs.code-execution == 'true' }}
+    steps:
+      - name: Skip if no changes
+        if: ${{ matrix.condition == 'false' }}
+        run: echo "Skipping ${{ matrix.service }} - no changes detected"
+
+      - name: Checkout
+        if: ${{ matrix.condition == 'true' }}
+        uses: actions/checkout@v4
+
+      - name: Set lowercase repository owner
+        if: ${{ matrix.condition == 'true' }}
+        id: repo
+        run: echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        if: ${{ matrix.condition == 'true' }}
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: ${{ matrix.condition == 'true' }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build ${{ matrix.service }} (no push)
+        if: ${{ matrix.condition == 'true' }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: false
+          load: false
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:${{ github.sha }}
+
+      - name: Output build info
+        if: ${{ matrix.condition == 'true' }}
+        run: |
+          echo "✅ Built ${{ matrix.service }}"
+          echo "Image: ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:${{ github.sha }}"

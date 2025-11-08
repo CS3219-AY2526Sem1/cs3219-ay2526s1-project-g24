@@ -78,12 +78,9 @@ if [ ! -d "node_modules/.prisma" ]; then
     pnpm prisma:generate
 fi
 
-# Run migrations
+# Run migrations (idempotent - safe to run multiple times)
 echo "   Running database migrations..."
-pnpm prisma:migrate deploy 2>/dev/null || {
-    echo "   Creating initial migration..."
-    pnpm prisma:migrate dev --name init
-}
+pnpm prisma:migrate:deploy
 
 echo ""
 

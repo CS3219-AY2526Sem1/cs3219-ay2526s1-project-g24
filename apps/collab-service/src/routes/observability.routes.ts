@@ -1,7 +1,7 @@
 import { Router, Request, Response } from 'express';
 import type { Router as ExpressRouter } from 'express';
-import { isDatabaseHealthy } from '../utils/prisma';
-import { isRedisHealthy } from '../utils/redis';
+import { isDatabaseHealthy } from '../utils/prisma.js';
+import { isRedisHealthy } from '../utils/redis.js';
 import { register } from 'prom-client';
 
 const router: ExpressRouter = Router();
