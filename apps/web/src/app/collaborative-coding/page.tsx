@@ -340,16 +340,22 @@ function CollaborativeCodingPage() {
               }
 
               persistActiveSession(targetSessionId, storedQid);
-              console.log('✅ Found question ID, fetching question:', storedQid);
-              await collaborationManagerRef.current?.waitForInitialSync();
-              const hasSharedContent =
-                collaborationManagerRef.current?.hasSharedContent() ?? false;
-              await fetchAndSetQuestion(
-                questionId,
-                selectedLanguage,
-                targetSessionId,
-                !hasSharedContent,
-              );
+              
+              // Check if question is already loaded (from parallel fetch)
+              if (question && question.id === questionId) {
+                console.log('✅ Question already loaded, skipping fetch');
+              } else {
+                console.log('✅ Fetching question after connection:', storedQid);
+                await collaborationManagerRef.current?.waitForInitialSync();
+                const hasSharedContent =
+                  collaborationManagerRef.current?.hasSharedContent() ?? false;
+                await fetchAndSetQuestion(
+                  questionId,
+                  selectedLanguage,
+                  targetSessionId,
+                  !hasSharedContent,
+                );
+              }
             } else {
               console.warn('⚠️ No question ID available for this session');
               setQuestionError('No question is linked to this session.');
@@ -468,6 +474,20 @@ function CollaborativeCodingPage() {
     if (storedSessionId && isEditorReady && !sessionId) {
       console.log('✅ Found session ID and editor is ready. Auto-connecting to session:', storedSessionId);
       setIsFromMatchFlow(true);
+      
+      // Optimize: Fetch question in parallel with connecting to session
+      // This reduces perceived lag by starting the fetch immediately
+      if (storedQuestionId) {
+        const questionId = Number(storedQuestionId);
+        if (!isNaN(questionId) && questionId > 0) {
+          console.log('🚀 Pre-fetching question in parallel with connection:', questionId);
+          // Don't await - let it run in parallel with connection
+          fetchAndSetQuestion(questionId, selectedLanguage, storedSessionId, false).catch(err => {
+            console.error('❌ Pre-fetch question failed:', err);
+          });
+        }
+      }
+      
       connectToSession(storedSessionId);
       // Don't remove session ID yet - keep it for the duration of the session
       console.log('📌 Session ID kept in sessionStorage for the duration of the session');
