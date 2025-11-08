@@ -33,30 +33,39 @@ export async function createSession(
         const language = request.languages?.[0];
 
         // Fetch an actual question from the question service
-        const fetchedQuestionId = await getMatchingQuestion(
+        const questionResult = await getMatchingQuestion(
             request.difficulty,
             request.topics,
             userToken, // Pass the user token for authentication
         );
 
-        // Use fetched question ID, or fall back to first topic as placeholder
-        const requestQuestionId = fetchedQuestionId || topic || "unknown";
+        // Use fetched question ID, or fail if no question available
+        if (!questionResult) {
+            logger.error(
+                { difficulty: request.difficulty, topics: request.topics },
+                "❌ No questions available for matching criteria",
+            );
+            throw new Error(
+                "No questions available. Please try different criteria or contact support."
+            );
+        }
+
+        const { questionId: fetchedQuestionId, matchType } = questionResult;
 
         logger.info(
             {
                 difficulty: request.difficulty,
                 topics: request.topics,
-                fetchedQuestionId,
-                requestQuestionId,
-                usedFallback: !fetchedQuestionId,
+                questionId: fetchedQuestionId,
+                matchType,
             },
-            "🎲 Selected questionId for session",
+            "🎲 Selected question for session",
         );
 
         const collabPayload = {
             user1Id,
             user2Id,
-            questionId: requestQuestionId,
+            questionId: fetchedQuestionId,
             difficulty: request.difficulty,
             ...(topic ? { topic } : {}),
             ...(language ? { language } : {}),
@@ -146,12 +155,14 @@ export async function createSession(
         const data: CreateSessionResponse = {
             sessionId,
             ...(questionId && { questionId }),
+            ...(matchType && { questionMatchType: matchType }),
         };
 
         logger.info(
             {
                 sessionId: data.sessionId,
                 questionId: data.questionId,
+                questionMatchType: data.questionMatchType,
                 hasQuestionId: !!data.questionId,
                 duration,
             },

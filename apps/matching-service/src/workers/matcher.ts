@@ -292,6 +292,7 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
                     req2Id: item2.reqId,
                     sessionId: session.sessionId,
                     questionId: session.questionId,
+                    questionMatchType: session.questionMatchType,
                 },
                 "📢 Publishing match events to both users",
             );
@@ -300,6 +301,7 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
                 status: "matched" as const,
                 sessionId: session.sessionId,
                 ...(session.questionId && { questionId: session.questionId }),
+                ...(session.questionMatchType && { questionMatchType: session.questionMatchType }),
                 timestamp: Date.now(),
             };
 

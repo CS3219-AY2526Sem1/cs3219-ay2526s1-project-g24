@@ -465,15 +465,36 @@ function CollaborativeCodingPage() {
     console.log('🔍 Checking for stored session ID...');
     const storedSessionId = getActiveSessionId();
     const storedQuestionId = getActiveQuestionId();
+    const storedMatchType = typeof window !== 'undefined' ? sessionStorage.getItem('questionMatchType') as ('exact' | 'partial' | 'difficulty' | 'random') | null : null;
+    
     console.log('📦 Retrieved from storage:', {
       sessionId: storedSessionId,
       questionId: storedQuestionId,
+      questionMatchType: storedMatchType,
       isEditorReady: isEditorReady,
     });
 
     if (storedSessionId && isEditorReady && !sessionId) {
       console.log('✅ Found session ID and editor is ready. Auto-connecting to session:', storedSessionId);
       setIsFromMatchFlow(true);
+      
+      // Show match quality notification to user
+      if (storedMatchType) {
+        const matchTypeMessages = {
+          'exact': { message: 'Perfect Match! This question covers all your selected topics.', type: 'success' as const },
+          'partial': { message: '✨ Partial Match! This question covers only some of your selected topics, but matches your difficulty level.', type: 'info' as const },
+          'difficulty': { message: 'Difficulty Match! No topic matches found - this question matches your difficulty level only.', type: 'warning' as const },
+          'random': { message: '🎲 Random Question! No matches found for your criteria - here\'s a random question to practice with.', type: 'warning' as const }
+        };
+        
+        const matchInfo = matchTypeMessages[storedMatchType];
+        if (matchInfo) {
+          addToast(matchInfo.message, matchInfo.type, 6000);
+        }
+        
+        // Clear the match type from storage after showing notification
+        sessionStorage.removeItem('questionMatchType');
+      }
       
       // Optimize: Fetch question in parallel with connecting to session
       // This reduces perceived lag by starting the fetch immediately

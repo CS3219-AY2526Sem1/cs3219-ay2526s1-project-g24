@@ -39,13 +39,20 @@ function Wait() {
           console.log('🎉 Match found! Persisting session data:', {
             sessionId: event.sessionId,
             questionId: event.questionId,
+            questionMatchType: event.questionMatchType,
           });
 
           persistActiveSession(event.sessionId, event.questionId || undefined);
+          
+          // Store match type for displaying info to user
+          if (event.questionMatchType) {
+            sessionStorage.setItem('questionMatchType', event.questionMatchType);
+          }
 
           console.log('📦 SessionStorage contents:', {
             sessionId: sessionStorage.getItem('sessionId'),
             questionId: sessionStorage.getItem('questionId'),
+            questionMatchType: sessionStorage.getItem('questionMatchType'),
             matchRequestId: sessionStorage.getItem('matchRequestId'),
             matchUserId: sessionStorage.getItem('matchUserId'),
           });
