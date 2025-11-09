@@ -1,0 +1,52 @@
+graph TB
+    subgraph Cloud["☁️ AWS EKS Kubernetes Cluster"]
+        direction TB
+        
+        subgraph Services["Microservices"]
+            Web["🎨 Web<br/>Next.js"]
+            User["👥 User<br/>Auth/JWT"]
+            Question["📝 Question<br/>CRUD"]
+            Match["🎲 Matching<br/>SSE"]
+            Collab["🤝 Collab<br/>WebSocket"]
+            Code["💻 Execution<br/>Judge0"]
+        end
+        
+        subgraph Data["Data Layer"]
+            DB["PostgreSQL<br/>3 instances"]
+            Cache["Redis<br/>Queue/Pub/Sub"]
+        end
+    end
+    
+    Users[👤 Users] -->|HTTPS| CF[☁️ Cloudflare]
+    CF --> ALB[⚖️ AWS ALB]
+    ALB --> Services
+    
+    Services --> Data
+    
+    User -.->|JWT| Web
+    User -.->|JWT| Question
+    User -.->|JWT| Match
+    User -.->|JWT| Collab
+    
+    Match -->|Events| Cache
+    Collab -->|Sync| Cache
+    Code -->|HTTP| J0[⚖️ Judge0]
+    
+    style Cloud fill:#0f172a,stroke:#3b82f6,stroke-width:3px,color:#fff
+    style Services fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#fff
+    style Data fill:#1e293b,stroke:#06b6d4,stroke-width:2px,color:#fff
+    
+    style Users fill:#0f3460,stroke:#16213e,stroke-width:2px,color:#fff
+    style CF fill:#e94560,stroke:#533483,stroke-width:2px,color:#fff
+    style ALB fill:#ff6b35,stroke:#004e89,stroke-width:2px,color:#fff
+    
+    style Web fill:#61dafb,stroke:#21a1c4,stroke-width:2px,color:#000
+    style User fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    style Question fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style Match fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#000
+    style Collab fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff
+    style Code fill:#ec4899,stroke:#db2777,stroke-width:2px,color:#fff
+    
+    style DB fill:#0ea5e9,stroke:#0284c7,stroke-width:2px,color:#fff
+    style Cache fill:#ef4444,stroke:#dc2626,stroke-width:2px,color:#fff
+    style J0 fill:#fbbf24,stroke:#f59e0b,stroke-width:2px,color:#000

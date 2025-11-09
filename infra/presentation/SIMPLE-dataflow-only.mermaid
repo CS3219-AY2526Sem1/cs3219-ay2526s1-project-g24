@@ -1,0 +1,42 @@
+graph LR
+    subgraph MatchingFlow["📊 Data Flow: User Matching"]
+        U1["👤 User A<br/>requests match"] --> Q1["🎲 Matching Service<br/>adds to Redis queue"]
+        Q1 --> M["🔍 Matcher finds<br/>compatible pair"]
+        
+        U2["👤 User B<br/>requests match"] --> Q2["🎲 Matching Service<br/>adds to Redis queue"]
+        Q2 --> M
+        
+        M --> CS["🤝 Collab Service<br/>creates session"]
+        CS --> QS["📝 Question Service<br/>gets random question"]
+        QS --> N["📡 Notify both users<br/>via SSE streams"]
+        N --> R["✅ Redirect to<br/>coding session"]
+    end
+    
+    subgraph CollabFlow["📊 Data Flow: Real-time Collaboration"]
+        C1["👤 User A types code"] --> Y["Yjs CRDT<br/>creates operations"]
+        Y --> WS["WebSocket<br/>sends to server"]
+        WS --> RP["Redis Pub/Sub<br/>broadcasts"]
+        RP --> WS2["WebSocket<br/>to other users"]
+        WS2 --> Y2["Yjs CRDT<br/>applies changes"]
+        Y2 --> C2["👤 User B sees<br/>updates instantly"]
+    end
+    
+    style MatchingFlow fill:#1e293b,stroke:#f59e0b,stroke-width:3px,color:#fff
+    style U1 fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff
+    style Q1 fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#000
+    style M fill:#ec4899,stroke:#db2777,stroke-width:2px,color:#fff
+    style U2 fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff
+    style Q2 fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#000
+    style CS fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style QS fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    style N fill:#06b6d4,stroke:#0891b2,stroke-width:2px,color:#fff
+    style R fill:#22c55e,stroke:#16a34a,stroke-width:2px,color:#fff
+    
+    style CollabFlow fill:#1e293b,stroke:#3b82f6,stroke-width:3px,color:#fff
+    style C1 fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff
+    style Y fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style WS fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    style RP fill:#ef4444,stroke:#dc2626,stroke-width:2px,color:#fff
+    style WS2 fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    style Y2 fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style C2 fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff

@@ -8,9 +8,9 @@ graph TB
             WebBase[node:18-alpine<br/>Base Image]
             WebBuilder[Builder Stage<br/>Turbo Prune + Install]
             WebInstaller[Installer Stage<br/>Build Next.js]
-            WebRunner[Runner Stage<br/>Output Traces<br/>User: nextjs:1001]
+            WebRunner[Runner Stage<br/>Output Traces<br/>User: nextjs:nodejs 1001]
             WebBase --> WebBuilder --> WebInstaller --> WebRunner
-            WebImage[cs3219-g24-web:latest<br/>Size: ~150MB]
+            WebImage[cs3219-g24-web:latest]
             WebRunner --> WebImage
         end
         
@@ -18,18 +18,18 @@ graph TB
             UserBase[node:22-alpine<br/>Base + pnpm]
             UserBuilder[Builder Stage<br/>Turbo Prune]
             UserInstaller[Installer Stage<br/>Install + Build TypeScript]
-            UserRunner[Runner Stage<br/>User: user-service:1001]
+            UserRunner[Runner Stage<br/>User: user-service:nodejs 1001<br/>Init: Prisma Migrate + Seed]
             UserBase --> UserBuilder --> UserInstaller --> UserRunner
-            UserImage[cs3219-g24-user-service:latest<br/>Size: ~250MB]
+            UserImage[cs3219-g24-user-service:latest]
             UserRunner --> UserImage
         end
         
         subgraph QuestBuild["Question Service - FastAPI/Python"]
             QuestBase[python:3.12-slim<br/>+ uv package manager]
             QuestSync[Install Dependencies<br/>uv sync --frozen]
-            QuestCmd[FastAPI Run<br/>Port 80]
+            QuestCmd[FastAPI Run<br/>Port 80 Dockerfile<br/>Port 8000 in K8s<br/>Init: Alembic Migrate + Seed]
             QuestBase --> QuestSync --> QuestCmd
-            QuestImage[cs3219-g24-question-service:latest<br/>Size: ~180MB]
+            QuestImage[cs3219-g24-question-service:latest]
             QuestCmd --> QuestImage
         end
         
@@ -37,9 +37,9 @@ graph TB
             MatchBase[node:20-alpine<br/>+ pnpm]
             MatchDeps[Deps Stage<br/>Monorepo Install]
             MatchBuildStage[Build Stage<br/>TypeScript Compile]
-            MatchProd[Prod Stage<br/>Production deps only]
+            MatchProd[Prod Stage<br/>Production deps only<br/>User: matching-service:nodejs 1001]
             MatchBase --> MatchDeps --> MatchBuildStage --> MatchProd
-            MatchImage[cs3219-g24-matching-service:latest<br/>Size: ~200MB]
+            MatchImage[cs3219-g24-matching-service:latest]
             MatchProd --> MatchImage
         end
         
@@ -47,35 +47,35 @@ graph TB
             CollabBase[node:22-alpine<br/>+ pnpm + openssl]
             CollabBuilder[Builder Stage<br/>Turbo Prune]
             CollabInstaller[Installer Stage<br/>Prisma Generate + Build]
-            CollabRunner[Runner Stage<br/>User: collab-service:1001<br/>Entrypoint: migrations]
+            CollabRunner[Runner Stage<br/>User: collab-service:nodejs 1001<br/>Entrypoint: docker-entrypoint.sh<br/>Runs Prisma Migrate]
             CollabBase --> CollabBuilder --> CollabInstaller --> CollabRunner
-            CollabImage[cs3219-g24-collab-service:latest<br/>Size: ~280MB]
+            CollabImage[cs3219-g24-collab-service:latest]
             CollabRunner --> CollabImage
         end
         
         subgraph CodeBuild["Code Execution Service - FastAPI/Python"]
             CodeBase[python:3.13-slim<br/>+ uv package manager]
-            CodeSync[Install Dependencies<br/>uv sync]
+            CodeSync[Install Dependencies<br/>uv sync --frozen fallback to uv sync]
             CodeCmd[FastAPI Run<br/>Port 3010]
             CodeBase --> CodeSync --> CodeCmd
-            CodeImage[cs3219-g24-code-execution-service:latest<br/>Size: ~160MB]
+            CodeImage[cs3219-g24-code-execution-service:latest]
             CodeCmd --> CodeImage
         end
     end
     
     subgraph ThirdParty["🔧 Third-party Images"]
         subgraph DBImages["Database Images"]
-            PG15[postgres:15-alpine<br/>User, Question, Collab DBs<br/>~80MB]
-            PG16[postgres:16.2<br/>Judge0 DB<br/>~150MB]
+            PG15[postgres:15-alpine<br/>User, Question, Collab DBs]
+            PG16[postgres:16.2<br/>Judge0 DB]
         end
         
         subgraph CacheImages["Cache Images"]
-            Redis7[redis:7-alpine<br/>Matching Redis<br/>~30MB]
-            RedisJ0[redis:7.2.4<br/>Judge0 Redis<br/>~35MB]
+            Redis7[redis:7-alpine<br/>Matching Redis]
+            RedisJ0[redis:7.2.4<br/>Judge0 Redis]
         end
         
         subgraph Judge0Images["Judge0 Execution"]
-            J0[judge0/judge0:1.13.1<br/>Server + Workers<br/>Privileged Mode<br/>~500MB]
+            J0[judge0/judge0:1.13.1<br/>Server + Workers<br/>Privileged Mode]
         end
     end
     
@@ -83,7 +83,7 @@ graph TB
         subgraph Pods["Running Pods"]
             WebPod[Web Pod<br/>Port: 3000]
             UserPod[User Service Pod<br/>Port: 8000]
-            QuestPod[Question Service Pod<br/>Port: 80]
+            QuestPod[Question Service Pod<br/>Port: 8000]
             MatchPod[Matching Service Pod<br/>Port: 3000]
             CollabPod[Collab Service Pod<br/>Port: 3003]
             CodePod[Code Exec Pod<br/>Port: 3010]
