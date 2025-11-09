@@ -53,7 +53,6 @@ function Onboarding() {
     }
     try {
       await updateUser({
-        username: username, // Username from Google account (read-only in UI)
         preferred_language: codingLanguage.toLowerCase() as ProgrammingLanguage,
         programming_proficiency: proficiency.toLowerCase() as ProficiencyLevel,
       });
