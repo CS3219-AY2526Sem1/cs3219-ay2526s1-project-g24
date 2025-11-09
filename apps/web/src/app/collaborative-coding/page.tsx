@@ -90,6 +90,13 @@ function CollaborativeCodingPage() {
 
   useEffect(() => {
     hydrateSessionStorageFromLocal();
+
+    // Initialize language from sessionStorage if available
+    const storedLanguage = sessionStorage.getItem('sessionLanguage');
+    if (storedLanguage && ['python', 'javascript', 'java', 'cpp'].includes(storedLanguage)) {
+      console.log('🔤 Setting initial language from session:', storedLanguage);
+      setSelectedLanguage(storedLanguage as 'python' | 'javascript' | 'java' | 'cpp');
+    }
   }, []);
 
   // Redirect to home if no session ID exists

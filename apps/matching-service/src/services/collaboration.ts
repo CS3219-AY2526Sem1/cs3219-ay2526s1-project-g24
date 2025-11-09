@@ -139,13 +139,15 @@ export async function createSession(
             throw new Error("Collaboration service response missing sessionId");
         }
 
-        // Extract questionId if available
+        // Extract questionId and language if available
         const questionId = raw?.data?.questionId ?? raw?.questionId;
+        const responseLanguage = raw?.data?.language ?? raw?.language;
 
         logger.info(
             {
                 sessionId,
                 questionId,
+                language: responseLanguage,
                 rawDataQuestionId: raw?.data?.questionId,
                 rawQuestionId: raw?.questionId,
             },
@@ -156,6 +158,7 @@ export async function createSession(
             sessionId,
             ...(questionId && { questionId }),
             ...(matchType && { questionMatchType: matchType }),
+            ...(responseLanguage && { language: responseLanguage }),
         };
 
         logger.info(
@@ -163,6 +166,7 @@ export async function createSession(
                 sessionId: data.sessionId,
                 questionId: data.questionId,
                 questionMatchType: data.questionMatchType,
+                language: data.language,
                 hasQuestionId: !!data.questionId,
                 duration,
             },
@@ -176,14 +180,14 @@ export async function createSession(
         metrics.recordError("collaboration_service_error", "create_session");
 
         logger.error(
-            { 
+            {
                 error: error instanceof Error ? {
                     message: error.message,
                     name: error.name,
                     stack: error.stack,
                 } : error,
-                request, 
-                duration 
+                request,
+                duration
             },
             "Failed to create session in collaboration service",
         );
@@ -212,41 +216,41 @@ export async function healthCheck(): Promise<boolean> {
  * Used for cleanup when match rollback occurs
  */
 export async function deleteSession(sessionId: string): Promise<boolean> {
-  const start = Date.now();
+    const start = Date.now();
 
-  try {
-    logger.info({ sessionId }, "Deleting session from collaboration service");
+    try {
+        logger.info({ sessionId }, "Deleting session from collaboration service");
 
-    const response = await fetch(
-      `${COLLABORATION_SERVICE_URL}/api/v1/sessions/${sessionId}`,
-      {
-        method: "DELETE",
-        signal: AbortSignal.timeout(5000),
-      },
-    );
+        const response = await fetch(
+            `${COLLABORATION_SERVICE_URL}/api/v1/sessions/${sessionId}`,
+            {
+                method: "DELETE",
+                signal: AbortSignal.timeout(5000),
+            },
+        );
 
-    const duration = (Date.now() - start) / 1000;
-    metrics.recordCollaborationServiceCall(duration);
+        const duration = (Date.now() - start) / 1000;
+        metrics.recordCollaborationServiceCall(duration);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      logger.warn(
-        { sessionId, status: response.status, error: errorText },
-        "Failed to delete session (may not exist or already deleted)",
-      );
-      return false;
+        if (!response.ok) {
+            const errorText = await response.text();
+            logger.warn(
+                { sessionId, status: response.status, error: errorText },
+                "Failed to delete session (may not exist or already deleted)",
+            );
+            return false;
+        }
+
+        logger.info({ sessionId, duration }, "Session deleted successfully");
+        return true;
+    } catch (error) {
+        const duration = (Date.now() - start) / 1000;
+        metrics.recordCollaborationServiceCall(duration);
+
+        logger.error(
+            { error, sessionId, duration },
+            "Error deleting session from collaboration service",
+        );
+        return false;
     }
-
-    logger.info({ sessionId, duration }, "Session deleted successfully");
-    return true;
-  } catch (error) {
-    const duration = (Date.now() - start) / 1000;
-    metrics.recordCollaborationServiceCall(duration);
-
-    logger.error(
-      { error, sessionId, duration },
-      "Error deleting session from collaboration service",
-    );
-    return false;
-  }
 }
