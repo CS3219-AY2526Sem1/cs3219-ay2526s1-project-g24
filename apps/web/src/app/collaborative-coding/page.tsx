@@ -371,19 +371,27 @@ function CollaborativeCodingPage() {
                 console.log('✅ Question already loaded, skipping fetch');
               } else {
                 console.log('✅ Fetching question after connection:', storedQid);
-                
-                // Wait for initial sync to complete
-                await collaborationManagerRef.current?.waitForInitialSync();
-                
-                // Add small delay to ensure all Yjs updates are applied
+
+                // Wait for initial sync to complete with timeout
+                try {
+                  await Promise.race([
+                    collaborationManagerRef.current?.waitForInitialSync(),
+                    new Promise((_, reject) => setTimeout(() => reject(new Error('Sync timeout')), 5000)),
+                  ]);
+                  console.log('✅ Initial sync completed');
+                } catch (syncError) {
+                  console.warn('⚠️ Sync timeout or error, continuing anyway:', syncError);
+                }
+
+                // Add longer delay to ensure Yjs state is fully propagated
                 // This prevents race conditions when both users connect simultaneously
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
+                await new Promise((resolve) => setTimeout(resolve, 300));
+
                 const hasSharedContent = collaborationManagerRef.current?.hasSharedContent() ?? false;
                 console.log('📄 Shared document has content:', hasSharedContent);
-                
-                // Only seed if there's NO shared content (first user)
-                // When rejoining, never seed - let Yjs sync existing content
+
+                // Only seed if there's NO shared content (first user to connect)
+                // When rejoining or second user connects, never seed - let Yjs sync existing content
                 await fetchAndSetQuestion(questionId, selectedLanguage, targetSessionId, !hasSharedContent);
               }
             } else {
@@ -402,14 +410,28 @@ function CollaborativeCodingPage() {
   };
 
   // -------------- DISCONNECT --------------
-  const disconnectFromSession = () => {
+  const disconnectFromSession = async () => {
     const confirmed = window.confirm(
-      'Are you sure you want to disconnect? You can rejoin the session later, but if both users disconnect, the session will be terminated.'
+      'Are you sure you want to disconnect? You can rejoin the session later from the home page.'
     );
     if (!confirmed) return;
 
     console.log('🔌 Disconnecting from session');
 
+    const currentSessionId = sessionId;
+
+    // 1. Notify backend FIRST (before frontend cleanup)
+    if (currentSessionId) {
+      try {
+        await collaborationService.leaveSession(currentSessionId);
+        console.log('✅ Backend notified of disconnect');
+      } catch (error) {
+        console.warn('⚠️ Failed to notify backend of disconnect (continuing anyway):', error);
+        // Continue with local cleanup even if backend call fails
+      }
+    }
+
+    // 2. Frontend cleanup
     if (collaborationManagerRef.current) {
       try {
         collaborationManagerRef.current.disconnect();
@@ -420,26 +442,29 @@ function CollaborativeCodingPage() {
       }
     }
 
+    // 3. Update UI state
     setSessionId('');
     setIsConnected(false);
     setConnectionStatus('disconnected');
     setConnectedUsers([]);
     setIsFromMatchFlow(false);
 
-    // Keep session storage so user can rejoin later
-    // The active session reminder will still show
-    console.log('� Disconnected from session (session data kept for rejoin)');
+    // 4. Clear session storage to prevent immediate reconnect
+    // This prevents the race condition where user disconnects then immediately reconnects
+    // before partner disconnects, which would prevent session deletion
+    clearActiveSession();
+    console.log('�️ Cleared session storage (prevents immediate reconnect)');
 
-    // reset editor to a local template
+    // 5. Reset editor to a local template
     if (editorRef.current) {
       const fallback = languageConfig[selectedLanguage].defaultCode;
       editorRef.current.setValue(fallback);
       setCode(fallback);
     }
 
-    addToast('Disconnected from session. You can rejoin from the home page.', 'info', 5000);
+    addToast('Disconnected from session.', 'info', 3000);
 
-    // Redirect to home page
+    // 6. Redirect to home page
     router.push('/home');
   };
 
@@ -452,6 +477,7 @@ function CollaborativeCodingPage() {
   // cleanup on unmount
   useEffect(() => {
     return () => {
+      // React unmount - clean up frontend only (WebSocket close will notify backend)
       if (collaborationManagerRef.current) {
         collaborationManagerRef.current.disconnect();
         collaborationManagerRef.current = null;
@@ -459,11 +485,29 @@ function CollaborativeCodingPage() {
     };
   }, []);
 
-  // unload / visibility
-  // cleanup on unmount + gentle unload
+  // beforeunload handler - notify backend before page closes
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      // only try to disconnect if we actually have a manager and we are connected
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      // Try to notify backend before page closes (best effort)
+      // This uses sendBeacon which is more reliable than fetch during unload
+      const currentSessionId = sessionId;
+      if (currentSessionId && navigator.sendBeacon) {
+        try {
+          // Get auth cookie for the request
+          const apiUrl = `${process.env.NEXT_PUBLIC_COLLAB_SERVICE_URL || 'http://localhost:3003'}/api/v1/sessions/${encodeURIComponent(currentSessionId)}/leave`;
+
+          // sendBeacon is more reliable during page unload than fetch
+          // It's queued by the browser and sent even if the page is closing
+          const blob = new Blob([JSON.stringify({})], { type: 'application/json' });
+          navigator.sendBeacon(apiUrl, blob);
+
+          console.log('[Collaboration] Sent disconnect beacon to backend');
+        } catch (error) {
+          console.warn('[Collaboration] Failed to send disconnect beacon:', error);
+        }
+      }
+
+      // Frontend cleanup
       if (collaborationManagerRef.current) {
         try {
           collaborationManagerRef.current.disconnect();
@@ -478,19 +522,9 @@ function CollaborativeCodingPage() {
     window.addEventListener('beforeunload', handleBeforeUnload);
 
     return () => {
-      // React unmount
-      if (collaborationManagerRef.current) {
-        try {
-          collaborationManagerRef.current.disconnect();
-        } catch (e) {
-          console.warn('[Collaboration] error during unmount disconnect', e);
-        } finally {
-          collaborationManagerRef.current = null;
-        }
-      }
       window.removeEventListener('beforeunload', handleBeforeUnload);
     };
-  }, []);
+  }, [sessionId]);
 
   // auto-connect from match flow
   useEffect(() => {

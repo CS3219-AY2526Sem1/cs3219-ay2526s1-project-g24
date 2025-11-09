@@ -157,6 +157,28 @@ router.post('/sessions/:sessionId/terminate', authenticate, async (req: Request,
     }
 });
 
+// Delete a session completely (for cleanup/rollback)
+router.delete('/sessions/:sessionId', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { sessionId } = req.params;
+        const authReq = req as AuthenticatedRequest;
+
+        // Verify user is a participant (authorization check)
+        const isParticipant = await SessionService.isParticipant(sessionId, authReq.user.userId);
+        if (!isParticipant) {
+            throw new AppError('Unauthorized: You are not a participant in this session', 403);
+        }
+
+        await SessionService.deleteSession(sessionId);
+
+        res.status(200).json({
+            message: 'Session deleted successfully',
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 // Leave a session (disconnect but keep session alive if partner is still connected)
 router.post('/sessions/:sessionId/leave', authenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
