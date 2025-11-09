@@ -313,6 +313,14 @@ export default function SubmissionResultPage() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-4 mt-8 justify-center">
+                        {submission.isCollaborative && submission.sessionId && (
+                            <button
+                                onClick={() => router.push('/collaborative-coding')}
+                                className="px-6 py-3 bg-[#F1FCAC] hover:bg-[#e5f09f] text-[#333232] font-semibold rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                            >
+                                Return to Session
+                            </button>
+                        )}
                         {!submission.isCollaborative && (
                             <button
                                 onClick={() => router.push(`/practice/${submission.question_id}`)}

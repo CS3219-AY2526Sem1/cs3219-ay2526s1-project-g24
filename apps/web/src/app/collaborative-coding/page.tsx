@@ -36,9 +36,11 @@ import {
   hydrateSessionStorageFromLocal,
   persistActiveSession,
 } from '@/components/session/activeSession';
+import { useAuth } from '@/hooks/useAuth';
 
 function CollaborativeCodingPage() {
   const router = useRouter();
+  const { user } = useAuth();
 
   // Log initial state on page load
   if (typeof window !== 'undefined') {
@@ -174,6 +176,69 @@ function CollaborativeCodingPage() {
   };
 
   // -------------- QUESTION FETCH + SEED --------------
+  /**
+   * Determine if the current user should seed the collaborative document.
+   * 
+   * Strategy:
+   * 1. If document already has meaningful content (> 10 chars), NO ONE should seed
+   * 2. If document is empty/minimal, use deterministic selection based on user IDs
+   *    - Fetch session details to get user1Id and user2Id
+   *    - The user with the lexicographically smaller ID seeds the document
+   * 
+   * This ensures:
+   * - No duplicate seeding when reconnecting to sessions with existing code
+   * - Exactly one user seeds a brand new session (deterministic)
+   * - Both users make the same decision (deterministic logic)
+   */
+  const shouldUserSeedDocument = async (
+    sessionId: string,
+    currentUserId: string,
+    collabManager: CollaborationManager | null,
+  ): Promise<boolean> => {
+    // Check 1: If document already has meaningful content, don't seed
+    if (collabManager) {
+      const content = collabManager.getSharedContent();
+      const trimmedContent = content.trim();
+      
+      console.log('📄 Document content check:', {
+        length: content.length,
+        trimmedLength: trimmedContent.length,
+        hasContent: trimmedContent.length > 10,
+      });
+      
+      // If there's more than just whitespace/minimal content, don't seed
+      if (trimmedContent.length > 10) {
+        console.log('✋ Document has existing content, skipping seed');
+        return false;
+      }
+    }
+    
+    // Check 2: For empty documents, use deterministic selection
+    try {
+      const sessionDetails = await collaborationService.getSession(sessionId);
+      const { user1Id, user2Id } = sessionDetails;
+      
+      // Deterministic selection: user with lexicographically smaller ID seeds
+      const shouldSeed = currentUserId === user1Id 
+        ? user1Id <= user2Id 
+        : currentUserId === user2Id && user2Id < user1Id;
+      
+      console.log('🎯 Deterministic seed selection:', {
+        currentUserId,
+        user1Id,
+        user2Id,
+        shouldSeed,
+        reason: shouldSeed ? 'This user has smaller/equal user ID' : 'Other user has smaller user ID',
+      });
+      
+      return shouldSeed;
+    } catch (error) {
+      console.error('❌ Failed to determine seed responsibility:', error);
+      // Fallback: if we can't determine, don't seed (safer than duplicate seeding)
+      return false;
+    }
+  };
+
   const fetchAndSetQuestion = async (
     qid: number,
     lang: 'python' | 'javascript' | 'java' | 'cpp',
@@ -195,6 +260,7 @@ function CollaborativeCodingPage() {
       const template = data.code_templates?.[lang];
 
       if (seedSharedDoc && collaborationManagerRef.current) {
+        console.log('🌱 Seeding document with function signature');
         const content = template ?? languageConfig[lang].defaultCode;
         setCode(content);
         collaborationManagerRef.current.setSharedContent(content);
@@ -341,19 +407,70 @@ function CollaborativeCodingPage() {
 
               persistActiveSession(targetSessionId, storedQid);
               
+              // Wait for initial sync to complete FIRST
+              console.log('⏳ Waiting for initial YJS sync...');
+              await collaborationManagerRef.current?.waitForInitialSync();
+              
+              // Add small delay to ensure sync is fully complete
+              await new Promise(resolve => setTimeout(resolve, 100));
+              
               // Check if question is already loaded (from parallel fetch)
               if (question && question.id === questionId) {
-                console.log('✅ Question already loaded, skipping fetch');
+                console.log('✅ Question already loaded from parallel fetch');
+                
+                // Determine if we should seed based on content check
+                const shouldSeed = await shouldUserSeedDocument(
+                  targetSessionId,
+                  user?.id || '',
+                  collaborationManagerRef.current
+                );
+                
+                const currentContent = collaborationManagerRef.current?.getSharedContent() ?? '';
+                console.log('🌱 Seed decision (question pre-loaded):', {
+                  userId: user?.id,
+                  shouldSeed,
+                  hasContent: currentContent.trim().length > 10,
+                  contentLength: currentContent.length,
+                  contentPreview: currentContent.substring(0, 100),
+                });
+                
+                // ONLY seed if shouldSeed is true AND document is truly empty
+                if (shouldSeed && currentContent.trim().length <= 10 && collaborationManagerRef.current) {
+                  const template = question.code_templates?.[selectedLanguage];
+                  const content = template ?? languageConfig[selectedLanguage].defaultCode;
+                  console.log('🌱 Seeding document (question pre-loaded case)');
+                  setCode(content);
+                  collaborationManagerRef.current.setSharedContent(content);
+                } else {
+                  console.log('⏭️  Skipping seed - document has content or user should not seed');
+                  // Just sync the existing content to local state
+                  if (collaborationManagerRef.current) {
+                    const existingContent = collaborationManagerRef.current.getSharedContent();
+                    setCode(existingContent);
+                  }
+                }
               } else {
                 console.log('✅ Fetching question after connection:', storedQid);
-                await collaborationManagerRef.current?.waitForInitialSync();
-                const hasSharedContent =
-                  collaborationManagerRef.current?.hasSharedContent() ?? false;
+                
+                // Determine if this user should seed the document
+                const shouldSeed = await shouldUserSeedDocument(
+                  targetSessionId,
+                  user?.id || '',
+                  collaborationManagerRef.current
+                );
+                
+                console.log('🌱 Seed decision:', {
+                  userId: user?.id,
+                  shouldSeed,
+                  hasContent: collaborationManagerRef.current?.hasSharedContent() ?? false,
+                  contentLength: collaborationManagerRef.current?.getSharedContent()?.length ?? 0,
+                });
+                
                 await fetchAndSetQuestion(
                   questionId,
                   selectedLanguage,
                   targetSessionId,
-                  !hasSharedContent,
+                  shouldSeed,
                 );
               }
             } else {
@@ -496,16 +613,23 @@ function CollaborativeCodingPage() {
         sessionStorage.removeItem('questionMatchType');
       }
       
-      // Optimize: Fetch question in parallel with connecting to session
+      // Optimize: Fetch question DATA in parallel with connecting to session
       // This reduces perceived lag by starting the fetch immediately
+      // NOTE: We only fetch the question data, NOT set editor content
+      // Editor content will be set after connection based on seeding logic
       if (storedQuestionId) {
         const questionId = Number(storedQuestionId);
         if (!isNaN(questionId) && questionId > 0) {
-          console.log('🚀 Pre-fetching question in parallel with connection:', questionId);
-          // Don't await - let it run in parallel with connection
-          fetchAndSetQuestion(questionId, selectedLanguage, storedSessionId, false).catch(err => {
-            console.error('❌ Pre-fetch question failed:', err);
-          });
+          console.log('🚀 Pre-fetching question data in parallel with connection:', questionId);
+          // Just fetch question data to populate UI, don't touch editor
+          getQuestionById(questionId)
+            .then(data => {
+              console.log('✅ Question data pre-loaded:', data.id);
+              setQuestion(data);
+            })
+            .catch(err => {
+              console.error('❌ Pre-fetch question failed:', err);
+            });
         }
       }
       
