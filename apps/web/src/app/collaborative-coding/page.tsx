@@ -40,17 +40,6 @@ import {
 function CollaborativeCodingPage() {
   const router = useRouter();
 
-  // Log initial state on page load
-  if (typeof window !== 'undefined') {
-    console.log('📦 Stored session state:', {
-      sessionStorage: {
-        sessionId: sessionStorage.getItem('sessionId'),
-        questionId: sessionStorage.getItem('questionId'),
-      },
-      localStorage: getActiveSessionFromLocalStorage(),
-    });
-  }
-
   // layout
   const [leftWidth, setLeftWidth] = useState<number>(LAYOUT_DEFAULTS.LEFT_PANEL_WIDTH_PERCENT);
   const [codeHeight, setCodeHeight] = useState<number>(LAYOUT_DEFAULTS.CODE_HEIGHT_PERCENT);
@@ -94,7 +83,6 @@ function CollaborativeCodingPage() {
     // Initialize language from sessionStorage if available
     const storedLanguage = sessionStorage.getItem('sessionLanguage');
     if (storedLanguage && ['python', 'javascript', 'java', 'cpp'].includes(storedLanguage)) {
-      console.log('🔤 Setting initial language from session:', storedLanguage);
       setSelectedLanguage(storedLanguage as 'python' | 'javascript' | 'java' | 'cpp');
     }
   }, []);
@@ -105,7 +93,6 @@ function CollaborativeCodingPage() {
       const storedSessionId = getActiveSessionId();
 
       if (!storedSessionId) {
-        console.log('❌ No session ID found in localStorage. Redirecting to home...');
         addToast('No active session found. Please start a new session from the home page.', 'warning', 3000);
         setTimeout(() => {
           router.push('/home');
@@ -168,12 +155,10 @@ function CollaborativeCodingPage() {
     const senderName = senderUser?.name || 'Another user';
 
     if (message.type === 'code-execution-start') {
-      console.log(`[CodeExecution] ${senderName} started running code`);
       setExecutionLock({ clientId: message.sender, userName: senderName });
       setIsRunning(true);
       addToast(`${senderName} is running the code...`, 'info', 3000);
     } else if (message.type === 'code-execution-result') {
-      console.log('[CodeExecution] Received execution results from', senderName);
       setExecutionLock(null);
       setIsRunning(false);
 
@@ -242,13 +227,7 @@ function CollaborativeCodingPage() {
   const connectToSession = async (autoSessionId?: string) => {
     const targetSessionId = autoSessionId;
 
-    console.log('🔌 Attempting to connect to session:', {
-      autoSessionId,
-      targetSessionId,
-    });
-
     if (!targetSessionId) {
-      console.warn('❌ No session ID provided');
       addToast('No session ID found. Redirecting to home page...', 'warning');
       setTimeout(() => {
         router.push('/home');
@@ -257,12 +236,10 @@ function CollaborativeCodingPage() {
     }
 
     if (!editorRef.current) {
-      console.warn('❌ Editor not ready');
       addToast('Editor not ready. Please try again.', 'warning');
       return;
     }
 
-    console.log('✅ Validating session before connecting:', targetSessionId);
     setConnectionStatus('connecting');
     setIsConnected(false);
 
@@ -276,11 +253,6 @@ function CollaborativeCodingPage() {
 
       // Check if session is active
       if (sessionDetails.status !== 'ACTIVE') {
-        console.warn('⚠️ Session is not active:', {
-          sessionId: targetSessionId,
-          status: sessionDetails.status,
-        });
-
         if (autoSessionId) {
           clearActiveSession();
           setIsFromMatchFlow(false);
@@ -344,7 +316,6 @@ function CollaborativeCodingPage() {
 
       // Listen for code execution messages from other users
       collaborationManagerRef.current.onMessage((message: CollaborationMessage) => {
-        console.log('[CodeExecution] Received message:', message);
         handleCollaborationMessage(message);
       });
 
@@ -357,7 +328,6 @@ function CollaborativeCodingPage() {
           setIsConnected(status === 'connected');
 
           if (status === 'connected') {
-            console.log('🎉 Successfully connected to session:', targetSessionId);
             addToast('Successfully connected to session', 'success', 3000);
 
             const storedQid = getActiveQuestionId();
@@ -375,19 +345,16 @@ function CollaborativeCodingPage() {
 
               // Check if question is already loaded (from parallel fetch)
               if (question && question.id === questionId) {
-                console.log('✅ Question already loaded, skipping fetch');
+                // Question already loaded, skipping fetch
               } else {
-                console.log('✅ Fetching question after connection:', storedQid);
-
                 // Wait for initial sync to complete with timeout
                 try {
                   await Promise.race([
                     collaborationManagerRef.current?.waitForInitialSync(),
                     new Promise((_, reject) => setTimeout(() => reject(new Error('Sync timeout')), 5000)),
                   ]);
-                  console.log('✅ Initial sync completed');
                 } catch (syncError) {
-                  console.warn('⚠️ Sync timeout or error, continuing anyway:', syncError);
+                  // Sync timeout or error, continuing anyway
                 }
 
                 // Add longer delay to ensure Yjs state is fully propagated
@@ -395,14 +362,12 @@ function CollaborativeCodingPage() {
                 await new Promise((resolve) => setTimeout(resolve, 300));
 
                 const hasSharedContent = collaborationManagerRef.current?.hasSharedContent() ?? false;
-                console.log('📄 Shared document has content:', hasSharedContent);
 
                 // Only seed if there's NO shared content (first user to connect)
                 // When rejoining or second user connects, never seed - let Yjs sync existing content
                 await fetchAndSetQuestion(questionId, selectedLanguage, targetSessionId, !hasSharedContent);
               }
             } else {
-              console.warn('⚠️ No question ID available for this session');
               setQuestionError('No question is linked to this session.');
             }
           }
@@ -423,17 +388,14 @@ function CollaborativeCodingPage() {
     );
     if (!confirmed) return;
 
-    console.log('🔌 Disconnecting from session');
-
     const currentSessionId = sessionId;
 
     // 1. Notify backend FIRST (before frontend cleanup)
     if (currentSessionId) {
       try {
         await collaborationService.leaveSession(currentSessionId);
-        console.log('✅ Backend notified of disconnect');
       } catch (error) {
-        console.warn('⚠️ Failed to notify backend of disconnect (continuing anyway):', error);
+        console.error('Failed to notify backend of disconnect:', error);
         // Continue with local cleanup even if backend call fails
       }
     }
@@ -461,6 +423,8 @@ function CollaborativeCodingPage() {
     // before partner disconnects, which would prevent session deletion
     clearActiveSession();
     console.log('�️ Cleared session storage (prevents immediate reconnect)');
+
+    clearActiveSession();
 
     // 5. Reset editor to a local template
     if (editorRef.current) {
@@ -507,8 +471,6 @@ function CollaborativeCodingPage() {
           // It's queued by the browser and sent even if the page is closing
           const blob = new Blob([JSON.stringify({})], { type: 'application/json' });
           navigator.sendBeacon(apiUrl, blob);
-
-          console.log('[Collaboration] Sent disconnect beacon to backend');
         } catch (error) {
           console.warn('[Collaboration] Failed to send disconnect beacon:', error);
         }
@@ -535,7 +497,6 @@ function CollaborativeCodingPage() {
 
   // auto-connect from match flow
   useEffect(() => {
-    console.log('🔍 Checking for stored session ID...');
     const storedSessionId = getActiveSessionId();
     const storedQuestionId = getActiveQuestionId();
     const storedMatchType =
@@ -543,20 +504,11 @@ function CollaborativeCodingPage() {
         ? (sessionStorage.getItem('questionMatchType') as ('exact' | 'partial' | 'difficulty' | 'random') | null)
         : null;
 
-    console.log('📦 Retrieved from storage:', {
-      sessionId: storedSessionId,
-      questionId: storedQuestionId,
-      questionMatchType: storedMatchType,
-      isEditorReady: isEditorReady,
-    });
-
     if (!storedSessionId) {
-      console.log('❌ No stored session ID found. Redirecting to home...');
       return;
     }
 
     if (storedSessionId && isEditorReady && !sessionId) {
-      console.log('✅ Found session ID and editor is ready. Auto-connecting to session:', storedSessionId);
       setIsFromMatchFlow(true);
 
       // Show match quality notification to user
@@ -593,7 +545,6 @@ function CollaborativeCodingPage() {
       if (storedQuestionId) {
         const questionId = Number(storedQuestionId);
         if (!isNaN(questionId) && questionId > 0) {
-          console.log('🚀 Pre-fetching question in parallel with connection:', questionId);
           // Don't await - let it run in parallel with connection
           fetchAndSetQuestion(questionId, selectedLanguage, storedSessionId, false).catch((err) => {
             console.error('❌ Pre-fetch question failed:', err);
@@ -602,10 +553,7 @@ function CollaborativeCodingPage() {
       }
 
       connectToSession(storedSessionId);
-      // Don't remove session ID yet - keep it for the duration of the session
-      console.log('📌 Session ID kept in sessionStorage for the duration of the session');
     } else if (storedSessionId && !isEditorReady) {
-      console.log('⏳ Found session ID but editor not ready. Will connect once ready.');
       setIsFromMatchFlow(true);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -667,7 +615,6 @@ function CollaborativeCodingPage() {
       return;
     }
 
-    console.log('[CodeExecution] Starting code execution (run)');
     const localUser = collaborationManagerRef.current?.getLocalUser();
 
     // Broadcast execution start
@@ -729,7 +676,6 @@ function CollaborativeCodingPage() {
       return;
     }
 
-    console.log('[CodeExecution] Starting code execution (submit)');
     const localUser = collaborationManagerRef.current?.getLocalUser();
 
     // Broadcast execution start
