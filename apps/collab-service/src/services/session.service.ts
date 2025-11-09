@@ -174,6 +174,114 @@ export class SessionService {
     }
 
     /**
+     * Mark a user as disconnected from the session
+     * If both users disconnect, terminate the session
+     */
+    static async leaveSession(sessionId: string, userId: string): Promise<Session> {
+        try {
+            // Verify user is participant
+            const session = await this.getSession(sessionId);
+            if (!session) {
+                throw new AppError('Session not found', 404);
+            }
+
+            const isUser1 = session.user1Id === userId;
+            const isUser2 = session.user2Id === userId;
+
+            if (!isUser1 && !isUser2) {
+                throw new AppError('User is not a participant in this session', 403);
+            }
+
+            // Mark the user as disconnected
+            const updateData: { user1Connected?: boolean; user2Connected?: boolean } = {};
+            if (isUser1) {
+                updateData.user1Connected = false;
+            } else {
+                updateData.user2Connected = false;
+            }
+
+            const updatedSession = await prisma.session.update({
+                where: { sessionId },
+                data: updateData,
+            });
+
+            console.log(`👋 User ${userId} left session ${sessionId}`);
+
+            // Check if both users have disconnected
+            const bothDisconnected = !updatedSession.user1Connected && !updatedSession.user2Connected;
+
+            if (bothDisconnected) {
+                console.log(`🔚 Both users disconnected from session ${sessionId}, terminating...`);
+                
+                // Terminate the session
+                const terminatedSession = await prisma.session.update({
+                    where: { sessionId },
+                    data: {
+                        status: 'TERMINATED',
+                        terminatedAt: new Date(),
+                    },
+                });
+
+                // Clean up Y.Doc from memory
+                YjsService.deleteDocument(sessionId);
+
+                return terminatedSession as Session;
+            }
+
+            return updatedSession as Session;
+        } catch (error) {
+            if (error instanceof AppError) throw error;
+            console.error('Failed to leave session:', error);
+            throw new AppError('Failed to leave session', 500);
+        }
+    }
+
+    /**
+     * Mark a user as reconnected to the session
+     */
+    static async rejoinSession(sessionId: string, userId: string): Promise<Session> {
+        try {
+            const session = await this.getSession(sessionId);
+            if (!session) {
+                throw new AppError('Session not found', 404);
+            }
+
+            const isUser1 = session.user1Id === userId;
+            const isUser2 = session.user2Id === userId;
+
+            if (!isUser1 && !isUser2) {
+                throw new AppError('User is not a participant in this session', 403);
+            }
+
+            // Can't rejoin a terminated session
+            if (session.status === 'TERMINATED') {
+                throw new AppError('Cannot rejoin a terminated session', 400);
+            }
+
+            // Mark the user as connected
+            const updateData: { user1Connected?: boolean; user2Connected?: boolean } = {};
+            if (isUser1) {
+                updateData.user1Connected = true;
+            } else {
+                updateData.user2Connected = true;
+            }
+
+            const updatedSession = await prisma.session.update({
+                where: { sessionId },
+                data: updateData,
+            });
+
+            console.log(`🔄 User ${userId} rejoined session ${sessionId}`);
+
+            return updatedSession as Session;
+        } catch (error) {
+            if (error instanceof AppError) throw error;
+            console.error('Failed to rejoin session:', error);
+            throw new AppError('Failed to rejoin session', 500);
+        }
+    }
+
+    /**
      * Check if session can be rejoined (within timeout period)
      */
     static async canRejoin(sessionId: string, userId: string): Promise<boolean> {

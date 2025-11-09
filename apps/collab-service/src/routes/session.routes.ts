@@ -157,6 +157,25 @@ router.post('/sessions/:sessionId/terminate', authenticate, async (req: Request,
     }
 });
 
+// Leave a session (disconnect but keep session alive if partner is still connected)
+router.post('/sessions/:sessionId/leave', authenticate, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { sessionId } = req.params;
+        const authReq = req as AuthenticatedRequest;
+
+        const session = await SessionService.leaveSession(sessionId, authReq.user.userId);
+
+        res.status(200).json({
+            message: session.status === 'TERMINATED' 
+                ? 'Session terminated (both users disconnected)' 
+                : 'Successfully left session',
+            data: session,
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 // Rejoin a session after disconnection
 router.post('/sessions/:sessionId/rejoin', authenticate, async (req: Request, res: Response, next: NextFunction) => {
     try {
@@ -169,7 +188,7 @@ router.post('/sessions/:sessionId/rejoin', authenticate, async (req: Request, re
             throw new AppError('Cannot rejoin session: Session expired or you are not a participant', 403);
         }
 
-        const session = await SessionService.getSession(sessionId);
+        const session = await SessionService.rejoinSession(sessionId, authReq.user.userId);
 
         res.status(200).json({
             message: 'Rejoin authorized',

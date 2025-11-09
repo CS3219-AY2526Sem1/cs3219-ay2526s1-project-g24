@@ -65,7 +65,6 @@ function CollaborativeCodingPage() {
 
   // collab
   const [sessionId, setSessionId] = useState('');
-  const [sessionInputValue, setSessionInputValue] = useState('');
   const [isConnected, setIsConnected] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [connectedUsers, setConnectedUsers] = useState<UserPresence[]>([]);
@@ -91,6 +90,24 @@ function CollaborativeCodingPage() {
 
   useEffect(() => {
     hydrateSessionStorageFromLocal();
+  }, []);
+
+  // Redirect to home if no session ID exists
+  useEffect(() => {
+    const checkSession = async () => {
+      const storedSessionId = getActiveSessionId();
+      
+      if (!storedSessionId) {
+        console.log('❌ No session ID found in localStorage. Redirecting to home...');
+        addToast('No active session found. Please start a new session from the home page.', 'warning', 3000);
+        setTimeout(() => {
+          router.push('/home');
+        }, 1000);
+      }
+    };
+
+    checkSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -215,17 +232,19 @@ function CollaborativeCodingPage() {
 
   // -------------- CONNECT TO SESSION --------------
   const connectToSession = async (autoSessionId?: string) => {
-    const targetSessionId = autoSessionId || sessionInputValue.trim();
+    const targetSessionId = autoSessionId;
 
     console.log('🔌 Attempting to connect to session:', {
       autoSessionId,
-      sessionInputValue,
       targetSessionId,
     });
 
     if (!targetSessionId) {
       console.warn('❌ No session ID provided');
-      addToast('Please enter a session ID', 'warning');
+      addToast('No session ID found. Redirecting to home page...', 'warning');
+      setTimeout(() => {
+        router.push('/home');
+      }, 1000);
       return;
     }
 
@@ -257,11 +276,13 @@ function CollaborativeCodingPage() {
         if (autoSessionId) {
           clearActiveSession();
           setIsFromMatchFlow(false);
-          setSessionInputValue('');
         }
 
         setConnectionStatus('error');
         addToast('This session is no longer active. Please start a new session.', 'warning');
+        setTimeout(() => {
+          router.push('/home');
+        }, 2000);
         return;
       }
 
@@ -282,7 +303,6 @@ function CollaborativeCodingPage() {
         // Clean up stored session info if we failed to validate during auto-connect
         clearActiveSession();
         setIsFromMatchFlow(false);
-        setSessionInputValue('');
       }
 
       setConnectionStatus('error');
@@ -290,12 +310,16 @@ function CollaborativeCodingPage() {
       setIsConnected(false);
 
       if (status === 404) {
-        addToast('Session not found. Please check the ID or start a new session.', 'error');
+        addToast('Session not found. Redirecting to home page...', 'error');
       } else if (status === 403) {
-        addToast('You do not have access to this session.', 'error');
+        addToast('You do not have access to this session. Redirecting to home page...', 'error');
       } else {
-        addToast('Failed to verify session. Please try again later.', 'error');
+        addToast('Failed to verify session. Redirecting to home page...', 'error');
       }
+      
+      setTimeout(() => {
+        router.push('/home');
+      }, 2000);
       return;
     }
 
@@ -374,7 +398,7 @@ function CollaborativeCodingPage() {
   // -------------- DISCONNECT --------------
   const disconnectFromSession = () => {
     const confirmed = window.confirm(
-      'Are you sure you want to disconnect from this session? Your partner will continue to be in the session.'
+      'Are you sure you want to disconnect? You can rejoin the session later, but if both users disconnect, the session will be terminated.'
     );
     if (!confirmed) return;
 
@@ -391,15 +415,14 @@ function CollaborativeCodingPage() {
     }
 
     setSessionId('');
-    setSessionInputValue('');
     setIsConnected(false);
     setConnectionStatus('disconnected');
     setConnectedUsers([]);
     setIsFromMatchFlow(false);
 
-    // Clean up session storage
-    clearActiveSession();
-    console.log('🗑️ Cleared active session metadata from storage');
+    // Keep session storage so user can rejoin later
+    // The active session reminder will still show
+    console.log('� Disconnected from session (session data kept for rejoin)');
 
     // reset editor to a local template
     if (editorRef.current) {
@@ -408,7 +431,10 @@ function CollaborativeCodingPage() {
       setCode(fallback);
     }
 
-    addToast('Disconnected from session', 'info', 3000);
+    addToast('Disconnected from session. You can rejoin from the home page.', 'info', 5000);
+    
+    // Redirect to home page
+    router.push('/home');
   };
 
   // -------------- EDITOR MOUNT --------------
@@ -474,6 +500,11 @@ function CollaborativeCodingPage() {
       isEditorReady: isEditorReady,
     });
 
+    if (!storedSessionId) {
+      console.log('❌ No stored session ID found. Redirecting to home...');
+      return;
+    }
+
     if (storedSessionId && isEditorReady && !sessionId) {
       console.log('✅ Found session ID and editor is ready. Auto-connecting to session:', storedSessionId);
       setIsFromMatchFlow(true);
@@ -515,9 +546,6 @@ function CollaborativeCodingPage() {
     } else if (storedSessionId && !isEditorReady) {
       console.log('⏳ Found session ID but editor not ready. Will connect once ready.');
       setIsFromMatchFlow(true);
-      setSessionInputValue(storedSessionId);
-    } else if (!storedSessionId) {
-      console.log('ℹ️ No stored session ID found. User needs to manually enter session ID.');
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditorReady]);
@@ -716,38 +744,6 @@ function CollaborativeCodingPage() {
     }
   };
 
-  // -------------- TERMINATE --------------
-  const handleTerminate = () => {
-    if (isConnected) {
-      const confirmed = window.confirm(
-        'Are you sure you want to terminate this session? You will be disconnected from the collaborative coding session.'
-      );
-      if (!confirmed) return;
-    }
-
-    console.log('🛑 Terminating session');
-
-    if (collaborationManagerRef.current) {
-      collaborationManagerRef.current.disconnect();
-      collaborationManagerRef.current = null;
-    }
-
-    setSessionId('');
-    setSessionInputValue('');
-    setIsConnected(false);
-    setConnectionStatus('disconnected');
-    setConnectedUsers([]);
-    setIsFromMatchFlow(false);
-
-    // Clean up session storage
-    clearActiveSession();
-    sessionStorage.removeItem('matchRequestId');
-    sessionStorage.removeItem('matchUserId');
-    console.log('🗑️ Cleared all session data from storage');
-
-    router.push('/home');
-  };
-
   return (
     <div className='h-screen bg-[#1e1e1e] flex flex-col font-montserrat'>
       {/* HEADER */}
@@ -759,66 +755,33 @@ function CollaborativeCodingPage() {
           {/* Session controls */}
           <div className='flex items-center gap-2'>
             {!sessionId ? (
-              <>
-                {isFromMatchFlow ? (
-                  <span className='text-sm text-blue-400 animate-pulse'>Connecting to matched session...</span>
-                ) : (
-                  <>
-                    <input
-                      type='text'
-                      value={sessionInputValue}
-                      onChange={(e) => setSessionInputValue(e.target.value)}
-                      placeholder='Session ID'
-                      className='bg-[#1e1e1e] border border-[#3e3e3e] text-white text-sm px-3 py-1 rounded focus:outline-none focus:border-[#5e5e5e] w-40'
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          connectToSession();
-                        }
-                      }}
-                    />
-                    <button
-                      onClick={() => connectToSession()}
-                      className='px-3 py-1 bg-[#16a34a] hover:bg-[#15803d] text-white text-sm font-medium transition-colors rounded'
-                    >
-                      Connect
-                    </button>
-                  </>
-                )}
-              </>
+              <span className='text-sm text-blue-400 animate-pulse'>Connecting to session...</span>
             ) : (
-              <>
-                <span className='text-sm text-gray-400'>Session: {sessionId}</span>
-                <div className='flex items-center gap-1'>
-                  <div
-                    className={`w-2 h-2 rounded-full ${connectionStatus === 'connected'
-                      ? 'bg-[#F1FCAC]'
-                      : connectionStatus === 'connecting'
-                        ? 'bg-yellow-500 animate-pulse'
-                        : connectionStatus === 'error'
-                          ? 'bg-red-500'
-                          : 'bg-gray-500'
-                      }`}
-                  />
-                  <span className='text-xs text-gray-400'>{connectionStatus}</span>
-                </div>
-
-                <button
-                  onClick={disconnectFromSession}
-                  className='px-3 py-1 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors'
-                >
-                  Disconnect
-                </button>
-              </>
+              <div className='flex items-center gap-1'>
+                <div
+                  className={`w-2 h-2 rounded-full ${connectionStatus === 'connected'
+                    ? 'bg-[#F1FCAC]'
+                    : connectionStatus === 'connecting'
+                      ? 'bg-yellow-500 animate-pulse'
+                      : connectionStatus === 'error'
+                        ? 'bg-red-500'
+                        : 'bg-gray-500'
+                    }`}
+                />
+                <span className='text-xs text-gray-400'>{connectionStatus}</span>
+              </div>
             )}
           </div>
         </div>
 
-        <button
-          onClick={handleTerminate}
-          className='px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors'
-        >
-          Terminate
-        </button>
+        {sessionId && (
+          <button
+            onClick={disconnectFromSession}
+            className='px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors rounded'
+          >
+            Disconnect
+          </button>
+        )}
       </header>
 
       {/* MAIN */}
