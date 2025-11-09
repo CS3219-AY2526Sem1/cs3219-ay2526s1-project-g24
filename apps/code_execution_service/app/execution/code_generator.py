@@ -222,9 +222,15 @@ def treenode_to_array(root):
             arg_names.append(arg_name)
             
             if arg_type == "ListNode":
-                arg_conversions.append(f'    {arg_name} = array_to_listnode(input_data["{arg_name}"])')
+                arg_conversions.append(
+                    f'    {arg_name} = '
+                    f'array_to_listnode(input_data["{arg_name}"])'
+                )
             elif arg_type == "TreeNode":
-                arg_conversions.append(f'    {arg_name} = array_to_treenode(input_data["{arg_name}"])')
+                arg_conversions.append(
+                    f'    {arg_name} = '
+                    f'array_to_treenode(input_data["{arg_name}"])'
+                )
             else:
                 arg_conversions.append(f'    {arg_name} = input_data["{arg_name}"]')
         
@@ -239,13 +245,15 @@ def treenode_to_array(root):
         else:
             result_conversion = ""
         
-        wrapper_code = f'''from typing import List, Optional, Dict, Tuple, Set, Union
+        wrapper_code = f'''import sys
+import json
+from typing import List, Optional, Dict, Tuple, Set, Union
+from collections import deque, defaultdict, Counter
+import heapq
+
 {helper_code}{conversion_functions}{user_code}
 
 if __name__ == "__main__":
-    import json
-    import sys
-    
     input_data = json.loads(sys.stdin.read())
 {conversion_code}
     solution = Solution()
@@ -885,8 +893,12 @@ json treeNodeToArray(TreeNode* root) {
 #include <string>
 #include <stack>
 #include <queue>
+#include <deque>
+#include <map>
+#include <set>
 #include <unordered_map>
 #include <unordered_set>
+#include <algorithm>
 #include "json.hpp"
 
 using namespace std;

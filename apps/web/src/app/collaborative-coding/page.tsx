@@ -196,6 +196,7 @@ function CollaborativeCodingPage() {
     collabManager: CollaborationManager | null,
   ): Promise<boolean> => {
     // Check 1: If document already has meaningful content, don't seed
+    // This is FAST - no API call needed, instant return for reconnections
     if (collabManager) {
       const content = collabManager.getSharedContent();
       const trimmedContent = content.trim();
@@ -207,13 +208,16 @@ function CollaborativeCodingPage() {
       });
       
       // If there's more than just whitespace/minimal content, don't seed
+      // Early return = no API call = fast reconnection!
       if (trimmedContent.length > 10) {
-        console.log('✋ Document has existing content, skipping seed');
+        console.log('✋ Document has existing content, skipping seed (no API call needed)');
         return false;
       }
     }
     
-    // Check 2: For empty documents, use deterministic selection
+    // Check 2: For empty documents ONLY, fetch session details for deterministic selection
+    // This API call only happens for truly new/empty sessions
+    console.log('🌐 Document is empty, fetching session details for seed decision...');
     try {
       const sessionDetails = await collaborationService.getSession(sessionId);
       const { user1Id, user2Id } = sessionDetails;
@@ -407,12 +411,10 @@ function CollaborativeCodingPage() {
 
               persistActiveSession(targetSessionId, storedQid);
               
-              // Wait for initial sync to complete FIRST
+              // Wait for initial sync to complete
               console.log('⏳ Waiting for initial YJS sync...');
               await collaborationManagerRef.current?.waitForInitialSync();
-              
-              // Add small delay to ensure sync is fully complete
-              await new Promise(resolve => setTimeout(resolve, 100));
+              console.log('✅ Initial sync complete');
               
               // Check if question is already loaded (from parallel fetch)
               if (question && question.id === questionId) {
