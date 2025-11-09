@@ -96,7 +96,7 @@ function CollaborativeCodingPage() {
   useEffect(() => {
     const checkSession = async () => {
       const storedSessionId = getActiveSessionId();
-      
+
       if (!storedSessionId) {
         console.log('❌ No session ID found in localStorage. Redirecting to home...');
         addToast('No active session found. Please start a new session from the home page.', 'warning', 3000);
@@ -195,7 +195,7 @@ function CollaborativeCodingPage() {
     qid: number,
     lang: 'python' | 'javascript' | 'java' | 'cpp',
     sessionIdentifier?: string,
-    seedSharedDoc = false,
+    seedSharedDoc = false
   ) => {
     try {
       setIsLoadingQuestion(true);
@@ -203,8 +203,7 @@ function CollaborativeCodingPage() {
       const data = await getQuestionById(qid);
       setQuestion(data);
 
-      const sessionForPersistence =
-        sessionIdentifier || sessionId || getActiveSessionId();
+      const sessionForPersistence = sessionIdentifier || sessionId || getActiveSessionId();
       if (sessionForPersistence) {
         persistActiveSession(sessionForPersistence, String(data.id));
       }
@@ -215,7 +214,9 @@ function CollaborativeCodingPage() {
         const content = template ?? languageConfig[lang].defaultCode;
         setCode(content);
         collaborationManagerRef.current.setSharedContent(content);
-      } else if (!sessionId && editorRef.current) {
+      } else if (!sessionId && !sessionIdentifier && editorRef.current) {
+        // Only set local editor if we're NOT in a collaborative session
+        // Check both current sessionId state and the sessionIdentifier parameter
         const currentVal = editorRef.current.getValue();
         if (!currentVal || currentVal.trim() === '') {
           const content = template ?? languageConfig[lang].defaultCode;
@@ -316,7 +317,7 @@ function CollaborativeCodingPage() {
       } else {
         addToast('Failed to verify session. Redirecting to home page...', 'error');
       }
-      
+
       setTimeout(() => {
         router.push('/home');
       }, 2000);
@@ -364,21 +365,26 @@ function CollaborativeCodingPage() {
               }
 
               persistActiveSession(targetSessionId, storedQid);
-              
+
               // Check if question is already loaded (from parallel fetch)
               if (question && question.id === questionId) {
                 console.log('✅ Question already loaded, skipping fetch');
               } else {
                 console.log('✅ Fetching question after connection:', storedQid);
+                
+                // Wait for initial sync to complete
                 await collaborationManagerRef.current?.waitForInitialSync();
-                const hasSharedContent =
-                  collaborationManagerRef.current?.hasSharedContent() ?? false;
-                await fetchAndSetQuestion(
-                  questionId,
-                  selectedLanguage,
-                  targetSessionId,
-                  !hasSharedContent,
-                );
+                
+                // Add small delay to ensure all Yjs updates are applied
+                // This prevents race conditions when both users connect simultaneously
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const hasSharedContent = collaborationManagerRef.current?.hasSharedContent() ?? false;
+                console.log('📄 Shared document has content:', hasSharedContent);
+                
+                // Only seed if there's NO shared content (first user)
+                // When rejoining, never seed - let Yjs sync existing content
+                await fetchAndSetQuestion(questionId, selectedLanguage, targetSessionId, !hasSharedContent);
               }
             } else {
               console.warn('⚠️ No question ID available for this session');
@@ -432,7 +438,7 @@ function CollaborativeCodingPage() {
     }
 
     addToast('Disconnected from session. You can rejoin from the home page.', 'info', 5000);
-    
+
     // Redirect to home page
     router.push('/home');
   };
@@ -491,8 +497,11 @@ function CollaborativeCodingPage() {
     console.log('🔍 Checking for stored session ID...');
     const storedSessionId = getActiveSessionId();
     const storedQuestionId = getActiveQuestionId();
-    const storedMatchType = typeof window !== 'undefined' ? sessionStorage.getItem('questionMatchType') as ('exact' | 'partial' | 'difficulty' | 'random') | null : null;
-    
+    const storedMatchType =
+      typeof window !== 'undefined'
+        ? (sessionStorage.getItem('questionMatchType') as ('exact' | 'partial' | 'difficulty' | 'random') | null)
+        : null;
+
     console.log('📦 Retrieved from storage:', {
       sessionId: storedSessionId,
       questionId: storedQuestionId,
@@ -508,25 +517,36 @@ function CollaborativeCodingPage() {
     if (storedSessionId && isEditorReady && !sessionId) {
       console.log('✅ Found session ID and editor is ready. Auto-connecting to session:', storedSessionId);
       setIsFromMatchFlow(true);
-      
+
       // Show match quality notification to user
       if (storedMatchType) {
         const matchTypeMessages = {
-          'exact': { message: 'Perfect Match! This question covers all your selected topics.', type: 'success' as const },
-          'partial': { message: '✨ Partial Match! This question covers only some of your selected topics, but matches your difficulty level.', type: 'info' as const },
-          'difficulty': { message: 'Difficulty Match! No topic matches found - this question matches your difficulty level only.', type: 'warning' as const },
-          'random': { message: '🎲 Random Question! No matches found for your criteria - here\'s a random question to practice with.', type: 'warning' as const }
+          exact: { message: 'Perfect Match! This question covers all your selected topics.', type: 'success' as const },
+          partial: {
+            message:
+              '✨ Partial Match! This question covers only some of your selected topics, but matches your difficulty level.',
+            type: 'info' as const,
+          },
+          difficulty: {
+            message: 'Difficulty Match! No topic matches found - this question matches your difficulty level only.',
+            type: 'warning' as const,
+          },
+          random: {
+            message:
+              "🎲 Random Question! No matches found for your criteria - here's a random question to practice with.",
+            type: 'warning' as const,
+          },
         };
-        
+
         const matchInfo = matchTypeMessages[storedMatchType];
         if (matchInfo) {
           addToast(matchInfo.message, matchInfo.type, 6000);
         }
-        
+
         // Clear the match type from storage after showing notification
         sessionStorage.removeItem('questionMatchType');
       }
-      
+
       // Optimize: Fetch question in parallel with connecting to session
       // This reduces perceived lag by starting the fetch immediately
       if (storedQuestionId) {
@@ -534,12 +554,12 @@ function CollaborativeCodingPage() {
         if (!isNaN(questionId) && questionId > 0) {
           console.log('🚀 Pre-fetching question in parallel with connection:', questionId);
           // Don't await - let it run in parallel with connection
-          fetchAndSetQuestion(questionId, selectedLanguage, storedSessionId, false).catch(err => {
+          fetchAndSetQuestion(questionId, selectedLanguage, storedSessionId, false).catch((err) => {
             console.error('❌ Pre-fetch question failed:', err);
           });
         }
       }
-      
+
       connectToSession(storedSessionId);
       // Don't remove session ID yet - keep it for the duration of the session
       console.log('📌 Session ID kept in sessionStorage for the duration of the session');
@@ -738,7 +758,7 @@ function CollaborativeCodingPage() {
           error: errorMessage,
         });
       }
-      
+
       setIsRunning(false);
       setExecutionLock(null);
     }
@@ -759,14 +779,15 @@ function CollaborativeCodingPage() {
             ) : (
               <div className='flex items-center gap-1'>
                 <div
-                  className={`w-2 h-2 rounded-full ${connectionStatus === 'connected'
-                    ? 'bg-[#F1FCAC]'
-                    : connectionStatus === 'connecting'
-                      ? 'bg-yellow-500 animate-pulse'
-                      : connectionStatus === 'error'
-                        ? 'bg-red-500'
-                        : 'bg-gray-500'
-                    }`}
+                  className={`w-2 h-2 rounded-full ${
+                    connectionStatus === 'connected'
+                      ? 'bg-[#F1FCAC]'
+                      : connectionStatus === 'connecting'
+                        ? 'bg-yellow-500 animate-pulse'
+                        : connectionStatus === 'error'
+                          ? 'bg-red-500'
+                          : 'bg-gray-500'
+                  }`}
                 />
                 <span className='text-xs text-gray-400'>{connectionStatus}</span>
               </div>
@@ -1012,16 +1033,18 @@ function CollaborativeCodingPage() {
             <div className='bg-[#2e2e2e] px-4 flex items-center gap-1 border-b border-[#3e3e3e]'>
               <button
                 onClick={() => setActiveTab('testResults')}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${activeTab === 'testResults' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
-                  }`}
+                className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                  activeTab === 'testResults' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
+                }`}
               >
                 Test Results
                 {activeTab === 'testResults' && <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-white' />}
               </button>
               <button
                 onClick={() => setActiveTab('customInput')}
-                className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${activeTab === 'customInput' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
-                  }`}
+                className={`px-4 py-2.5 text-sm font-medium transition-colors relative ${
+                  activeTab === 'customInput' ? 'text-white' : 'text-gray-400 hover:text-gray-300'
+                }`}
               >
                 Custom Input
                 {activeTab === 'customInput' && <div className='absolute bottom-0 left-0 right-0 h-0.5 bg-white' />}
@@ -1047,12 +1070,14 @@ function CollaborativeCodingPage() {
                           <button
                             key={idx}
                             onClick={() => setSelectedTestCase(idx)}
-                            className={`flex items-center gap-1 px-3 py-1.5 rounded transition-colors ${selectedTestCase === idx ? 'bg-[#3e3e3e]' : 'bg-[#2e2e2e] hover:bg-[#3a3a3a]'
-                              }`}
+                            className={`flex items-center gap-1 px-3 py-1.5 rounded transition-colors ${
+                              selectedTestCase === idx ? 'bg-[#3e3e3e]' : 'bg-[#2e2e2e] hover:bg-[#3a3a3a]'
+                            }`}
                           >
                             <span
-                              className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${result.passed ? 'bg-[#F1FCAC] text-black' : 'bg-red-500 text-white'
-                                }`}
+                              className={`w-5 h-5 flex items-center justify-center rounded-full text-xs font-bold ${
+                                result.passed ? 'bg-[#F1FCAC] text-black' : 'bg-red-500 text-white'
+                              }`}
                             >
                               {result.passed ? '✓' : '✗'}
                             </span>
@@ -1066,10 +1091,11 @@ function CollaborativeCodingPage() {
                           <div>
                             <label className='text-white block mb-2 text-sm font-medium'>Result</label>
                             <div
-                              className={`p-3 rounded font-medium text-sm ${testResults[selectedTestCase].passed
-                                ? 'bg-[#F1FCAC]/10 border border-[#F1FCAC] text-[#F1FCAC]'
-                                : 'bg-red-900/20 border border-red-500 text-red-300'
-                                }`}
+                              className={`p-3 rounded font-medium text-sm ${
+                                testResults[selectedTestCase].passed
+                                  ? 'bg-[#F1FCAC]/10 border border-[#F1FCAC] text-[#F1FCAC]'
+                                  : 'bg-red-900/20 border border-red-500 text-red-300'
+                              }`}
                             >
                               {testResults[selectedTestCase].passed ? '✓ Passed' : '✗ Failed'}
                             </div>
@@ -1109,25 +1135,25 @@ function CollaborativeCodingPage() {
 
                           {(testResults[selectedTestCase].runtime_ms !== null ||
                             testResults[selectedTestCase].memory_mb !== null) && (
-                              <div className='grid grid-cols-2 gap-4'>
-                                {testResults[selectedTestCase].runtime_ms !== null && (
-                                  <div>
-                                    <label className='text-white block mb-2 text-sm font-medium'>Runtime</label>
-                                    <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
-                                      {testResults[selectedTestCase].runtime_ms?.toFixed(2)} ms
-                                    </div>
+                            <div className='grid grid-cols-2 gap-4'>
+                              {testResults[selectedTestCase].runtime_ms !== null && (
+                                <div>
+                                  <label className='text-white block mb-2 text-sm font-medium'>Runtime</label>
+                                  <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                                    {testResults[selectedTestCase].runtime_ms?.toFixed(2)} ms
                                   </div>
-                                )}
-                                {testResults[selectedTestCase].memory_mb !== null && (
-                                  <div>
-                                    <label className='text-white block mb-2 text-sm font-medium'>Memory</label>
-                                    <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
-                                      {testResults[selectedTestCase].memory_mb?.toFixed(2)} MB
-                                    </div>
+                                </div>
+                              )}
+                              {testResults[selectedTestCase].memory_mb !== null && (
+                                <div>
+                                  <label className='text-white block mb-2 text-sm font-medium'>Memory</label>
+                                  <div className='bg-[#1e1e1e] border border-[#3e3e3e] p-3 rounded font-mono text-sm text-gray-300'>
+                                    {testResults[selectedTestCase].memory_mb?.toFixed(2)} MB
                                   </div>
-                                )}
-                              </div>
-                            )}
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </div>
                       )}
                     </>

@@ -211,21 +211,19 @@ export class SessionService {
             const bothDisconnected = !updatedSession.user1Connected && !updatedSession.user2Connected;
 
             if (bothDisconnected) {
-                console.log(`🔚 Both users disconnected from session ${sessionId}, terminating...`);
-                
-                // Terminate the session
-                const terminatedSession = await prisma.session.update({
-                    where: { sessionId },
-                    data: {
-                        status: 'TERMINATED',
-                        terminatedAt: new Date(),
-                    },
-                });
+                console.log(`🔚 Both users disconnected from session ${sessionId}, deleting session...`);
 
                 // Clean up Y.Doc from memory
                 YjsService.deleteDocument(sessionId);
 
-                return terminatedSession as Session;
+                // Delete the session from the database
+                await prisma.session.delete({
+                    where: { sessionId },
+                });
+
+                console.log(`🗑️  Session ${sessionId} completely removed from database`);
+
+                return updatedSession as Session;
             }
 
             return updatedSession as Session;

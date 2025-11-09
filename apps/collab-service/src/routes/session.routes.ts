@@ -166,8 +166,8 @@ router.post('/sessions/:sessionId/leave', authenticate, async (req: Request, res
         const session = await SessionService.leaveSession(sessionId, authReq.user.userId);
 
         res.status(200).json({
-            message: session.status === 'TERMINATED' 
-                ? 'Session terminated (both users disconnected)' 
+            message: session.status === 'TERMINATED'
+                ? 'Session terminated (both users disconnected)'
                 : 'Successfully left session',
             data: session,
         });
