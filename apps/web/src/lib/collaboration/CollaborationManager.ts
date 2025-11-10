@@ -544,21 +544,36 @@ export class CollaborationManager {
 
     /**
      * Replace the shared document content with the provided string.
+     * Only seeds if the document is currently empty to avoid overwriting existing work.
+     * Uses a transaction to prevent race conditions when multiple users try to seed simultaneously.
      */
     setSharedContent(content: string): void {
         if (!this.ydoc) {
+            console.warn('[Collaboration] Cannot set content: no document');
             return;
         }
         const ytext = this.ydoc.getText('code');
+
+        // Use a transaction to ensure atomic check-and-set
+        // This prevents race conditions when multiple users try to seed simultaneously
+        let didInsert = false;
         this.ydoc.transact(() => {
-            const length = ytext.length;
-            if (length > 0) {
-                ytext.delete(0, length);
+            const currentLength = ytext.length;
+            if (currentLength > 0) {
+                console.log('[Collaboration] Document already has content (length:', currentLength, '), skipping seed to prevent duplication');
+                return;
             }
-            if (content) {
+
+            if (content && content.trim().length > 0) {
+                console.log('[Collaboration] Seeding empty document with template (length:', content.length, ')');
                 ytext.insert(0, content);
+                didInsert = true;
             }
-        });
+        }, 'seed-initial-content'); // Transaction origin to identify it
+
+        if (didInsert) {
+            console.log('[Collaboration] ✅ Successfully seeded document');
+        }
     }
 
     /**

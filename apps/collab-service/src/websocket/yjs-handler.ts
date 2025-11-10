@@ -190,6 +190,14 @@ export class YjsWebSocketHandler {
             // Remove client from session
             YjsService.removeClient(this.sessionId, this.userId);
 
+            // Mark user as disconnected in the session
+            // This will automatically terminate the session if both users disconnect
+            try {
+                await SessionService.leaveSession(this.sessionId, this.userId);
+            } catch (error) {
+                console.warn(`Failed to mark user as disconnected in session ${this.sessionId}:`, error);
+            }
+
             console.log(`🔌 Yjs connection cleaned up for user ${this.userId} in session ${this.sessionId}`);
         } catch (error) {
             console.error('Error during Yjs cleanup:', error);

@@ -1,24 +1,12 @@
 import { Request } from 'express';
 import * as Y from 'yjs';
+import { Session as PrismaSession } from '@prisma/client';
 
 // Session Types
 export type SessionStatus = 'ACTIVE' | 'TERMINATED' | 'EXPIRED';
 
-export interface Session {
-    id: string;
-    sessionId: string;
-    user1Id: string;
-    user2Id: string;
-    questionId: string;
-    difficulty: string;
-    topic: string;
-    language: string;
-    status: SessionStatus;
-    createdAt: Date;
-    updatedAt: Date;
-    lastActivityAt: Date;
-    terminatedAt: Date | null;
-}
+// Re-export Prisma Session type
+export type Session = PrismaSession;
 
 export interface CreateSessionRequest {
     sessionId: string;
