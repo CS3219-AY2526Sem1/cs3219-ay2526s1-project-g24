@@ -50,7 +50,7 @@ export interface UserPresence {
 /**
  * Custom message types for collaboration
  */
-export type CollaborationMessageType = 'code-execution-start' | 'code-execution-result';
+export type CollaborationMessageType = 'code-execution-start' | 'code-execution-result' | 'language-change';
 
 /**
  * Custom message structure

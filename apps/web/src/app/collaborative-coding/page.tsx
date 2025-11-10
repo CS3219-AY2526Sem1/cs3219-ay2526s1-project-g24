@@ -60,6 +60,7 @@ function CollaborativeCodingPage() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isFromMatchFlow, setIsFromMatchFlow] = useState(false);
   const [isEditorReady, setIsEditorReady] = useState(false);
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
 
   // question + run/submit state
   const [question, setQuestion] = useState<QuestionDetail | null>(null);
@@ -76,6 +77,7 @@ function CollaborativeCodingPage() {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
+  const lastProcessedMessageRef = useRef<string>('');
 
   useEffect(() => {
     hydrateSessionStorageFromLocal();
@@ -151,6 +153,15 @@ function CollaborativeCodingPage() {
 
   // Handle collaboration messages (code execution events)
   const handleCollaborationMessage = (message: CollaborationMessage) => {
+    // Deduplicate messages by creating a unique key
+    const messageKey = `${message.type}-${message.sender}-${message.timestamp}`;
+    
+    // Skip if we've already processed this exact message
+    if (lastProcessedMessageRef.current === messageKey) {
+      return;
+    }
+    lastProcessedMessageRef.current = messageKey;
+    
     const senderUser = connectedUsers.find((u) => u.clientId === message.sender);
     const senderName = senderUser?.name || 'Another user';
 
@@ -178,6 +189,16 @@ function CollaborativeCodingPage() {
       } else {
         setExecutionError(error || 'Code execution failed');
         setTestResults([]);
+      }
+    } else if (message.type === 'language-change') {
+      const { language } = message.data;
+      
+      // Only update and show toast if the message is from another user
+      const localUser = collaborationManagerRef.current?.getLocalUser();
+      if (localUser && message.sender !== localUser.clientId) {
+        setSelectedLanguage(language);
+        sessionStorage.setItem('sessionLanguage', language);
+        addToast(`${senderName} changed the language to ${language}`, 'info', 2000);
       }
     }
   };
@@ -242,6 +263,7 @@ function CollaborativeCodingPage() {
 
     setConnectionStatus('connecting');
     setIsConnected(false);
+    setIsLoadingContent(true); // Show loading spinner immediately
 
     // Validate session existence and status
     try {
@@ -259,6 +281,7 @@ function CollaborativeCodingPage() {
         }
 
         setConnectionStatus('error');
+        setIsLoadingContent(false);
         addToast('This session is no longer active. Please start a new session.', 'warning');
         setTimeout(() => {
           router.push('/home');
@@ -288,6 +311,7 @@ function CollaborativeCodingPage() {
       setConnectionStatus('error');
       setConnectedUsers([]);
       setIsConnected(false);
+      setIsLoadingContent(false);
 
       if (status === 404) {
         addToast('Session not found. Redirecting to home page...', 'error');
@@ -329,6 +353,7 @@ function CollaborativeCodingPage() {
 
           if (status === 'connected') {
             addToast('Successfully connected to session', 'success', 3000);
+            setIsLoadingContent(true); // Start loading state
 
             const storedQid = getActiveQuestionId();
             if (storedQid) {
@@ -357,18 +382,22 @@ function CollaborativeCodingPage() {
                   // Sync timeout or error, continuing anyway
                 }
 
-                // Add longer delay to ensure Yjs state is fully propagated
-                // This prevents race conditions when both users connect simultaneously
-                await new Promise((resolve) => setTimeout(resolve, 300));
+                // Small delay to ensure Yjs state is fully propagated
+                // Reduced from 300ms to 100ms - Yjs transactions already prevent race conditions
+                await new Promise((resolve) => setTimeout(resolve, 100));
 
                 const hasSharedContent = collaborationManagerRef.current?.hasSharedContent() ?? false;
 
                 // Only seed if there's NO shared content (first user to connect)
                 // When rejoining or second user connects, never seed - let Yjs sync existing content
                 await fetchAndSetQuestion(questionId, selectedLanguage, targetSessionId, !hasSharedContent);
+                
+                // End loading state
+                setIsLoadingContent(false);
               }
             } else {
               setQuestionError('No question is linked to this session.');
+              setIsLoadingContent(false);
             }
           }
         }
@@ -377,6 +406,7 @@ function CollaborativeCodingPage() {
       console.error('[CollaborativeCoding] Failed to connect:', error);
       setConnectionStatus('error');
       setIsConnected(false);
+      setIsLoadingContent(false); // Clear loading state on error
       addToast('Failed to connect to session. Please try again.', 'error');
     }
   };
@@ -384,7 +414,7 @@ function CollaborativeCodingPage() {
   // -------------- DISCONNECT --------------
   const disconnectFromSession = async () => {
     const confirmed = window.confirm(
-      'Are you sure you want to disconnect? You can rejoin the session later from the home page.'
+      'Are you sure you want to disconnect?'
     );
     if (!confirmed) return;
 
@@ -890,6 +920,16 @@ function CollaborativeCodingPage() {
                       onChange={(e) => {
                         const newLang = e.target.value as 'python' | 'javascript' | 'java' | 'cpp';
                         setSelectedLanguage(newLang);
+                        
+                        // Persist language selection to sessionStorage
+                        sessionStorage.setItem('sessionLanguage', newLang);
+                        
+                        // Broadcast language change to other users
+                        if (sessionId && collaborationManagerRef.current) {
+                          collaborationManagerRef.current.sendMessage('language-change', {
+                            language: newLang,
+                          });
+                        }
 
                         // prefer question template
                         if (question && question.code_templates && question.code_templates[newLang]) {
@@ -963,7 +1003,17 @@ function CollaborativeCodingPage() {
               </div>
 
               {/* editor body */}
-              <div className='flex-1 bg-[#1e1e1e] overflow-hidden'>
+              <div className='flex-1 bg-[#1e1e1e] overflow-hidden relative'>
+                {/* Loading overlay */}
+                {isLoadingContent && (
+                  <div className='absolute inset-0 bg-[#1e1e1e]/95 z-50 flex items-center justify-center'>
+                    <div className='flex flex-col items-center gap-4'>
+                      <div className='w-12 h-12 border-4 border-[#555555] border-t-[#F1FCAC] rounded-full animate-spin'></div>
+                      <p className='text-white text-sm font-medium animate-pulse'>Loading code template...</p>
+                    </div>
+                  </div>
+                )}
+                
                 <Editor
                   height='100%'
                   language={
