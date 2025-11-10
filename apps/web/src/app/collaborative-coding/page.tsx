@@ -243,6 +243,7 @@ function CollaborativeCodingPage() {
 
     setConnectionStatus('connecting');
     setIsConnected(false);
+    setIsLoadingContent(true); // Show loading spinner immediately
 
     // Validate session existence and status
     try {
@@ -260,6 +261,7 @@ function CollaborativeCodingPage() {
         }
 
         setConnectionStatus('error');
+        setIsLoadingContent(false);
         addToast('This session is no longer active. Please start a new session.', 'warning');
         setTimeout(() => {
           router.push('/home');
@@ -289,6 +291,7 @@ function CollaborativeCodingPage() {
       setConnectionStatus('error');
       setConnectedUsers([]);
       setIsConnected(false);
+      setIsLoadingContent(false);
 
       if (status === 404) {
         addToast('Session not found. Redirecting to home page...', 'error');
