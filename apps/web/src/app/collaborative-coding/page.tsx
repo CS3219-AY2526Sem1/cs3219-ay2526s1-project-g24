@@ -394,7 +394,7 @@ function CollaborativeCodingPage() {
   // -------------- DISCONNECT --------------
   const disconnectFromSession = async () => {
     const confirmed = window.confirm(
-      'Are you sure you want to disconnect? You can rejoin the session later from the home page.'
+      'Are you sure you want to disconnect?'
     );
     if (!confirmed) return;
 
