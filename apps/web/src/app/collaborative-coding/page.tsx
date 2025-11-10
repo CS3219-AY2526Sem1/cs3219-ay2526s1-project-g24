@@ -77,6 +77,7 @@ function CollaborativeCodingPage() {
   const editorRef = useRef<editor.IStandaloneCodeEditor | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const rightPanelRef = useRef<HTMLDivElement>(null);
+  const lastProcessedMessageRef = useRef<string>('');
 
   useEffect(() => {
     hydrateSessionStorageFromLocal();
@@ -152,6 +153,15 @@ function CollaborativeCodingPage() {
 
   // Handle collaboration messages (code execution events)
   const handleCollaborationMessage = (message: CollaborationMessage) => {
+    // Deduplicate messages by creating a unique key
+    const messageKey = `${message.type}-${message.sender}-${message.timestamp}`;
+    
+    // Skip if we've already processed this exact message
+    if (lastProcessedMessageRef.current === messageKey) {
+      return;
+    }
+    lastProcessedMessageRef.current = messageKey;
+    
     const senderUser = connectedUsers.find((u) => u.clientId === message.sender);
     const senderName = senderUser?.name || 'Another user';
 
@@ -179,6 +189,16 @@ function CollaborativeCodingPage() {
       } else {
         setExecutionError(error || 'Code execution failed');
         setTestResults([]);
+      }
+    } else if (message.type === 'language-change') {
+      const { language } = message.data;
+      
+      // Only update and show toast if the message is from another user
+      const localUser = collaborationManagerRef.current?.getLocalUser();
+      if (localUser && message.sender !== localUser.clientId) {
+        setSelectedLanguage(language);
+        sessionStorage.setItem('sessionLanguage', language);
+        addToast(`${senderName} changed the language to ${language}`, 'info', 2000);
       }
     }
   };
@@ -900,6 +920,16 @@ function CollaborativeCodingPage() {
                       onChange={(e) => {
                         const newLang = e.target.value as 'python' | 'javascript' | 'java' | 'cpp';
                         setSelectedLanguage(newLang);
+                        
+                        // Persist language selection to sessionStorage
+                        sessionStorage.setItem('sessionLanguage', newLang);
+                        
+                        // Broadcast language change to other users
+                        if (sessionId && collaborationManagerRef.current) {
+                          collaborationManagerRef.current.sendMessage('language-change', {
+                            language: newLang,
+                          });
+                        }
 
                         // prefer question template
                         if (question && question.code_templates && question.code_templates[newLang]) {
