@@ -4,8 +4,7 @@
 process.env.NODE_ENV = 'test';
 
 // Database configuration - use test database
-process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 
-  'postgresql://test:test@localhost:5433/collab_test';
+process.env.DATABASE_URL = process.env.TEST_DATABASE_URL || 'postgresql://test:test@localhost:5433/collab_test';
 
 // Redis configuration - use test Redis instance
 process.env.REDIS_HOST = process.env.TEST_REDIS_HOST || 'localhost';

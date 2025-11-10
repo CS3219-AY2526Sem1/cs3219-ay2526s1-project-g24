@@ -7,9 +7,9 @@
  */
 
 describe('YjsService', () => {
-  it('placeholder - YjsService requires complex Y.js mocking', () => {
-    // YjsService functionality will be tested via integration tests
-    // where Y.js can run with real WebSocket connections
-    expect(true).toBe(true);
-  });
+    it('placeholder - YjsService requires complex Y.js mocking', () => {
+        // YjsService functionality will be tested via integration tests
+        // where Y.js can run with real WebSocket connections
+        expect(true).toBe(true);
+    });
 });

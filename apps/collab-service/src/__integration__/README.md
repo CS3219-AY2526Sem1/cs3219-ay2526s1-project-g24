@@ -32,6 +32,7 @@ pnpm test:integration -- session.integration.test.ts
 ## Prerequisites
 
 Integration tests require:
+
 - PostgreSQL test database running
 - Redis test instance running (optional, depends on test)
 
@@ -57,6 +58,7 @@ export TEST_REDIS_PORT="6380"
 ## Test Database Lifecycle
 
 Each test suite:
+
 1. **Setup**: Connects to database
 2. **Before Each**: Cleans all test data
 3. **Test**: Runs with clean database
@@ -91,12 +93,12 @@ describe('ServiceName Integration Tests', () => {
 
 ## Differences from Unit Tests
 
-| Aspect | Unit Tests | Integration Tests |
-|--------|-----------|-------------------|
-| Dependencies | Mocked | Real (DB, Redis) |
-| Speed | Fast (~5s) | Slower (~30s) |
-| Isolation | Complete | Shared resources |
-| Setup | Minimal | Requires services |
+| Aspect        | Unit Tests        | Integration Tests             |
+| ------------- | ----------------- | ----------------------------- |
+| Dependencies  | Mocked            | Real (DB, Redis)              |
+| Speed         | Fast (~5s)        | Slower (~30s)                 |
+| Isolation     | Complete          | Shared resources              |
+| Setup         | Minimal           | Requires services             |
 | Configuration | `jest.config.cjs` | `jest.integration.config.cjs` |
 
 ## Tips

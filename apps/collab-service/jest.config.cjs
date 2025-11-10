@@ -7,8 +7,8 @@ module.exports = {
   testMatch: ['**/__tests__/**/*.test.ts'],
   testPathIgnorePatterns: ['/__integration__/', '/node_modules/'],
   collectCoverageFrom: [
-    'src/**/*.ts', 
-    '!src/**/*.d.ts', 
+    'src/**/*.ts',
+    '!src/**/*.d.ts',
     '!src/**/__tests__/**',
     '!src/**/__integration__/**',
     '!src/index.ts',
