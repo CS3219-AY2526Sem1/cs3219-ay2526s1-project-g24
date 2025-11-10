@@ -167,13 +167,16 @@ export default function SubmissionResultPage() {
                         </h1>
                         <span className="text-[#9e9e9e] text-sm font-medium">Submission Result</span>
                     </div>
-                    <button
-                        onClick={() => router.push(`/practice/${submission.question_id}`)}
-                        className="flex items-center gap-2 px-4 py-2 bg-transparent border-2 border-white/20 hover:border-white/40 text-white text-sm font-medium transition-colors rounded-full"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Problem
-                    </button>
+                    {/* Only show "Back to Problem" for solo practice mode */}
+                    {!submission.isCollaborative && (
+                        <button
+                            onClick={() => router.push(`/practice/${submission.question_id}`)}
+                            className="flex items-center gap-2 px-4 py-2 bg-transparent border-2 border-white/20 hover:border-white/40 text-white text-sm font-medium transition-colors rounded-full"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                            Back to Problem
+                        </button>
+                    )}
                 </div>
             </header>
 
@@ -313,6 +316,17 @@ export default function SubmissionResultPage() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-4 mt-8 justify-center">
+                        {/* Show "Reconnect to Session" button for collaborative mode */}
+                        {submission.isCollaborative && submission.sessionId && (
+                            <button
+                                onClick={() => router.push('/collaborative-coding')}
+                                className="px-8 py-3 bg-[#F1FCAC] hover:bg-[#e8f09a] text-black font-semibold rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                            >
+                                Reconnect to Session
+                            </button>
+                        )}
+                        
+                        {/* Show "Try Again" only for solo practice */}
                         {!submission.isCollaborative && (
                             <button
                                 onClick={() => router.push(`/practice/${submission.question_id}`)}
@@ -321,6 +335,7 @@ export default function SubmissionResultPage() {
                                 Try Again
                             </button>
                         )}
+                        
                         <button
                             onClick={() => router.push('/questions')}
                             className="px-6 py-3 bg-transparent border-2 border-white/20 hover:border-white/40 text-white font-medium transition-colors rounded-full"

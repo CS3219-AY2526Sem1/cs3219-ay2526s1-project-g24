@@ -60,6 +60,7 @@ function CollaborativeCodingPage() {
   const [toasts, setToasts] = useState<Toast[]>([]);
   const [isFromMatchFlow, setIsFromMatchFlow] = useState(false);
   const [isEditorReady, setIsEditorReady] = useState(false);
+  const [isLoadingContent, setIsLoadingContent] = useState(false);
 
   // question + run/submit state
   const [question, setQuestion] = useState<QuestionDetail | null>(null);
@@ -329,6 +330,7 @@ function CollaborativeCodingPage() {
 
           if (status === 'connected') {
             addToast('Successfully connected to session', 'success', 3000);
+            setIsLoadingContent(true); // Start loading state
 
             const storedQid = getActiveQuestionId();
             if (storedQid) {
@@ -357,18 +359,22 @@ function CollaborativeCodingPage() {
                   // Sync timeout or error, continuing anyway
                 }
 
-                // Add longer delay to ensure Yjs state is fully propagated
-                // This prevents race conditions when both users connect simultaneously
-                await new Promise((resolve) => setTimeout(resolve, 300));
+                // Small delay to ensure Yjs state is fully propagated
+                // Reduced from 300ms to 100ms - Yjs transactions already prevent race conditions
+                await new Promise((resolve) => setTimeout(resolve, 100));
 
                 const hasSharedContent = collaborationManagerRef.current?.hasSharedContent() ?? false;
 
                 // Only seed if there's NO shared content (first user to connect)
                 // When rejoining or second user connects, never seed - let Yjs sync existing content
                 await fetchAndSetQuestion(questionId, selectedLanguage, targetSessionId, !hasSharedContent);
+                
+                // End loading state
+                setIsLoadingContent(false);
               }
             } else {
               setQuestionError('No question is linked to this session.');
+              setIsLoadingContent(false);
             }
           }
         }
@@ -377,6 +383,7 @@ function CollaborativeCodingPage() {
       console.error('[CollaborativeCoding] Failed to connect:', error);
       setConnectionStatus('error');
       setIsConnected(false);
+      setIsLoadingContent(false); // Clear loading state on error
       addToast('Failed to connect to session. Please try again.', 'error');
     }
   };
@@ -963,7 +970,17 @@ function CollaborativeCodingPage() {
               </div>
 
               {/* editor body */}
-              <div className='flex-1 bg-[#1e1e1e] overflow-hidden'>
+              <div className='flex-1 bg-[#1e1e1e] overflow-hidden relative'>
+                {/* Loading overlay */}
+                {isLoadingContent && (
+                  <div className='absolute inset-0 bg-[#1e1e1e]/95 z-50 flex items-center justify-center'>
+                    <div className='flex flex-col items-center gap-4'>
+                      <div className='w-12 h-12 border-4 border-[#555555] border-t-[#F1FCAC] rounded-full animate-spin'></div>
+                      <p className='text-white text-sm font-medium animate-pulse'>Loading code template...</p>
+                    </div>
+                  </div>
+                )}
+                
                 <Editor
                   height='100%'
                   language={
