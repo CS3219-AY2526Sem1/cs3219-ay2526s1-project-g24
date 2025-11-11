@@ -35,9 +35,18 @@ export const activeConnections = new promClient.Gauge({
 // Middleware to track request metrics
 export const metricsMiddleware = (req: Request, res: Response, next: NextFunction) => {
   const start = Date.now();
-  
+
   // Increment active connections
   activeConnections.inc();
+
+  // Ensure we decrement on both finish and close events
+  let decremented = false;
+  const decrementOnce = () => {
+    if (!decremented) {
+      decremented = true;
+      activeConnections.dec();
+    }
+  };
 
   // Track when response finishes
   res.on('finish', () => {
@@ -51,13 +60,14 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
 
     httpRequestDuration.observe(labels, duration);
     httpRequestTotal.inc(labels);
-    activeConnections.dec();
+    decrementOnce();
   });
 
-  next();
-};
+  // Also handle premature connection close
+  res.on('close', decrementOnce);
 
-// Metrics endpoint
+  next();
+};// Metrics endpoint
 export const metricsEndpoint = async (_req: Request, res: Response) => {
   res.set('Content-Type', register.contentType);
   res.end(await register.metrics());

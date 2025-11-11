@@ -4,11 +4,10 @@ import { register, Counter, Gauge, Histogram } from 'prom-client';
  * Collaboration-specific metrics for real-time features
  */
 
-// WebSocket connection tracking
+// WebSocket connection tracking (aggregate across all sessions to avoid high cardinality)
 export const wsConnectionsActive = new Gauge({
     name: 'collab_websocket_connections_active',
     help: 'Number of active WebSocket connections',
-    labelNames: ['session_id'],
     registers: [register],
 });
 
@@ -50,11 +49,10 @@ export const redisPubSubMessages = new Counter({
     registers: [register],
 });
 
-// Document state size in bytes
+// Document state size in bytes (aggregate to avoid high cardinality)
 export const documentStateSize = new Histogram({
     name: 'collab_document_state_bytes',
     help: 'Size of Y.js document state in bytes',
-    labelNames: ['session_id'],
     buckets: [1024, 10240, 102400, 1048576, 10485760], // 1KB to 10MB
     registers: [register],
 });
@@ -77,19 +75,17 @@ export const redisOperationDuration = new Histogram({
     registers: [register],
 });
 
-// Client awareness updates (cursors, selections, etc.)
+// Client awareness updates (cursors, selections, etc.) - aggregate to avoid high cardinality
 export const awarenessUpdates = new Counter({
     name: 'collab_awareness_updates_total',
     help: 'Total number of client awareness updates',
-    labelNames: ['session_id'],
     registers: [register],
 });
 
-// Session participant count
-export const sessionParticipants = new Gauge({
-    name: 'collab_session_participants',
-    help: 'Number of participants in each active session',
-    labelNames: ['session_id'],
+// Session participant count - total across all sessions to avoid high cardinality
+export const sessionParticipantsTotal = new Gauge({
+    name: 'collab_session_participants_total',
+    help: 'Total number of participants across all active sessions',
     registers: [register],
 });
 
@@ -106,12 +102,12 @@ export const codeExecutionRequests = new Counter({
  */
 export class CollaborationMetrics {
     // WebSocket connection lifecycle
-    static connectionOpened(sessionId: string): void {
-        wsConnectionsActive.inc({ session_id: sessionId });
+    static connectionOpened(): void {
+        wsConnectionsActive.inc();
     }
 
-    static connectionClosed(sessionId: string): void {
-        wsConnectionsActive.dec({ session_id: sessionId });
+    static connectionClosed(): void {
+        wsConnectionsActive.dec();
     }
 
     // Session lifecycle
@@ -157,8 +153,8 @@ export class CollaborationMetrics {
     }
 
     // Document state size tracking
-    static recordDocumentStateSize(sessionId: string, sizeInBytes: number): void {
-        documentStateSize.observe({ session_id: sessionId }, sizeInBytes);
+    static recordDocumentStateSize(sizeInBytes: number): void {
+        documentStateSize.observe(sizeInBytes);
     }
 
     // Snapshot operation timing
@@ -182,13 +178,13 @@ export class CollaborationMetrics {
     }
 
     // Awareness updates
-    static awarenessUpdated(sessionId: string): void {
-        awarenessUpdates.inc({ session_id: sessionId });
+    static awarenessUpdated(): void {
+        awarenessUpdates.inc();
     }
 
-    // Session participants tracking
-    static updateParticipantCount(sessionId: string, count: number): void {
-        sessionParticipants.set({ session_id: sessionId }, count);
+    // Session participants tracking - set total count across all sessions
+    static updateTotalParticipantCount(totalCount: number): void {
+        sessionParticipantsTotal.set(totalCount);
     }
 
     // Code execution tracking

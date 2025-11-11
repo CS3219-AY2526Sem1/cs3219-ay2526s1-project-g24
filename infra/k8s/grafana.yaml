@@ -586,19 +586,16 @@ data:
       "weekStart": ""
     }
 
----
-apiVersion: v1
-kind: Secret
-metadata:
-  name: grafana-admin
-  namespace: cs3219
-  labels:
-    app: grafana
-type: Opaque
-stringData:
-  admin-user: admin
-  admin-password: admin123  # Change this in production!
-
+# NOTE: Create the Grafana admin credentials Secret separately with a strong password:
+#
+# kubectl create secret generic grafana-admin \
+#   --from-literal=admin-user=admin \
+#   --from-literal=admin-password='<YOUR-STRONG-PASSWORD>' \
+#   -n cs3219
+#
+# DO NOT commit weak passwords to version control!
+#
+# For development/testing only (REMOVE IN PRODUCTION):
 ---
 apiVersion: apps/v1
 kind: Deployment
