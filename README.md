@@ -46,11 +46,12 @@ PeerPrep includes automatic session management to prevent resource hogging and h
 | Timeout Type | Duration | Purpose |
 |--------------|----------|---------|
 | **Partner Presence Warning** | 10 seconds | Notify user if partner hasn't joined yet |
-| **Ghost Session Cleanup** | 60 seconds | Delete sessions where no users connected after match |
+| **Ghost Session Cleanup** | 60 seconds (1 min) | Delete sessions where no users connected after match |
 | **Solo Session Warning** | 4 minutes | Warn user if partner never joined |
 | **Solo Session Timeout** | 5 minutes | Terminate sessions with only 1 user connected |
-| **Rejoin Grace Period** | 2 minutes | Allow reconnection after accidental disconnect |
+| **Rejoin Grace Period** | 10 minutes | Allow reconnection after disconnect |
 | **Inactivity Timeout (AFK)** | 30 minutes | Expire sessions with no activity (both users idle) |
+| **Cleanup Interval** | 5 minutes | How often to check for stale sessions |
 | **Y.Doc Garbage Collection** | 5 minutes | Clean up in-memory documents with no connected clients |
 
 ### Automatic Cleanup
@@ -63,9 +64,17 @@ The Collaboration Service runs periodic cleanup every **5 minutes** to:
 ### User Experience
 
 **Active Session:**
-- Real-time presence indicator shows partner connection status
+- Real-time presence indicator shows partner connection status (green dot = partner present)
 - Session persists in localStorage for easy reconnection
-- 2-minute grace period to rejoin after disconnect
+- Connection status displayed in top-left corner (🟢 connected | 🟡 connecting | 🔴 error | 🟠 ended)
+- **End Session** button (red) - terminates session for both users
+
+**Session Ended:**
+- When partner clicks "End Session", both users are disconnected
+- Status changes to 🟠 **ended** with orange indicator
+- Single notification toast: "Your partner has ended the session"
+- **No reconnection spam** - automatic reconnect is disabled
+- **Return to Home** button (gray) appears - navigates user back to home page
 
 **Inactive Session (30+ minutes):**
 - Session automatically expires
@@ -77,8 +86,6 @@ The Collaboration Service runs periodic cleanup every **5 minutes** to:
 - Warning appears after 10 seconds if partner hasn't connected
 - If no one connects: Session auto-deleted after 60 seconds (prevents ghost sessions)
 - If only 1 user connects: Warning at 4 minutes, auto-terminated at 5 minutes (prevents session hogging)
-
-For detailed session management implementation, see [Session Management Improvements](./SESSION_MANAGEMENT_IMPROVEMENTS.md).
 
 ---
 ## Cross-Service Authentication (JWT)
