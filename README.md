@@ -47,8 +47,10 @@ PeerPrep includes automatic session management to prevent resource hogging and h
 |--------------|----------|---------|
 | **Partner Presence Warning** | 10 seconds | Notify user if partner hasn't joined yet |
 | **Ghost Session Cleanup** | 60 seconds | Delete sessions where no users connected after match |
+| **Solo Session Warning** | 4 minutes | Warn user if partner never joined |
+| **Solo Session Timeout** | 5 minutes | Terminate sessions with only 1 user connected |
 | **Rejoin Grace Period** | 2 minutes | Allow reconnection after accidental disconnect |
-| **Inactivity Timeout** | 30 minutes | Expire sessions with no activity (handles AFK users) |
+| **Inactivity Timeout (AFK)** | 30 minutes | Expire sessions with no activity (both users idle) |
 | **Y.Doc Garbage Collection** | 5 minutes | Clean up in-memory documents with no connected clients |
 
 ### Automatic Cleanup
@@ -72,9 +74,9 @@ The Collaboration Service runs periodic cleanup every **5 minutes** to:
 - Users must start a new session to continue
 
 **Partner Never Joins:**
-- Warning appears after 10 seconds
-- Session auto-deleted after 60 seconds if no connections
-- Prevents orphaned "ghost" sessions
+- Warning appears after 10 seconds if partner hasn't connected
+- If no one connects: Session auto-deleted after 60 seconds (prevents ghost sessions)
+- If only 1 user connects: Warning at 4 minutes, auto-terminated at 5 minutes (prevents session hogging)
 
 For detailed session management implementation, see [Session Management Improvements](./SESSION_MANAGEMENT_IMPROVEMENTS.md).
 

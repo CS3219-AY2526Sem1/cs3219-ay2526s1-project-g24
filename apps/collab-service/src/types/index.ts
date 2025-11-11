@@ -63,7 +63,7 @@ export interface JWTPayload {
 }
 
 // Express Request with Auth
-export interface AuthRequest extends Request {
+export interface AuthRequest extends Omit<Request, 'user'> {
     user?: JWTPayload;
 }
 

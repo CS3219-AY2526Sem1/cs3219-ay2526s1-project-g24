@@ -540,10 +540,93 @@ export class SessionService {
                     await this.deleteSession(sessionId);
                     
                     console.log(`✅ Ghost session ${sessionId} cleaned up`);
+                } else {
+                    // If someone connected, schedule solo session cleanup check
+                    this.scheduleSoloSessionCleanup(sessionId);
                 }
             } catch (error) {
                 console.error(`Failed to cleanup ghost session ${sessionId}:`, error);
             }
         }, GHOST_SESSION_TIMEOUT_MS);
+    }
+
+    /**
+     * Schedule automatic cleanup of solo sessions (where only 1 user is connected).
+     * After 5 minutes, if still only 1 user, terminate the session.
+     * User receives a warning after 4 minutes.
+     */
+    private static scheduleSoloSessionCleanup(sessionId: string): void {
+        const SOLO_WARNING_MS = 240000; // 4 minutes
+        const SOLO_TIMEOUT_MS = 300000; // 5 minutes
+
+        // Warning after 4 minutes
+        setTimeout(async () => {
+            try {
+                const session = await this.getSession(sessionId);
+                if (!session || session.status !== 'ACTIVE') return;
+
+                const clientCount = YjsService.getClientCount(sessionId);
+                if (clientCount === 1) {
+                    console.warn(`⚠️  Solo session warning: ${sessionId} (1 user for 4 minutes)`);
+                    // The warning will be handled by the frontend via WebSocket awareness
+                }
+            } catch (error) {
+                console.error(`Failed to warn solo session ${sessionId}:`, error);
+            }
+        }, SOLO_WARNING_MS);
+
+        // Terminate after 5 minutes
+        setTimeout(async () => {
+            try {
+                const session = await this.getSession(sessionId);
+                if (!session || session.status !== 'ACTIVE') return;
+
+                const clientCount = YjsService.getClientCount(sessionId);
+                if (clientCount === 1) {
+                    console.warn(`⏱️  Solo session timeout: ${sessionId} (only 1 user after 5 minutes)`);
+                    await this.terminateSessionBySystem(sessionId, 'Partner never joined - session expired');
+                    console.log(`✅ Solo session ${sessionId} terminated`);
+                }
+            } catch (error) {
+                console.error(`Failed to terminate solo session ${sessionId}:`, error);
+            }
+        }, SOLO_TIMEOUT_MS);
+    }
+
+    /**
+     * System-initiated session termination (no user authorization needed)
+     * Used for timeouts and cleanup operations
+     */
+    private static async terminateSessionBySystem(sessionId: string, reason: string): Promise<void> {
+        try {
+            const session = await this.getSession(sessionId);
+            if (!session || session.status !== 'ACTIVE') return;
+
+            await prisma.session.update({
+                where: { sessionId },
+                data: {
+                    status: 'TERMINATED',
+                    terminatedAt: new Date(),
+                },
+            });
+
+            console.log(`🔚 Session ${sessionId} terminated by system: ${reason}`);
+
+            // Clean up Y.Doc and notify via WebSocket
+            await YjsService.deleteDocument(sessionId);
+
+            // Import and notify via WebSocket
+            try {
+                const { getWebSocketHandler } = await import('../websocket/handler.js');
+                const wsHandler = getWebSocketHandler();
+                if (wsHandler) {
+                    wsHandler.closeSessionConnections(sessionId, reason);
+                }
+            } catch (error) {
+                console.error('Failed to notify WebSocket clients:', error);
+            }
+        } catch (error) {
+            console.error(`Failed to terminate session ${sessionId}:`, error);
+        }
     }
 }
