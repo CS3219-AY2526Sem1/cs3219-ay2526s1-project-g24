@@ -4,8 +4,9 @@ import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import withAuth from "@/components/withAuth";
+import DifficultyTag from "@/components/DifficultyTag";
+import LoadingSpinner from "@/components/LoadingSpinner";
 import { getUserStats, getUserSolvedQuestions, getQuestionCounts, UserStats, UserSolvedQuestion } from "@/lib/api/questionService";
-import { getDifficultyStyles } from "@/lib/difficulty";
 
 function ProfileStats() {
     const router = useRouter();
@@ -50,6 +51,10 @@ function ProfileStats() {
         if (total === 0) return 0;
         return Math.min((solved / total) * 100, 100);
     };
+
+    if (isLoading) {
+        return <LoadingSpinner message="Loading statistics..." />;
+    }
 
     return (
         <div className="min-h-screen bg-[#333232] relative overflow-hidden font-montserrat">
@@ -212,7 +217,7 @@ function ProfileStats() {
                                             <div
                                                 key={question.question_id}
                                                 onClick={() => router.push(`/practice/${question.question_id}`)}
-                                                className="bg-[#2d2d2d] border border-[#4a4a4a] rounded-lg px-6 py-4 flex items-center justify-between hover:bg-[#353535] transition-colors cursor-pointer"
+                                                className="bg-[#2d2d2d] border border-white/10 rounded-2xl px-6 py-4 flex items-center justify-between hover:bg-[#353535] transition-colors cursor-pointer shadow-[0_0_12px_rgba(255,255,255,0.08)]"
                                             >
                                                 <div className="flex items-center gap-4 flex-1">
                                                     <svg className="w-5 h-5 text-[#4ade80] flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
@@ -229,9 +234,7 @@ function ProfileStats() {
                                                             {question.best_runtime_ms}ms
                                                         </span>
                                                     )}
-                                                    <span className={`text-xs px-3 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
-                                                        {question.difficulty}
-                                                    </span>
+                                                    <DifficultyTag difficulty={question.difficulty} />
                                                 </div>
                                             </div>
                                         ))}

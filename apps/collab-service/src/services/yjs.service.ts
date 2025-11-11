@@ -245,6 +245,9 @@ export class YjsService {
                 this.updateHandlers.delete(sessionId);
             }
 
+            // Clear Redis cache
+            await this.clearRedisCache(sessionId);
+
         } catch (error) {
             ErrorHandler.logError(error, 'Redis teardown failed', { sessionId });
         }
@@ -310,6 +313,14 @@ export class YjsService {
     }
 
     /**
+     * Check if a session has any active clients connected
+     */
+    static hasActiveClients(sessionId: string): boolean {
+        const yjsDoc = this.documents.get(sessionId);
+        return yjsDoc ? yjsDoc.connectedClients.size > 0 : false;
+    }
+
+    /**
      * Get the current state of a document as Uint8Array
      */
     static getState(sessionId: string): Uint8Array | null {
@@ -342,9 +353,9 @@ export class YjsService {
     }
 
     /**
-     * Delete a document from cache
+     * Delete a document from cache and Redis
      */
-    static deleteDocument(sessionId: string): void {
+    static async deleteDocument(sessionId: string): Promise<void> {
         const yjsDoc = this.documents.get(sessionId);
         if (yjsDoc) {
             // Clean up awareness
@@ -354,12 +365,31 @@ export class YjsService {
             yjsDoc.doc.destroy();
 
             // Teardown Redis integration asynchronously
-            void this.teardownRedisIntegration(sessionId).catch(err => {
-                console.error(`[Redis] Error tearing down ${sessionId}:`, err);
-            });
+            await this.teardownRedisIntegration(sessionId);
 
             this.documents.delete(sessionId);
             console.log(`🗑️  Deleted Y.Doc for session ${sessionId}`);
+        } else {
+            // Even if not in memory, still clear Redis cache
+            await this.clearRedisCache(sessionId);
+        }
+    }
+
+    /**
+     * Clear Redis cache for a session
+     */
+    private static async clearRedisCache(sessionId: string): Promise<void> {
+        try {
+            const redis = getRedisClient();
+            const stateKey = `${this.REDIS_STATE_KEY_PREFIX}${sessionId}:state`;
+
+            const deleted = await redis.del(stateKey);
+            if (deleted > 0) {
+                console.log(`[Redis] ✓ Cleared cache for session ${sessionId}`);
+            }
+        } catch (error) {
+            ErrorHandler.logError(error, 'Failed to clear Redis cache', { sessionId });
+            // Non-fatal - continue
         }
     }
 

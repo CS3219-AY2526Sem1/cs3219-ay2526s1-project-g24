@@ -23,6 +23,70 @@ Each microservice is located in its own folder within this repository.
 - **Custom Data Structures:** Automatic handling of LinkedList and TreeNode problems with commented helper class definitions
 - **Code Execution:** Real-time code execution with test case validation powered by Judge0
 - **Comprehensive Testing:** 138 passing tests with 92% code coverage in Question Service
+- **Security:** ALB restricted to Cloudflare IPs only - prevents DDoS bypass attacks
+- **Session Management:** Automatic timeout handling, ghost session cleanup, and reconnection support
+
+### Deployment
+- **AWS EKS:** Kubernetes 1.30 with auto-scaling (Karpenter)
+- **Infrastructure as Code:** Terraform for reproducible deployments
+- **CI/CD:** GitHub Actions with automated cluster spin up/down
+- **Container Registry:** GitHub Container Registry (GHCR)
+- **Security:** Network-level protection - ALB only accepts traffic from Cloudflare IP ranges
+- **Cost Optimization:** Auto spin-down saves ~$110/month when idle
+
+For detailed deployment instructions, see [Infrastructure Setup Guide](./infra/SETUP_GUIDE.md).
+
+---
+## Session Management & Timeouts
+
+PeerPrep includes automatic session management to prevent resource hogging and handle AFK users:
+
+### Timeout Periods
+
+| Timeout Type | Duration | Purpose |
+|--------------|----------|---------|
+| **Partner Presence Warning** | 10 seconds | Notify user if partner hasn't joined yet |
+| **Ghost Session Cleanup** | 60 seconds (1 min) | Delete sessions where no users connected after match |
+| **Solo Session Warning** | 4 minutes | Warn user if partner never joined |
+| **Solo Session Timeout** | 5 minutes | Terminate sessions with only 1 user connected |
+| **Rejoin Grace Period** | 10 minutes | Allow reconnection after disconnect |
+| **Inactivity Timeout (AFK)** | 30 minutes | Expire sessions with no activity (both users idle) |
+| **Cleanup Interval** | 5 minutes | How often to check for stale sessions |
+| **Y.Doc Garbage Collection** | 5 minutes | Clean up in-memory documents with no connected clients |
+
+### Automatic Cleanup
+
+The Collaboration Service runs periodic cleanup every **5 minutes** to:
+1. Expire sessions inactive for > 30 minutes
+2. Free up server resources
+3. Prevent indefinite session hogging
+
+### User Experience
+
+**Active Session:**
+- Real-time presence indicator shows partner connection status (green dot = partner present)
+- Session persists in localStorage for easy reconnection
+- Connection status displayed in top-left corner (🟢 connected | 🟡 connecting | 🔴 error | 🟠 ended)
+- **End Session** button (red) - terminates session for both users
+
+**Session Ended:**
+- When partner clicks "End Session", both users are disconnected
+- Status changes to 🟠 **ended** with orange indicator
+- Single notification toast: "Your partner has ended the session"
+- **No reconnection spam** - automatic reconnect is disabled
+- **Return to Home** button (gray) appears - navigates user back to home page
+
+**Inactive Session (30+ minutes):**
+- Session automatically expires
+- Status changed to `EXPIRED` in database
+- Resources freed up for other users
+- Users must start a new session to continue
+
+**Partner Never Joins:**
+- Warning appears after 10 seconds if partner hasn't connected
+- If no one connects: Session auto-deleted after 60 seconds (prevents ghost sessions)
+- If only 1 user connects: Warning at 4 minutes, auto-terminated at 5 minutes (prevents session hogging)
+
 ---
 ## Cross-Service Authentication (JWT)
 

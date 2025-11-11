@@ -21,6 +21,10 @@ model Session {
   user1Id        String
   user2Id        String
   
+  // Track user connections
+  user1Connected Boolean       @default(true)
+  user2Connected Boolean       @default(true)
+  
   // Question context
   questionId     String
   difficulty     String

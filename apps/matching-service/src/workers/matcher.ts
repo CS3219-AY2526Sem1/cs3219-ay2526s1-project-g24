@@ -165,32 +165,36 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
                 "🎯 Creating collaboration session for matched users",
             );
 
-            const mergedTopics = [
-                ...new Set([...req1.topics.split(","), ...req2.topics.split(",")]),
-            ];
-            const mergedLanguages = [
-                ...new Set([
-                    ...req1.languages.split(","),
-                    ...req2.languages.split(","),
-                ]),
-            ];
+            // Get only the OVERLAPPING topics (intersection), not merged (union)
+            // This ensures the question matches what BOTH users selected
+            const topics1 = req1.topics.split(",").map(t => t.trim()).filter(t => t.length > 0);
+            const topics2 = req2.topics.split(",").map(t => t.trim()).filter(t => t.length > 0);
+            const overlappingTopics = topics1.filter(t => topics2.includes(t));
+            
+            // Get only the OVERLAPPING languages (intersection)
+            const langs1 = req1.languages.split(",").map(l => l.trim()).filter(l => l.length > 0);
+            const langs2 = req2.languages.split(",").map(l => l.trim()).filter(l => l.length > 0);
+            const overlappingLanguages = langs1.filter(l => langs2.includes(l));
 
             logger.info(
                 {
-                    mergedTopics,
-                    mergedTopicsType: Array.isArray(mergedTopics) ? 'array' : typeof mergedTopics,
-                    mergedLanguages,
+                    overlappingTopics,
+                    overlappingLanguages,
                     difficulty,
+                    user1Topics: topics1,
+                    user2Topics: topics2,
+                    user1Languages: langs1,
+                    user2Languages: langs2,
                 },
-                "📋 Merged topics and languages for session creation",
+                "📋 Using overlapping topics and languages for session creation",
             );
 
             const session = await createSession(
                 {
                     difficulty,
                     userIds: [req1.userId, req2.userId],
-                    topics: mergedTopics,
-                    languages: mergedLanguages,
+                    topics: overlappingTopics,
+                    languages: overlappingLanguages,
                 },
                 authToken, // Pass token for JWKS auth, or undefined for mock auth
             );
@@ -292,6 +296,8 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
                     req2Id: item2.reqId,
                     sessionId: session.sessionId,
                     questionId: session.questionId,
+                    questionMatchType: session.questionMatchType,
+                    language: session.language,
                 },
                 "📢 Publishing match events to both users",
             );
@@ -300,6 +306,8 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
                 status: "matched" as const,
                 sessionId: session.sessionId,
                 ...(session.questionId && { questionId: session.questionId }),
+                ...(session.questionMatchType && { questionMatchType: session.questionMatchType }),
+                ...(session.language && { language: session.language }),
                 timestamp: Date.now(),
             };
 
@@ -309,6 +317,7 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
                     reqId: item1.reqId,
                     sessionId: session.sessionId,
                     questionId: session.questionId,
+                    language: session.language,
                 },
                 "✉️ Event published for user 1",
             );
@@ -319,6 +328,7 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
                     reqId: item2.reqId,
                     sessionId: session.sessionId,
                     questionId: session.questionId,
+                    language: session.language,
                 },
                 "✉️ Event published for user 2",
             );

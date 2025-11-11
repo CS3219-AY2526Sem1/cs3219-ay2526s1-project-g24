@@ -4,6 +4,20 @@ node_modules/
 # pnpm-specific files
 .pnpm-store/
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
 # Build output
 dist/
 build/

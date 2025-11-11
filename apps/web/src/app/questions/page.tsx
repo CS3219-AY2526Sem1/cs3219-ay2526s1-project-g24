@@ -3,9 +3,18 @@
 import Link from "next/link";
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getDifficultyStyles } from "@/lib/difficulty";
+import DifficultyTag from "@/components/DifficultyTag";
 import withAuth from "@/components/withAuth";
-import { getQuestions, getTopics, getCompanies, getRandomQuestion, QuestionListItem, TopicResponse, CompanyResponse } from "@/lib/api/questionService";
+import LoadingSpinner from "@/components/LoadingSpinner";
+import {
+    getQuestions,
+    getTopics,
+    getCompanies,
+    getRandomQuestion,
+    QuestionListItem,
+    TopicResponse,
+    CompanyResponse,
+} from "@/lib/api/questionService";
 
 function Questions() {
     const router = useRouter();
@@ -16,12 +25,13 @@ function Questions() {
     const [companyFilter, setCompanyFilter] = useState<number | null>(null);
     const [difficultyFilter, setDifficultyFilter] = useState('All difficulty');
     const [statusFilter, setStatusFilter] = useState<'all' | 'attempted' | 'not-attempted' | 'solved' | 'unsolved'>('all');
-    
+
     // API state
     const [questions, setQuestions] = useState<QuestionListItem[]>([]);
     const [topics, setTopics] = useState<TopicResponse[]>([]);
     const [companies, setCompanies] = useState<CompanyResponse[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    const [isInitialLoad, setIsInitialLoad] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const [page, _setPage] = useState(1);
     const [, setTotalQuestions] = useState(0);
@@ -80,19 +90,20 @@ function Questions() {
                     solved_only: statusFilter === 'solved',
                     unsolved_only: statusFilter === 'unsolved',
                 });
-                
+
                 // Client-side filter for "not-attempted" since backend doesn't support it directly
                 let filteredQuestions = data.questions;
                 if (statusFilter === 'not-attempted') {
                     filteredQuestions = data.questions.filter(q => !q.is_attempted);
                 }
-                
+
                 setQuestions(filteredQuestions);
                 setTotalQuestions(statusFilter === 'not-attempted' ? filteredQuestions.length : data.total);
             } catch (err) {
                 setError(err instanceof Error ? err.message : 'Failed to load questions');
             } finally {
                 setIsLoading(false);
+                setIsInitialLoad(false);
             }
         };
 
@@ -117,7 +128,7 @@ function Questions() {
                 topic_ids: topicFilter !== null ? topicFilter.toString() : undefined,
                 company_ids: companyFilter !== null ? companyFilter.toString() : undefined
             });
-            
+
             if (randomQuestion) {
                 router.push(`/practice/${randomQuestion.id}`);
             }
@@ -125,6 +136,10 @@ function Questions() {
             console.error('Failed to get random question:', err);
         }
     };
+
+    if (isInitialLoad) {
+        return <LoadingSpinner message="Loading questions..." />;
+    }
 
     return (
         <div className="min-h-screen bg-[#333232] relative overflow-hidden font-montserrat">
@@ -262,51 +277,46 @@ function Questions() {
                     <div className="flex gap-3 mb-8">
                         <button
                             onClick={() => setStatusFilter('all')}
-                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
-                                statusFilter === 'all'
-                                    ? 'bg-white/20 text-white border-2 border-white/40'
-                                    : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
-                            }`}
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${statusFilter === 'all'
+                                ? 'bg-white/20 text-white border-2 border-white/40'
+                                : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
+                                }`}
                         >
                             All
                         </button>
                         <button
                             onClick={() => setStatusFilter('attempted')}
-                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
-                                statusFilter === 'attempted'
-                                    ? 'bg-white/20 text-white border-2 border-white/40'
-                                    : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
-                            }`}
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${statusFilter === 'attempted'
+                                ? 'bg-white/20 text-white border-2 border-white/40'
+                                : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
+                                }`}
                         >
                             Attempted
                         </button>
                         <button
                             onClick={() => setStatusFilter('not-attempted')}
-                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
-                                statusFilter === 'not-attempted'
-                                    ? 'bg-white/20 text-white border-2 border-white/40'
-                                    : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
-                            }`}
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${statusFilter === 'not-attempted'
+                                ? 'bg-white/20 text-white border-2 border-white/40'
+                                : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
+                                }`}
                         >
                             Not Attempted
                         </button>
                         <button
                             onClick={() => setStatusFilter('solved')}
-                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
-                                statusFilter === 'solved'
-                                    ? 'bg-white/20 text-white border-2 border-white/40'
-                                    : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
-                            }`}
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${statusFilter === 'solved'
+                                ? 'bg-white/20 text-white border-2 border-white/40'
+                                : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
+                                }`}
                         >
                             Solved
                         </button>
                         <button
                             onClick={() => setStatusFilter('unsolved')}
-                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${
-                                statusFilter === 'unsolved'
-                                    ? 'bg-white/20 text-white border-2 border-white/40'
-                                    : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
-                            }`}
+                            className={`px-4 py-2 rounded-full font-montserrat text-xs font-medium transition-all ${statusFilter === 'unsolved'
+                                ? 'bg-white/20 text-white border-2 border-white/40'
+                                : 'bg-transparent text-[#9e9e9e] border-2 border-white/10 hover:border-white/20 hover:text-white'
+                                }`}
                         >
                             Unsolved
                         </button>
@@ -317,57 +327,56 @@ function Questions() {
                         <div className="text-center py-12">
                             <p className="text-white text-lg">Loading questions...</p>
                         </div>
-                    ) : error ? (
-                        <div className="text-center py-12">
-                            <p className="text-red-400 text-lg">{error}</p>
-                        </div>
                     ) : questions.length > 0 ? (
                         <div className="space-y-3">
+                            <div className="hidden md:grid grid-cols-[minmax(0,2.4fr)_minmax(0,1.5fr)_minmax(0,1.5fr)_120px] gap-6 px-6 py-3 text-[#9e9e9e] text-sm font-montserrat font-medium">
+                                <div className="flex items-center gap-4">
+                                    <span className="block w-8 h-5" aria-hidden="true"></span>
+                                    <span>Title</span>
+                                </div>
+                                <div className="text-center">Topics</div>
+                                <div className="text-center">Companies</div>
+                                <div className="text-center">Difficulty</div>
+                            </div>
                             {questions.map((question) => (
                                 <div
                                     key={question.id}
                                     onClick={() => handleQuestionClick(question.id)}
-                                    className="bg-[#3a3a3a] border border-[#4a4a4a] rounded-lg px-6 py-5 flex items-center gap-4 hover:bg-[#404040] transition-colors cursor-pointer"
+                                    className="bg-[#3a3a3a] border border-[#4a4a4a] rounded-lg px-6 py-5 flex flex-col gap-4 hover:bg-[#404040] transition-colors cursor-pointer md:grid md:grid-cols-[minmax(0,2.4fr)_minmax(0,1.5fr)_minmax(0,1.5fr)_120px] md:items-center md:gap-6"
                                 >
-                                    {/* Status Indicator */}
-                                    <div className="flex-shrink-0 w-6 h-6 flex items-center justify-center">
-                                        {question.is_solved ? (
-                                            <svg className="w-6 h-6 text-[#4ade80]" fill="currentColor" viewBox="0 0 20 20">
-                                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                                            </svg>
-                                        ) : question.is_attempted ? (
-                                            <svg className="w-5 h-5 text-[#fb923c]" fill="currentColor" viewBox="0 0 20 20">
-                                                <circle cx="10" cy="10" r="8" />
-                                            </svg>
-                                        ) : null}
+                                    <div className="min-w-0 flex items-center gap-4">
+                                        <div className="flex items-center justify-center w-8">
+                                            {question.is_solved ? (
+                                                <svg className="w-6 h-6 text-[#4ade80]" fill="currentColor" viewBox="0 0 20 20">
+                                                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                                                </svg>
+                                            ) : question.is_attempted ? (
+                                                <svg className="w-5 h-5 text-[#fb923c]" fill="currentColor" viewBox="0 0 20 20">
+                                                    <circle cx="10" cy="10" r="8" />
+                                                </svg>
+                                            ) : null}
+                                        </div>
+                                        <h3 className="text-white text-lg font-medium break-words leading-snug">
+                                            {question.title}
+                                        </h3>
                                     </div>
-                                    
-                                    {/* Question Title */}
-                                    <div className="flex-1 min-w-0">
-                                        <h3 className="text-white text-lg font-medium truncate">{question.title}</h3>
-                                    </div>
-                                    
-                                    {/* Topics */}
-                                    <div className="flex-1 text-center">
-                                        <p className="text-[#9e9e9e] text-sm truncate">
-                                            {question.topics.map(t => t.name).join(', ')}
+
+                                    <div className="min-w-0 md:text-center">
+                                        <p className="text-[#9e9e9e] text-sm break-words">
+                                            {question.topics.map((t) => t.name).join(", ")}
                                         </p>
                                     </div>
-                                    
-                                    {/* Companies */}
-                                    <div className="flex-1 text-center">
-                                        <p className="text-[#9e9e9e] text-sm truncate">
-                                            {question.companies.length > 0 
-                                                ? question.companies.map(c => c.name).join(', ')
-                                                : '—'}
+
+                                    <div className="min-w-0 md:text-center">
+                                        <p className="text-[#9e9e9e] text-sm break-words">
+                                            {question.companies.length > 0
+                                                ? question.companies.map((c) => c.name).join(", ")
+                                                : "—"}
                                         </p>
                                     </div>
-                                    
-                                    {/* Difficulty Badge */}
-                                    <div className="flex-shrink-0">
-                                        <span className={`text-xs px-4 py-1.5 rounded-md font-semibold uppercase ${getDifficultyStyles(question.difficulty)}`}>
-                                            {question.difficulty}
-                                        </span>
+
+                                    <div className="flex md:justify-center">
+                                        <DifficultyTag difficulty={question.difficulty} />
                                     </div>
                                 </div>
                             ))}

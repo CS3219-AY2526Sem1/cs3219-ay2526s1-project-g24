@@ -1,7 +1,23 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function Landing() {
+    const { user, loading } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        // If user is authenticated and has completed onboarding, redirect to home
+        if (!loading && user && user.programming_proficiency) {
+            router.replace("/home");
+        }
+    }, [user, loading, router]);
+
+    // Show landing page while checking auth or if user is not authenticated
     return (
         <div className="h-screen bg-[#333232] relative overflow-hidden">
             <div className="fixed inset-0 opacity-20 pointer-events-none z-0">
@@ -20,13 +36,8 @@ export default function Landing() {
                     </div>
                     <div className="flex gap-4">
                         <Link href="/signin">
-                            <button className="glow-button secondary-glow px-6 py-2 rounded-full border border-white/30 text-white font-montserrat font-medium text-sm hover:bg-white/10 transition-all fade-in-up">
-                                Sign In
-                            </button>
-                        </Link>
-                        <Link href="/signin">
                             <button className="glow-button primary-glow bg-white text-[#1e1e1e] px-6 py-2 rounded-full font-montserrat font-medium text-sm hover:scale-105 transition-all fade-in-up">
-                                Get Started
+                                Sign In
                             </button>
                         </Link>
                     </div>

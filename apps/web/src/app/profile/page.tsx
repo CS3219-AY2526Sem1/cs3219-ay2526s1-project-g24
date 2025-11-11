@@ -1,53 +1,57 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useRef, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
-import {
-  getUser,
-  updateUser,
-} from "@/lib/api/userService";
+import { getUser, updateUser } from "@/lib/api/userService";
 import withAuth from "@/components/withAuth";
 import { useAuth } from "@/hooks/useAuth";
 import { User, ProficiencyLevel, ProgrammingLanguage } from "@/lib/types";
+import LoadingSpinner from "@/components/LoadingSpinner";
+
+type EditableUserFields = {
+  username: string;
+  display_name: string;
+  description: string;
+  programming_proficiency: ProficiencyLevel;
+  preferred_language: ProgrammingLanguage;
+};
 
 function Profile() {
   const { logout } = useAuth();
   const router = useRouter();
-  const fileInputRef = useRef<HTMLInputElement>(null);
   const [activeTab, setActiveTab] = useState("Profile");
   const [isEditing, setIsEditing] = useState(false);
-  const [profileImage, setProfileImage] = useState("/bro_profile.png");
   const [user, setUser] = useState<User | null>(null);
-  const [formData, setFormData] = useState<Partial<User>>({
-    username: user ? user.username : "",
-    display_name: user ? user.display_name : "",
-    description: user ? user.description : "",
-    programming_proficiency: user
-      ? user.programming_proficiency
-      : ProficiencyLevel.BEGINNER,
-    preferred_language: user
-      ? user.preferred_language
-      : ProgrammingLanguage.CPP,
+  const [isLoading, setIsLoading] = useState(true);
+  const [formData, setFormData] = useState<EditableUserFields>({
+    username: "",
+    display_name: "",
+    description: "",
+    programming_proficiency: ProficiencyLevel.BEGINNER,
+    preferred_language: ProgrammingLanguage.CPP,
   });
 
   useEffect(() => {
     const fetchUser = async () => {
+      setIsLoading(true);
       try {
         const userData = await getUser();
         setUser(userData);
+        const name = userData.display_name || userData.username || userData.email?.split('@')[0] || "";
         setFormData({
-          username: userData.username,
-          display_name: userData.display_name,
-          description: userData.description,
-          programming_proficiency: userData.programming_proficiency,
-          preferred_language: userData.preferred_language,
+          username: name,
+          display_name: userData.display_name ?? "",
+          description: userData.description ?? "",
+          programming_proficiency: userData.programming_proficiency ?? ProficiencyLevel.BEGINNER,
+          preferred_language: userData.preferred_language ?? ProgrammingLanguage.CPP,
         });
-        setProfileImage(userData.avatar_url || "/bro_profile.png");
       } catch (error) {
         console.error("Failed to fetch user", error);
         // Handle error, e.g., redirect to login
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -61,27 +65,28 @@ function Profile() {
     { name: "Profile", href: "/profile" },
   ];
 
+  const avatarSrc = user?.avatar_url ?? "/bro_profile.png";
+
   const handleEditToggle = async () => {
     if (isEditing) {
       try {
-        console.log('Attempting to update user with data:', formData);
-        
-        // Build update payload with only valid fields
-        const updatePayload: Partial<User> = {};
-        if (formData.username) updatePayload.username = formData.username;
-        if (formData.display_name) updatePayload.display_name = formData.display_name;
-        if (formData.description !== undefined) updatePayload.description = formData.description;
-        if (formData.programming_proficiency) updatePayload.programming_proficiency = formData.programming_proficiency;
-        if (formData.preferred_language) updatePayload.preferred_language = formData.preferred_language;
-        if (formData.avatar_url) updatePayload.avatar_url = formData.avatar_url;
-        
-        console.log('Update payload:', updatePayload);
-        
-        const updatedUser = await updateUser(updatePayload);
-        console.log('User updated successfully:', updatedUser);
+        const updatedUser = await updateUser({
+          // username is not editable - it's pulled from Google account
+          display_name: formData.display_name,
+          description: formData.description,
+          programming_proficiency: formData.programming_proficiency,
+          preferred_language: formData.preferred_language,
+        });
         setUser(updatedUser);
-        // Update profile image from the saved user data
-        setProfileImage(updatedUser.avatar_url || "/bro_profile.png");
+        // Use display_name, username, or derive from email for the name field
+        const name = updatedUser.display_name || updatedUser.username || updatedUser.email?.split('@')[0] || "";
+        setFormData({
+          username: name,
+          display_name: updatedUser.display_name ?? "",
+          description: updatedUser.description ?? "",
+          programming_proficiency: updatedUser.programming_proficiency ?? ProficiencyLevel.BEGINNER,
+          preferred_language: updatedUser.preferred_language ?? ProgrammingLanguage.CPP,
+        });
         setIsEditing(false);
       } catch (error) {
         console.error("Failed to update user", error);
@@ -89,71 +94,6 @@ function Profile() {
       }
     } else {
       setIsEditing(true);
-    }
-  };
-
-  const handleImageClick = () => {
-    if (isEditing) {
-      fileInputRef.current?.click();
-    }
-  };
-
-  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      // Check file size (max 5MB)
-      if (file.size > 5 * 1024 * 1024) {
-        alert("Image size should be less than 5MB");
-        return;
-      }
-
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const img = document.createElement('img');
-        img.onload = () => {
-          // Create canvas to resize image
-          const canvas = document.createElement('canvas');
-          const ctx = canvas.getContext('2d');
-          
-          // Set max dimensions
-          const MAX_WIDTH = 400;
-          const MAX_HEIGHT = 400;
-          let width = img.width;
-          let height = img.height;
-
-          // Calculate new dimensions
-          if (width > height) {
-            if (width > MAX_WIDTH) {
-              height = (height * MAX_WIDTH) / width;
-              width = MAX_WIDTH;
-            }
-          } else {
-            if (height > MAX_HEIGHT) {
-              width = (width * MAX_HEIGHT) / height;
-              height = MAX_HEIGHT;
-            }
-          }
-
-          canvas.width = width;
-          canvas.height = height;
-          ctx?.drawImage(img, 0, 0, width, height);
-
-          // Convert to base64 with compression (0.8 quality)
-          const compressedBase64 = canvas.toDataURL('image/jpeg', 0.8);
-          
-          console.log('Original size:', file.size, 'bytes');
-          console.log('Compressed size:', Math.round(compressedBase64.length * 0.75), 'bytes');
-          
-          setProfileImage(compressedBase64);
-          // Update the avatar_url in the form data
-          setFormData((prev) => ({
-            ...prev,
-            avatar_url: compressedBase64,
-          }));
-        };
-        img.src = reader.result as string;
-      };
-      reader.readAsDataURL(file);
     }
   };
 
@@ -165,17 +105,22 @@ function Profile() {
   const handleCancelEdit = () => {
     // Reset form data to original user data
     if (user) {
+      // Use display_name, username, or derive from email for the name field
+      const name = user.display_name || user.username || user.email?.split('@')[0] || "";
       setFormData({
-        username: user.username,
-        display_name: user.display_name,
-        description: user.description,
-        programming_proficiency: user.programming_proficiency,
-        preferred_language: user.preferred_language,
+        username: name,
+        display_name: user.display_name ?? "",
+        description: user.description ?? "",
+        programming_proficiency: user.programming_proficiency ?? ProficiencyLevel.BEGINNER,
+        preferred_language: user.preferred_language ?? ProgrammingLanguage.CPP,
       });
-      setProfileImage(user.avatar_url || "/bro_profile.png");
     }
     setIsEditing(false);
   };
+
+  if (isLoading) {
+    return <LoadingSpinner message="Loading profile..." />;
+  }
 
   return (
     <div className="min-h-screen bg-[#333232] relative overflow-hidden font-montserrat">
@@ -198,11 +143,10 @@ function Profile() {
               <Link
                 key={tab.name}
                 href={tab.href}
-                className={`font-montserrat font-medium text-sm transition-colors ${
-                  activeTab === tab.name
-                    ? "text-white"
-                    : "text-[#9e9e9e] hover:text-white"
-                }`}
+                className={`font-montserrat font-medium text-sm transition-colors ${activeTab === tab.name
+                  ? "text-white"
+                  : "text-[#9e9e9e] hover:text-white"
+                  }`}
                 onClick={() => setActiveTab(tab.name)}
               >
                 {tab.name}
@@ -216,10 +160,10 @@ function Profile() {
         <div className="max-w-4xl mx-auto">
           {/* Profile Avatar and Name */}
           <div className="flex flex-col items-center mb-12">
-            <div className="relative mb-8">
-              <div className={`w-44 h-44 rounded-full bg-profile-avatar flex items-center justify-center overflow-hidden border-4 ${isEditing ? 'border-blue-500' : 'border-profile-avatar'}`}>
+            <div className="mb-8">
+              <div className="w-44 h-44 rounded-full bg-profile-avatar flex items-center justify-center overflow-hidden border-4 border-profile-avatar">
                 <Image
-                  src={profileImage}
+                  src={avatarSrc}
                   alt="Profile"
                   width={176}
                   height={176}
@@ -227,57 +171,29 @@ function Profile() {
                   unoptimized
                 />
               </div>
-              {isEditing && (
-                <button
-                  onClick={handleImageClick}
-                  className="absolute bottom-2 right-2 w-10 h-10 bg-blue-500 text-white rounded-full flex items-center justify-center shadow-lg hover:bg-blue-600 transition-colors cursor-pointer"
-                  title="Change profile picture"
-                >
-                  <svg
-                    width="20"
-                    height="20"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                    <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                  </svg>
-                </button>
-              )}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                onChange={handleImageChange}
-                className="hidden"
-              />
             </div>
-            {isEditing && (
-              <p className="text-sm text-blue-400 mb-4 text-center">
-                Click the edit icon to change your profile picture
-              </p>
-            )}
-            <h2 className="font-montserrat text-6xl font-semibold text-white text-center">
-              {formData.display_name}
+            <h2 className="font-montserrat text-5xl md:text-6xl font-semibold text-white text-center">
+              {formData.display_name || formData.username || "PeerPrep User"}
             </h2>
+            <button
+              onClick={() => router.push('/profile/stats')}
+              className="mt-6 glow-button primary-glow bg-white text-[#1e1e1e] px-10 py-3 rounded-full font-montserrat font-medium transition-all hover:scale-105"
+            >
+              View My Stats
+            </button>
           </div>
 
           {/* Form Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-            {/* Username */}
+            {/* Name (Username - Read-only, pulled from Google account) */}
             <div>
               <label className="block text-white font-semibold text-sm mb-3">
-                Username
+                Name
               </label>
               <input
                 type="text"
-                value={formData.username}
-                onChange={(e) =>
-                  setFormData({ ...formData, username: e.target.value })
-                }
-                disabled={!isEditing}
+                value={formData.username || "Loading..."}
+                disabled // Name is always read-only (from Google account)
                 className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white focus:outline-none focus:border-white/40 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               />
             </div>
@@ -416,25 +332,18 @@ function Profile() {
 
           {/* Action Buttons */}
           <div className="flex flex-col items-center gap-4">
-            <button
-              onClick={() => router.push('/profile/stats')}
-              className="bg-gradient-to-r from-[#4ade80] to-[#22c55e] text-white hover:from-[#22c55e] hover:to-[#16a34a] px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-all hover:scale-105"
-            >
-              View My Stats
-            </button>
-
-            <div className="flex gap-4">
+            <div className="flex flex-wrap justify-center gap-4">
               {isEditing ? (
                 <>
                   <button
                     onClick={handleEditToggle}
-                    className="bg-green-500 text-white hover:bg-green-600 px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-colors"
+                    className="glow-button primary-glow bg-white text-[#1e1e1e] px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-all hover:scale-105"
                   >
                     Save Changes
                   </button>
                   <button
                     onClick={handleCancelEdit}
-                    className="bg-gray-600 text-white hover:bg-gray-700 px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-colors"
+                    className="glow-button secondary-glow border border-white/30 text-white px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-all hover:bg-white/10 hover:scale-105"
                   >
                     Cancel
                   </button>
@@ -442,7 +351,7 @@ function Profile() {
               ) : (
                 <button
                   onClick={handleEditToggle}
-                  className="bg-white text-[#1e1e1e] hover:bg-gray-100 px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-colors"
+                  className="glow-button primary-glow bg-white text-[#1e1e1e] px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-all hover:scale-105"
                 >
                   Edit Profile
                 </button>
@@ -451,7 +360,7 @@ function Profile() {
 
             <button
               onClick={handleLogout}
-              className="border-2 border-white/40 text-white hover:bg-white/10 px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-colors"
+              className="glow-button secondary-glow border border-white/30 text-white px-12 py-3.5 text-base rounded-full font-montserrat font-medium transition-all hover:bg-white/10 hover:scale-105"
             >
               Log Out
             </button>

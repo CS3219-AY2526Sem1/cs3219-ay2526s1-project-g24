@@ -39,13 +39,27 @@ function Wait() {
           console.log('🎉 Match found! Persisting session data:', {
             sessionId: event.sessionId,
             questionId: event.questionId,
+            questionMatchType: event.questionMatchType,
+            language: event.language,
           });
 
           persistActiveSession(event.sessionId, event.questionId || undefined);
 
+          // Store match type for displaying info to user
+          if (event.questionMatchType) {
+            sessionStorage.setItem('questionMatchType', event.questionMatchType);
+          }
+
+          // Store language for the session
+          if (event.language) {
+            sessionStorage.setItem('sessionLanguage', event.language);
+          }
+
           console.log('📦 SessionStorage contents:', {
             sessionId: sessionStorage.getItem('sessionId'),
             questionId: sessionStorage.getItem('questionId'),
+            questionMatchType: sessionStorage.getItem('questionMatchType'),
+            sessionLanguage: sessionStorage.getItem('sessionLanguage'),
             matchRequestId: sessionStorage.getItem('matchRequestId'),
             matchUserId: sessionStorage.getItem('matchUserId'),
           });
@@ -137,7 +151,9 @@ function Wait() {
         <>
           <h2 className='font-montserrat text-4xl font-semibold text-white mb-4'>Finding your coding partner...</h2>
 
-          <p className='font-montserrat text-white text-lg mb-8'>We&rsquo;re matching you with someone at your skill level</p>
+          <p className='font-montserrat text-white text-lg mb-8'>
+            We&rsquo;re matching you with someone at your skill level
+          </p>
         </>
       )}
 

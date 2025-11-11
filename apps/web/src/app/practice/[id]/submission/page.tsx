@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { getDifficultyStyles } from '@/lib/difficulty';
+import DifficultyTag from '@/components/DifficultyTag';
 
 // Simple SVG Icon Components
 const CheckCircle = ({ className }: { className?: string }) => (
@@ -55,6 +55,9 @@ interface SubmissionResult {
     memory_percentile?: number;
     timestamp: string;
     language: string;
+    // Collaborative session fields
+    sessionId?: string;
+    isCollaborative?: boolean;
 }
 
 const getStatusConfig = (status: string, passed: number, total: number) => {
@@ -164,13 +167,16 @@ export default function SubmissionResultPage() {
                         </h1>
                         <span className="text-[#9e9e9e] text-sm font-medium">Submission Result</span>
                     </div>
-                    <button
-                        onClick={() => router.push(`/practice/${submission.question_id}`)}
-                        className="flex items-center gap-2 px-4 py-2 bg-transparent border-2 border-white/20 hover:border-white/40 text-white text-sm font-medium transition-colors rounded-full"
-                    >
-                        <ArrowLeft className="w-4 h-4" />
-                        Back to Problem
-                    </button>
+                    {/* Only show "Back to Problem" for solo practice mode */}
+                    {!submission.isCollaborative && (
+                        <button
+                            onClick={() => router.push(`/practice/${submission.question_id}`)}
+                            className="flex items-center gap-2 px-4 py-2 bg-transparent border-2 border-white/20 hover:border-white/40 text-white text-sm font-medium transition-colors rounded-full"
+                        >
+                            <ArrowLeft className="w-4 h-4" />
+                            Back to Problem
+                        </button>
+                    )}
                 </div>
             </header>
 
@@ -188,9 +194,7 @@ export default function SubmissionResultPage() {
 
                                 <div className="flex items-center gap-3 flex-wrap">
                                     <span className="text-white font-medium">{submission.question_title}</span>
-                                    <span className={`text-xs px-3 py-1.5 rounded-full font-semibold uppercase ${getDifficultyStyles(submission.difficulty)}`}>
-                                        {submission.difficulty}
-                                    </span>
+                                    <DifficultyTag difficulty={submission.difficulty} />
                                     <span className="text-[#9e9e9e] text-sm">
                                         {submission.language.charAt(0).toUpperCase() + submission.language.slice(1)}
                                     </span>
@@ -312,15 +316,29 @@ export default function SubmissionResultPage() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-4 mt-8 justify-center">
-                        <button
-                            onClick={() => router.push(`/practice/${submission.question_id}`)}
-                            className="px-6 py-3 bg-transparent border-2 border-white/20 hover:border-white/40 text-white font-medium transition-colors rounded-full"
-                        >
-                            Try Again
-                        </button>
+                        {/* Show "Reconnect to Session" button for collaborative mode */}
+                        {submission.isCollaborative && submission.sessionId && (
+                            <button
+                                onClick={() => router.push('/collaborative-coding')}
+                                className="px-8 py-3 bg-[#F1FCAC] hover:bg-[#e8f09a] text-black font-semibold rounded-full shadow-lg hover:shadow-xl hover:scale-105 transition-all"
+                            >
+                                Reconnect to Session
+                            </button>
+                        )}
+                        
+                        {/* Show "Try Again" only for solo practice */}
+                        {!submission.isCollaborative && (
+                            <button
+                                onClick={() => router.push(`/practice/${submission.question_id}`)}
+                                className="px-6 py-3 bg-transparent border-2 border-white/20 hover:border-white/40 text-white font-medium transition-colors rounded-full"
+                            >
+                                Try Again
+                            </button>
+                        )}
+                        
                         <button
                             onClick={() => router.push('/questions')}
-                            className="px-6 py-3 bg-profile-avatar hover:bg-profile-avatar-hover text-black font-medium transition-colors rounded-full"
+                            className="px-6 py-3 bg-transparent border-2 border-white/20 hover:border-white/40 text-white font-medium transition-colors rounded-full"
                         >
                             Browse Questions
                         </button>

@@ -56,4 +56,8 @@ COPY --from=build /app/apps/matching-service/dist ./apps/matching-service/dist
 # copy the openapi spec file
 COPY --from=build /app/apps/matching-service/openapi ./apps/matching-service/openapi
 
+# Don't run production as root
+RUN addgroup --system --gid 1001 nodejs && adduser --system --uid 1001 matching-service
+USER matching-service
+
 CMD ["node", "apps/matching-service/dist/index.js"]
