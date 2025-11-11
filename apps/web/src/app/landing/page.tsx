@@ -1,7 +1,23 @@
+"use client";
+
 import Image from "next/image";
 import Link from "next/link";
+import { useAuth } from "@/hooks/useAuth";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 export default function Landing() {
+    const { user, loading } = useAuth();
+    const router = useRouter();
+
+    useEffect(() => {
+        // If user is authenticated and has completed onboarding, redirect to home
+        if (!loading && user && user.programming_proficiency) {
+            router.replace("/home");
+        }
+    }, [user, loading, router]);
+
+    // Show landing page while checking auth or if user is not authenticated
     return (
         <div className="h-screen bg-[#333232] relative overflow-hidden">
             <div className="fixed inset-0 opacity-20 pointer-events-none z-0">
