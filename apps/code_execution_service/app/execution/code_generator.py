@@ -240,6 +240,12 @@ def treenode_to_array(root):
             result_conversion = ""
         
         wrapper_code = f'''from typing import List, Optional, Dict, Tuple, Set, Union
+from collections import defaultdict, deque, Counter, OrderedDict
+from heapq import heappush, heappop, heapify, heappushpop, heapreplace, nlargest, nsmallest
+import bisect
+import math
+import itertools
+import functools
 {helper_code}{conversion_functions}{user_code}
 
 if __name__ == "__main__":
@@ -644,6 +650,7 @@ class TreeNode {
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.IOException;
+import java.util.*;
 
 {helper_classes}{user_code}
 
@@ -885,8 +892,17 @@ json treeNodeToArray(TreeNode* root) {
 #include <string>
 #include <stack>
 #include <queue>
+#include <deque>
 #include <unordered_map>
 #include <unordered_set>
+#include <map>
+#include <set>
+#include <algorithm>
+#include <numeric>
+#include <cmath>
+#include <climits>
+#include <utility>
+#include <functional>
 #include "json.hpp"
 
 using namespace std;

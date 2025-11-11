@@ -556,7 +556,60 @@ git status  # Check no secrets leaked
 
 ---
 
-## 💰 Cost Optimization
+## � Security: Restrict ALB to Cloudflare IPs Only
+
+**Why?** Prevent attackers from bypassing Cloudflare's DDoS protection and WAF by accessing your ALB directly.
+
+### Automatic Setup (Recommended)
+
+The Terraform configuration automatically:
+- ✅ Fetches latest Cloudflare IP ranges
+- ✅ Creates security group allowing ONLY Cloudflare IPs
+- ✅ Blocks all direct access to ALB
+- ✅ Supports both IPv4 and IPv6
+
+**Deploy with Cloudflare Security:**
+
+```bash
+# 1. Create security group with Cloudflare IPs
+cd infra/terraform/eks
+terraform init
+terraform apply
+
+# 2. Get the security group ID
+SECURITY_GROUP_ID=$(terraform output -raw alb_security_group_id)
+echo "Security Group ID: $SECURITY_GROUP_ID"
+
+# 3. Update ingress.yaml
+cd ../../k8s
+# Replace ${ALB_SECURITY_GROUP_ID} with the actual ID in ingress.yaml
+# Then apply:
+kubectl apply -f ingress.yaml
+```
+
+### Verify Security
+
+```bash
+# Test direct access to ALB (should FAIL - timeout)
+ALB_DNS=$(kubectl get ingress cs3219-ingress -n cs3219 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}')
+curl --max-time 10 http://$ALB_DNS
+# Expected: Connection timeout or refused
+
+# Test through Cloudflare (should WORK)
+curl https://your-domain.com
+# Expected: 200 OK
+```
+### What's Protected
+
+✅ **Network-level blocking** - Traffic never reaches ALB if not from Cloudflare
+✅ **DDoS protection enforced** - All traffic must go through Cloudflare
+✅ **WAF rules enforced** - Cannot bypass Cloudflare WAF
+✅ **Rate limiting enforced** - Cannot bypass Cloudflare rate limits
+✅ **Auto-updates** - Terraform fetches latest IPs from Cloudflare's official list
+
+---
+
+## �💰 Cost Optimization
 
 **After confirming everything works**, set up cost optimization:
 

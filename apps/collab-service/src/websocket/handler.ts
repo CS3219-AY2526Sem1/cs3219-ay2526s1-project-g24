@@ -114,6 +114,13 @@ export class WebSocketHandler {
 
                 console.log(`[WebSocket] 🔗 Connection established: user=${userId}, session=${sessionId}`);
 
+                // Mark user as connected in the session
+                try {
+                    await SessionService.rejoinSession(sessionId, userId);
+                } catch (error) {
+                    console.warn('[WebSocket] Failed to mark user as connected (non-critical):', error);
+                }
+
                 // Create Yjs handler for this connection
                 const yjsHandler = new YjsWebSocketHandler(sessionId, userId, authWs);
                 this.connections.set(ws, yjsHandler);

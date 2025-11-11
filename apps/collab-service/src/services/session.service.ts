@@ -142,6 +142,10 @@ export class SessionService {
 
     /**
      * Terminate a session
+     * - Marks session as TERMINATED (prevents reconnection)
+     * - Cleans up in-memory Y.Doc
+     * - Clears Redis cache
+     * - Keeps DB record for history
      */
     static async terminateSession(sessionId: string, userId: string): Promise<Session> {
         try {
@@ -162,14 +166,195 @@ export class SessionService {
 
             console.log(`❌ Session ${sessionId} terminated by ${userId}`);
 
-            // Clean up Y.Doc from memory
-            YjsService.deleteDocument(sessionId);
+            // Clean up Y.Doc from memory and Redis cache
+            await YjsService.deleteDocument(sessionId);
 
             return session as Session;
         } catch (error) {
             if (error instanceof AppError) throw error;
             console.error('Failed to terminate session:', error);
             throw new AppError('Failed to terminate session', 500);
+        }
+    }
+
+    /**
+     * Completely delete a session
+     * - Removes from database (and cascades to snapshots)
+     * - Cleans up in-memory Y.Doc
+     * - Clears Redis cache
+     * Used for cleanup/rollback scenarios
+     */
+    static async deleteSession(sessionId: string): Promise<void> {
+        try {
+            const session = await this.getSession(sessionId);
+            if (!session) {
+                console.log(`[SessionService] ℹ️  Session ${sessionId} not found, already deleted`);
+                return; // Idempotent - already deleted
+            }
+
+            console.log(`🗑️  Deleting session ${sessionId} completely`);
+
+            // Clean up Y.Doc from memory and Redis cache
+            await YjsService.deleteDocument(sessionId);
+
+            // Delete from database (cascades to snapshots)
+            await prisma.session.delete({
+                where: { sessionId },
+            });
+
+            console.log(`✓ Session ${sessionId} completely removed from database`);
+        } catch (error) {
+            console.error('[SessionService] Failed to delete session:', error);
+            throw new AppError('Failed to delete session', 500);
+        }
+    }
+
+    /**
+     * Mark a user as disconnected from the session
+     * If both users disconnect, terminate the session
+     * Uses transaction to prevent race conditions during simultaneous disconnects
+     */
+    static async leaveSession(sessionId: string, userId: string): Promise<Session> {
+        try {
+            // Use a transaction to atomically check and delete if both users disconnect
+            // This prevents race conditions where both users disconnect simultaneously
+            const result = await prisma.$transaction(async (tx) => {
+                // Get session with lock (prevents concurrent modifications)
+                const session = await tx.session.findUnique({
+                    where: { sessionId },
+                });
+
+                if (!session) {
+                    throw new AppError('Session not found', 404);
+                }
+
+                const isUser1 = session.user1Id === userId;
+                const isUser2 = session.user2Id === userId;
+
+                if (!isUser1 && !isUser2) {
+                    throw new AppError('User is not a participant in this session', 403);
+                }
+
+                // Mark the user as disconnected
+                const updateData: { user1Connected?: boolean; user2Connected?: boolean; lastActivityAt?: Date } = {};
+                if (isUser1) {
+                    updateData.user1Connected = false;
+                } else {
+                    updateData.user2Connected = false;
+                }
+
+                // Update lastActivityAt to enable grace period for rejoin prevention
+                updateData.lastActivityAt = new Date();
+
+                const updatedSession = await tx.session.update({
+                    where: { sessionId },
+                    data: updateData,
+                });
+
+                console.log(`👋 User ${userId} left session ${sessionId}`);
+
+                // Check if both users have disconnected
+                // Type assertion needed as Prisma types may not be up to date
+                const sessionWithConnections = updatedSession as any;
+                const bothDisconnected = !sessionWithConnections.user1Connected && !sessionWithConnections.user2Connected;
+
+                if (bothDisconnected) {
+                    console.log(`🔚 Both users disconnected from session ${sessionId}, deleting session...`);
+
+                    // Delete the session from the database within transaction
+                    await tx.session.delete({
+                        where: { sessionId },
+                    });
+
+                    console.log(`🗑️  Session ${sessionId} completely removed from database`);
+                }
+
+                return { session: updatedSession as Session, wasDeleted: bothDisconnected };
+            });
+
+            // Clean up Y.Doc from memory after transaction commits
+            if (result.wasDeleted) {
+                await YjsService.deleteDocument(sessionId);
+            }
+
+            return result.session;
+        } catch (error) {
+            if (error instanceof AppError) throw error;
+            console.error('Failed to leave session:', error);
+            throw new AppError('Failed to leave session', 500);
+        }
+    }
+
+    /**
+     * Mark a user as reconnected to the session
+     */
+    static async rejoinSession(sessionId: string, userId: string): Promise<Session> {
+        try {
+            const session = await this.getSession(sessionId);
+            if (!session) {
+                throw new AppError('Session not found', 404);
+            }
+
+            const isUser1 = session.user1Id === userId;
+            const isUser2 = session.user2Id === userId;
+
+            if (!isUser1 && !isUser2) {
+                throw new AppError('User is not a participant in this session', 403);
+            }
+
+            // Can't rejoin a terminated session
+            if (session.status === 'TERMINATED') {
+                throw new AppError('Cannot rejoin a terminated session', 400);
+            }
+
+            // Prevent race condition: If partner recently disconnected, don't allow rejoin
+            // Check if the OTHER user is still connected
+            const partnerConnected = isUser1
+                ? (session as any).user2Connected
+                : (session as any).user1Connected;
+
+            if (!partnerConnected) {
+                // Partner has disconnected - check how recently
+                const lastActivityTime = new Date(session.lastActivityAt).getTime();
+                const now = Date.now();
+                const timeSinceActivity = now - lastActivityTime;
+
+                // If partner disconnected recently (within 10 seconds), prevent rejoin
+                // This prevents the race where user disconnects then immediately reconnects
+                // before partner disconnects, which would prevent session deletion
+                const REJOIN_GRACE_PERIOD_MS = 10000; // 10 seconds
+
+                if (timeSinceActivity < REJOIN_GRACE_PERIOD_MS) {
+                    console.warn(`[SessionService] ⚠️ Partner recently disconnected, preventing rejoin to allow session cleanup`, {
+                        sessionId,
+                        userId,
+                        timeSinceActivity,
+                        gracePeriod: REJOIN_GRACE_PERIOD_MS,
+                    });
+                    throw new AppError('Partner has disconnected. Please wait before rejoining or start a new session.', 400);
+                }
+            }
+
+            // Mark the user as connected
+            const updateData: { user1Connected?: boolean; user2Connected?: boolean } = {};
+            if (isUser1) {
+                updateData.user1Connected = true;
+            } else {
+                updateData.user2Connected = true;
+            }
+
+            const updatedSession = await prisma.session.update({
+                where: { sessionId },
+                data: updateData,
+            });
+
+            console.log(`🔄 User ${userId} rejoined session ${sessionId}`);
+
+            return updatedSession as Session;
+        } catch (error) {
+            if (error instanceof AppError) throw error;
+            console.error('Failed to rejoin session:', error);
+            throw new AppError('Failed to rejoin session', 500);
         }
     }
 

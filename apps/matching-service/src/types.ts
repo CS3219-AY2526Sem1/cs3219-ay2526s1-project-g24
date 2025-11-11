@@ -61,6 +61,7 @@ export interface MatchEvent {
     sessionId?: string;
     questionId?: string; // Question ID for the matched session
     questionMatchType?: 'exact' | 'partial' | 'difficulty' | 'random'; // How well the question matched criteria
+    language?: string; // Programming language for the session
     elapsed?: number; // Seconds since request creation
 }
 
@@ -81,6 +82,7 @@ export interface CreateSessionResponse {
     sessionId: string;
     questionId?: string;
     questionMatchType?: 'exact' | 'partial' | 'difficulty' | 'random'; // How well the question matched criteria
+    language?: string; // Programming language for the session
 }
 
 /**

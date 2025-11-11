@@ -293,6 +293,7 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
                     sessionId: session.sessionId,
                     questionId: session.questionId,
                     questionMatchType: session.questionMatchType,
+                    language: session.language,
                 },
                 "📢 Publishing match events to both users",
             );
@@ -302,6 +303,7 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
                 sessionId: session.sessionId,
                 ...(session.questionId && { questionId: session.questionId }),
                 ...(session.questionMatchType && { questionMatchType: session.questionMatchType }),
+                ...(session.language && { language: session.language }),
                 timestamp: Date.now(),
             };
 
@@ -311,6 +313,7 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
                     reqId: item1.reqId,
                     sessionId: session.sessionId,
                     questionId: session.questionId,
+                    language: session.language,
                 },
                 "✉️ Event published for user 1",
             );
@@ -321,6 +324,7 @@ async function attemptMatch(difficulty: Difficulty): Promise<void> {
                     reqId: item2.reqId,
                     sessionId: session.sessionId,
                     questionId: session.questionId,
+                    language: session.language,
                 },
                 "✉️ Event published for user 2",
             );

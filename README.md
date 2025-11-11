@@ -23,6 +23,18 @@ Each microservice is located in its own folder within this repository.
 - **Custom Data Structures:** Automatic handling of LinkedList and TreeNode problems with commented helper class definitions
 - **Code Execution:** Real-time code execution with test case validation powered by Judge0
 - **Comprehensive Testing:** 138 passing tests with 92% code coverage in Question Service
+- **Security:** ALB restricted to Cloudflare IPs only - prevents DDoS bypass attacks
+
+### Deployment
+- **AWS EKS:** Kubernetes 1.30 with auto-scaling (Karpenter)
+- **Infrastructure as Code:** Terraform for reproducible deployments
+- **CI/CD:** GitHub Actions with automated cluster spin up/down
+- **Container Registry:** GitHub Container Registry (GHCR)
+- **Security:** Network-level protection - ALB only accepts traffic from Cloudflare IP ranges
+- **Cost Optimization:** Auto spin-down saves ~$110/month when idle
+
+For detailed deployment instructions, see [Infrastructure Setup Guide](./infra/SETUP_GUIDE.md).
+
 ---
 ## Cross-Service Authentication (JWT)
 
