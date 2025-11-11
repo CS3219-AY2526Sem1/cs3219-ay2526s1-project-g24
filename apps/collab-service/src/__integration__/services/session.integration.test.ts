@@ -139,7 +139,7 @@ describe('SessionService Integration Tests', () => {
                 status: 'ACTIVE',
             });
 
-            await SessionService.terminateSession('terminate-test');
+            await SessionService.terminateSession('terminate-test', 'user-1');
 
             const prisma = TestDatabase.getPrisma();
             const session = await prisma.session.findUnique({

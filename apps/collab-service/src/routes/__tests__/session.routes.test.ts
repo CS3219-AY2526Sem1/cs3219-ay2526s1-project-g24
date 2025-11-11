@@ -16,6 +16,7 @@ jest.mock('../../services/session.service.js', () => ({
         isParticipant: jest.fn(),
         terminateSession: jest.fn(),
         canRejoin: jest.fn(),
+        rejoinSession: jest.fn(),
         getUserActiveSessions: jest.fn(),
     },
 }));
@@ -185,13 +186,14 @@ describe('Session Routes', () => {
             const mockSession = createMockSession({ sessionId: 'session_123' });
 
             (SessionService.canRejoin as jest.Mock).mockResolvedValue(true);
-            (SessionService.getSession as jest.Mock).mockResolvedValue(mockSession);
+            (SessionService.rejoinSession as jest.Mock).mockResolvedValue(mockSession);
 
             const response = await request(app).post('/api/sessions/session_123/rejoin');
 
             expect(response.status).toBe(200);
             expect(response.body.message).toBe('Rejoin authorized');
             expect(SessionService.canRejoin).toHaveBeenCalledWith('session_123', 'user-1');
+            expect(SessionService.rejoinSession).toHaveBeenCalledWith('session_123', 'user-1');
         });
 
         it('should reject if cannot rejoin', async () => {

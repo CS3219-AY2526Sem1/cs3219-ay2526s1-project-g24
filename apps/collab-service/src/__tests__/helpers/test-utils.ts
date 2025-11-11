@@ -14,6 +14,8 @@ export function createMockSession(overrides: Partial<Session> = {}): Session {
         sessionId: 'session_123456',
         user1Id: 'user-1',
         user2Id: 'user-2',
+        user1Connected: false,
+        user2Connected: false,
         questionId: 'question-1',
         difficulty: 'MEDIUM',
         topic: 'Arrays',
