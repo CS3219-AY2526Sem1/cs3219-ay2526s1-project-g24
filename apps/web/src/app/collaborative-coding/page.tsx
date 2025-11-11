@@ -61,6 +61,9 @@ function CollaborativeCodingPage() {
   const [isFromMatchFlow, setIsFromMatchFlow] = useState(false);
   const [isEditorReady, setIsEditorReady] = useState(false);
   const [isLoadingContent, setIsLoadingContent] = useState(false);
+  const [partnerPresent, setPartnerPresent] = useState<boolean>(false);
+  const [waitingForPartner, setWaitingForPartner] = useState<boolean>(false);
+  const partnerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // question + run/submit state
   const [question, setQuestion] = useState<QuestionDetail | null>(null);
@@ -334,6 +337,17 @@ function CollaborativeCodingPage() {
 
       collaborationManagerRef.current.onPresenceUpdate((users) => {
         setConnectedUsers(users);
+        
+        // Detect partner presence (more than just ourselves)
+        const hasPartner = users.length > 1;
+        setPartnerPresent(hasPartner);
+        
+        // Clear timeout if partner joins
+        if (hasPartner && partnerTimeoutRef.current) {
+          clearTimeout(partnerTimeoutRef.current);
+          partnerTimeoutRef.current = null;
+          setWaitingForPartner(false);
+        }
       });
 
       collaborationManagerRef.current.onErrorNotification(handleCollaborationError);
@@ -354,6 +368,19 @@ function CollaborativeCodingPage() {
           if (status === 'connected') {
             addToast('Successfully connected to session', 'success', 3000);
             setIsLoadingContent(true); // Start loading state
+            
+            // Start partner presence timeout (10 seconds)
+            setWaitingForPartner(true);
+            partnerTimeoutRef.current = setTimeout(() => {
+              if (connectedUsers.length === 1) {
+                addToast(
+                  'Your partner hasn\'t joined yet. They may have disconnected or not received the match.',
+                  'warning',
+                  5000
+                );
+                setWaitingForPartner(false);
+              }
+            }, 10000); // 10 seconds
 
             const storedQid = getActiveQuestionId();
             if (storedQid) {
@@ -411,21 +438,22 @@ function CollaborativeCodingPage() {
     }
   };
 
-  // -------------- DISCONNECT --------------
-  const disconnectFromSession = async () => {
+  // -------------- END SESSION --------------
+  const endSession = async () => {
     const confirmed = window.confirm(
-      'Are you sure you want to disconnect?'
+      'Are you sure you want to end this session? This will disconnect both you and your partner.'
     );
     if (!confirmed) return;
 
     const currentSessionId = sessionId;
 
-    // 1. Notify backend FIRST (before frontend cleanup)
+    // 1. Terminate session for BOTH users (backend call)
     if (currentSessionId) {
       try {
-        await collaborationService.leaveSession(currentSessionId);
+        await collaborationService.terminateSession(currentSessionId);
+        console.log('✅ Session terminated for both users');
       } catch (error) {
-        console.error('Failed to notify backend of disconnect:', error);
+        console.error('Failed to terminate session:', error);
         // Continue with local cleanup even if backend call fails
       }
     }
@@ -478,6 +506,12 @@ function CollaborativeCodingPage() {
   // cleanup on unmount
   useEffect(() => {
     return () => {
+      // Clear partner timeout
+      if (partnerTimeoutRef.current) {
+        clearTimeout(partnerTimeoutRef.current);
+        partnerTimeoutRef.current = null;
+      }
+      
       // React unmount - clean up frontend only (WebSocket close will notify backend)
       if (collaborationManagerRef.current) {
         collaborationManagerRef.current.disconnect();
@@ -790,34 +824,64 @@ function CollaborativeCodingPage() {
           <span className='text-gray-400 text-sm'>Collaborative Coding</span>
 
           {/* Session controls */}
-          <div className='flex items-center gap-2'>
+          <div className='flex items-center gap-4'>
             {!sessionId ? (
               <span className='text-sm text-blue-400 animate-pulse'>Connecting to session...</span>
             ) : (
-              <div className='flex items-center gap-1'>
-                <div
-                  className={`w-2 h-2 rounded-full ${
-                    connectionStatus === 'connected'
-                      ? 'bg-[#F1FCAC]'
-                      : connectionStatus === 'connecting'
-                        ? 'bg-yellow-500 animate-pulse'
-                        : connectionStatus === 'error'
-                          ? 'bg-red-500'
-                          : 'bg-gray-500'
-                  }`}
-                />
-                <span className='text-xs text-gray-400'>{connectionStatus}</span>
-              </div>
+              <>
+                <div className='flex items-center gap-1'>
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      connectionStatus === 'connected'
+                        ? 'bg-[#F1FCAC]'
+                        : connectionStatus === 'connecting'
+                          ? 'bg-yellow-500 animate-pulse'
+                          : connectionStatus === 'ended'
+                            ? 'bg-orange-500'
+                            : connectionStatus === 'error'
+                              ? 'bg-red-500'
+                              : 'bg-gray-500'
+                    }`}
+                  />
+                  <span className='text-xs text-gray-400'>{connectionStatus}</span>
+                </div>
+
+                {/* Partner Presence Indicator */}
+                {isConnected && (
+                  <div className='flex items-center gap-1.5 px-2 py-1 bg-[#252525] rounded'>
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        partnerPresent
+                          ? 'bg-green-500'
+                          : waitingForPartner
+                            ? 'bg-yellow-500 animate-pulse'
+                            : 'bg-gray-500'
+                      }`}
+                    />
+                    <span className='text-xs text-gray-300'>
+                      {partnerPresent
+                        ? 'Partner connected'
+                        : waitingForPartner
+                          ? 'Waiting for partner...'
+                          : 'Partner disconnected'}
+                    </span>
+                  </div>
+                )}
+              </>
             )}
           </div>
         </div>
 
         {sessionId && (
           <button
-            onClick={disconnectFromSession}
-            className='px-4 py-1.5 bg-[#dc2626] hover:bg-[#b91c1c] text-white text-sm font-medium transition-colors rounded'
+            onClick={connectionStatus === 'ended' ? () => router.push('/home') : endSession}
+            className={`px-4 py-1.5 text-white text-sm font-medium transition-colors rounded ${
+              connectionStatus === 'ended'
+                ? 'bg-[#4b5563] hover:bg-[#374151]'
+                : 'bg-[#dc2626] hover:bg-[#b91c1c]'
+            }`}
           >
-            Disconnect
+            {connectionStatus === 'ended' ? 'Return to Home' : 'End Session'}
           </button>
         )}
       </header>

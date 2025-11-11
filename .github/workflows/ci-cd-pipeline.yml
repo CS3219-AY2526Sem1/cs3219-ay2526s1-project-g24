@@ -84,6 +84,9 @@ jobs:
         run: pnpm install --frozen-lockfile
 
       - name: Generate Prisma Client & TSOA routes
+        env:
+          USERDB_DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
+          COLLAB_DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
         run: |
           pnpm --filter user_service exec prisma generate
           pnpm --filter collab-service exec prisma generate

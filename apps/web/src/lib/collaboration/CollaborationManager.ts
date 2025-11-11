@@ -17,7 +17,7 @@ const WS_SESSIONS_BASE_URL = normalizedWsBase
 /**
  * Connection status for collaboration session
  */
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error' | 'ended';
 
 /**
  * Error notification callback
@@ -109,6 +109,7 @@ export class CollaborationManager {
     private initialSyncPromise: Promise<void> | null = null;
     private syncHandler: ((isSynced: boolean) => void) | null = null;
     private isSynced = false;
+    private sessionTerminated = false; // Track if session was intentionally terminated
 
     constructor(userName?: string, userColor?: string) {
         this.userName = userName || getRandomName();
@@ -140,6 +141,7 @@ export class CollaborationManager {
         this.initialSyncPromise = null;
         this.syncHandler = null;
         this.isSynced = false;
+        this.sessionTerminated = false;
 
         try {
             // Get Yjs modules (singleton to prevent duplicate imports)
@@ -289,6 +291,12 @@ export class CollaborationManager {
                     // Trigger presence update when connection is established
                     this.handleAwarenessChange();
                 } else if (event.status === 'disconnected') {
+                    // Don't attempt to reconnect if session was terminated
+                    if (this.sessionTerminated) {
+                        console.log('[Collaboration] Session terminated, skipping reconnection');
+                        return;
+                    }
+                    
                     this.reconnectAttempts++;
                     if (this.reconnectAttempts <= this.MAX_RECONNECT_ATTEMPTS) {
                         console.log(`[Collaboration] Reconnecting... (attempt ${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS})`);
@@ -319,14 +327,38 @@ export class CollaborationManager {
 
             this.provider.on('connection-close', (event: any) => {
                 console.warn('[Collaboration] Connection closed:', event);
-                if (event.code === 1006) {
-                    // Abnormal closure
+                if (event.code === 4000) {
+                    // Session terminated intentionally (by partner or system)
+                    // Mark as terminated to prevent reconnection attempts
+                    this.sessionTerminated = true;
+                    
+                    // Destroy the provider to stop reconnection attempts
+                    if (this.provider) {
+                        try {
+                            this.provider.shouldConnect = false; // Disable auto-reconnect
+                            this.provider.destroy();
+                        } catch (error) {
+                            console.error('[Collaboration] Error destroying provider after termination:', error);
+                        }
+                    }
+                    
                     this.notifyError({
-                        code: 'CONNECTION_CLOSED',
-                        message: 'Connection unexpectedly closed. Attempting to reconnect...',
-                        recoverable: true,
+                        code: 'SESSION_TERMINATED',
+                        message: event.reason || 'Your partner has ended the session',
+                        recoverable: false,
                         timestamp: new Date(),
                     });
+                    onStatusChange('ended'); // Use 'ended' status - clearer for users
+                } else if (event.code === 1006) {
+                    // Abnormal closure - only reconnect if session wasn't terminated
+                    if (!this.sessionTerminated) {
+                        this.notifyError({
+                            code: 'CONNECTION_CLOSED',
+                            message: 'Connection unexpectedly closed. Attempting to reconnect...',
+                            recoverable: true,
+                            timestamp: new Date(),
+                        });
+                    }
                 }
             });
 
@@ -404,6 +436,7 @@ export class CollaborationManager {
         this.initialSyncPromise = null;
         this.syncHandler = null;
         this.isSynced = false;
+        this.sessionTerminated = false;
 
         console.log('[Collaboration] Disconnected successfully');
     }

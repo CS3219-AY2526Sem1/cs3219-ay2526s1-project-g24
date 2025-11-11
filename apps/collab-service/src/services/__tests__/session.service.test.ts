@@ -16,6 +16,8 @@ jest.mock('../yjs.service.js', () => ({
     YjsService: {
         getDocument: jest.fn(),
         deleteDocument: jest.fn(),
+        hasActiveClients: jest.fn(),
+        getClientCount: jest.fn(),
     },
 }));
 
@@ -26,6 +28,11 @@ describe('SessionService', () => {
     beforeEach(() => {
         resetPrismaMocks();
         jest.clearAllMocks();
+    });
+
+    afterAll(() => {
+        // Ensure all timers are cleared
+        jest.clearAllTimers();
     });
 
     describe('createSession', () => {
@@ -309,7 +316,7 @@ describe('SessionService', () => {
         });
 
         it('should not allow rejoin after timeout period', async () => {
-            const oldActivity = new Date(Date.now() - 130000); // 2+ minutes ago
+            const oldActivity = new Date(Date.now() - 660000); // 11 minutes ago (> 10 minute timeout)
             const mockSession = createMockSession({
                 user1Id: 'user-1',
                 status: 'ACTIVE',
@@ -454,6 +461,124 @@ describe('SessionService', () => {
             const result = await SessionService.getPartner('nonexistent', 'user-1');
 
             expect(result).toBeNull();
+        });
+    });
+
+    describe('Ghost and Solo Session Cleanup', () => {
+        beforeEach(() => {
+            jest.useFakeTimers();
+        });
+
+        afterEach(() => {
+            // Clear all timers and restore real timers
+            jest.clearAllTimers();
+            jest.useRealTimers();
+        });
+
+        it('should delete ghost session if no one connects after 60 seconds', async () => {
+            const sessionData = {
+                sessionId: 'ghost_session',
+                user1Id: 'user-1',
+                user2Id: 'user-2',
+                questionId: 'question-1',
+                difficulty: 'MEDIUM',
+                topic: 'Arrays',
+            };
+
+            const mockSession = createMockSession(sessionData);
+            mockPrismaClient.session.findUnique.mockResolvedValue(null);
+            mockPrismaClient.session.create.mockResolvedValue(mockSession);
+            (YjsService.hasActiveClients as jest.Mock).mockReturnValue(false);
+
+            // Create session (starts ghost cleanup timer)
+            await SessionService.createSession(sessionData);
+
+            // Mock session still exists after 60 seconds
+            mockPrismaClient.session.findUnique.mockResolvedValue(mockSession);
+            mockPrismaClient.session.delete.mockResolvedValue(mockSession);
+
+            // Fast-forward 60 seconds and run all timers
+            jest.advanceTimersByTime(60000);
+            await jest.runAllTimersAsync();
+
+            expect(YjsService.hasActiveClients).toHaveBeenCalledWith(sessionData.sessionId);
+            expect(mockPrismaClient.session.delete).toHaveBeenCalledWith({
+                where: { sessionId: sessionData.sessionId },
+            });
+        });
+
+        it('should schedule solo session cleanup if 1 user connects after ghost timeout', async () => {
+            const sessionData = {
+                sessionId: 'solo_session',
+                user1Id: 'user-1',
+                user2Id: 'user-2',
+                questionId: 'question-1',
+                difficulty: 'MEDIUM',
+                topic: 'Arrays',
+            };
+
+            const mockSession = createMockSession(sessionData);
+            mockPrismaClient.session.findUnique.mockResolvedValue(null);
+            mockPrismaClient.session.create.mockResolvedValue(mockSession);
+            (YjsService.hasActiveClients as jest.Mock).mockReturnValue(true);
+            (YjsService.getClientCount as jest.Mock).mockReturnValue(1);
+
+            // Create session
+            await SessionService.createSession(sessionData);
+
+            // Mock session still active after ghost timeout (1 user connected)
+            mockPrismaClient.session.findUnique.mockResolvedValue(mockSession);
+
+            // Fast-forward through both timeouts (60s ghost + 300s solo = 360s total)
+            mockPrismaClient.session.update.mockResolvedValue({
+                ...mockSession,
+                status: 'TERMINATED',
+            });
+
+            jest.advanceTimersByTime(360000);
+            await jest.runAllTimersAsync();
+
+            // Session should not be deleted (has 1 connection)
+            expect(mockPrismaClient.session.delete).not.toHaveBeenCalled();
+
+            // Should terminate session after 5 minutes with only 1 user
+            expect(YjsService.getClientCount).toHaveBeenCalledWith(sessionData.sessionId);
+            expect(mockPrismaClient.session.update).toHaveBeenCalledWith({
+                where: { sessionId: sessionData.sessionId },
+                data: {
+                    status: 'TERMINATED',
+                    terminatedAt: expect.any(Date),
+                },
+            });
+        });
+
+        it('should not terminate solo session if 2 users connect', async () => {
+            const sessionData = {
+                sessionId: 'duo_session',
+                user1Id: 'user-1',
+                user2Id: 'user-2',
+                questionId: 'question-1',
+                difficulty: 'MEDIUM',
+                topic: 'Arrays',
+            };
+
+            const mockSession = createMockSession(sessionData);
+            mockPrismaClient.session.findUnique.mockResolvedValue(null);
+            mockPrismaClient.session.create.mockResolvedValue(mockSession);
+            (YjsService.hasActiveClients as jest.Mock).mockReturnValue(true);
+            (YjsService.getClientCount as jest.Mock).mockReturnValue(2);
+
+            // Create session
+            await SessionService.createSession(sessionData);
+
+            mockPrismaClient.session.findUnique.mockResolvedValue(mockSession);
+
+            // Fast-forward through both timeouts (60s ghost + 300s solo)
+            jest.advanceTimersByTime(360000);
+            await jest.runAllTimersAsync();
+
+            // Should not terminate (2 users connected)
+            expect(mockPrismaClient.session.update).not.toHaveBeenCalled();
         });
     });
 });

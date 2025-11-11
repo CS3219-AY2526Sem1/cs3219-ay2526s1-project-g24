@@ -4,6 +4,7 @@ import { connectRedis, disconnectRedis, getRedisPubClient, getRedisSubClient } f
 import { WebSocketHandler } from './websocket/handler.js';
 import { YjsService } from './services/yjs.service.js';
 import { SnapshotService } from './services/snapshot.service.js';
+import { SessionService } from './services/session.service.js';
 import { config } from './config/index.js';
 
 async function main() {
@@ -36,6 +37,9 @@ async function main() {
         // Start periodic snapshot saves to PostgreSQL
         SnapshotService.startPeriodicSnapshots();
 
+        // Start periodic session cleanup (expire stale/AFK sessions)
+        SessionService.startPeriodicCleanup();
+
         // Graceful shutdown
         let isShuttingDown = false;
         const gracefulShutdown = async (signal: string) => {
@@ -55,6 +59,9 @@ async function main() {
 
             // Stop periodic snapshots
             SnapshotService.stopPeriodicSnapshots();
+
+            // Stop session cleanup
+            SessionService.stopPeriodicCleanup();
 
             // Close all WebSocket connections
             await wsHandler.closeAll();

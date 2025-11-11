@@ -313,6 +313,14 @@ export class YjsService {
     }
 
     /**
+     * Check if a session has any active clients connected
+     */
+    static hasActiveClients(sessionId: string): boolean {
+        const yjsDoc = this.documents.get(sessionId);
+        return yjsDoc ? yjsDoc.connectedClients.size > 0 : false;
+    }
+
+    /**
      * Get the current state of a document as Uint8Array
      */
     static getState(sessionId: string): Uint8Array | null {
