@@ -71,4 +71,5 @@ jobs:
       uses: daun/playwright-report-comment@v3
       if: always() && github.event_name == 'pull_request'
       with:
-        report-path: apps/web/playwright-report
+        report-file: apps/web/playwright-report/results.json
+        github-token: ${{ secrets.GITHUB_TOKEN }}
