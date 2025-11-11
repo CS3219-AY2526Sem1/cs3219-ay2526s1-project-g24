@@ -874,15 +874,14 @@ function CollaborativeCodingPage() {
 
         {sessionId && (
           <button
-            onClick={endSession}
-            disabled={connectionStatus === 'ended'}
+            onClick={connectionStatus === 'ended' ? () => router.push('/home') : endSession}
             className={`px-4 py-1.5 text-white text-sm font-medium transition-colors rounded ${
               connectionStatus === 'ended'
-                ? 'bg-gray-600 cursor-not-allowed opacity-50'
+                ? 'bg-[#4b5563] hover:bg-[#374151]'
                 : 'bg-[#dc2626] hover:bg-[#b91c1c]'
             }`}
           >
-            End Session
+            {connectionStatus === 'ended' ? 'Return to Home' : 'End Session'}
           </button>
         )}
       </header>
