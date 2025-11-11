@@ -133,7 +133,9 @@ jobs:
   e2e-tests:
     name: E2E Tests (Playwright)
     needs: [detect-changes]
-    if: needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.shared == 'true'
+    if: |
+      !inputs.skip_tests &&
+      (needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.shared == 'true')
     timeout-minutes: 60
     runs-on: ubuntu-latest
     steps:
