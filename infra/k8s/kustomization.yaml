@@ -24,6 +24,8 @@ resources:
   - web.yaml
   - hpa.yaml
   - ingress.yaml
+  - prometheus.yaml
+  - grafana.yaml
 
 # Common labels for all resources (kustomize v5+)
 labels:
