@@ -106,6 +106,13 @@ Two users are compatible if they have:
 - ✅ **At least 1 overlapping language** (filters out empty strings)
 - ✅ **Different user IDs** (prevents matching with self)
 
+**Question Selection:**
+When matched, the system selects a question that matches:
+- ✅ **The difficulty level both users selected**
+- ✅ **Only topics that BOTH users selected** (intersection, not union)
+  - Example: If User A selects [Stack, Two Pointers] and User B selects [Two Pointers, Array], the question will be from [Two Pointers] only
+- ✅ **Only languages that BOTH users selected** (intersection)
+
 ### Workers
 
 **Matcher Worker:**
