@@ -264,8 +264,8 @@ spec:
         - name: prometheus-storage
           emptyDir: {}
           # For production, use persistent volume:
-          # persistentVolumeClaim:
-          #   claimName: prometheus-storage
+          persistentVolumeClaim:
+            claimName: prometheus-storage
 
 ---
 apiVersion: v1
