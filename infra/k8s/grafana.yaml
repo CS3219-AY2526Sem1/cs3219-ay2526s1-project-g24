@@ -680,7 +680,7 @@ spec:
             timeoutSeconds: 5
       volumes:
         - name: grafana-storage
-          emptyDir: {}
+          # emptyDir: {}  # For development only
           # For production, use persistent volume:
           persistentVolumeClaim:
             claimName: grafana-storage

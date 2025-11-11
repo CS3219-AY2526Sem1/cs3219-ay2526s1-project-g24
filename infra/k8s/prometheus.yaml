@@ -262,7 +262,7 @@ spec:
           configMap:
             name: prometheus-config
         - name: prometheus-storage
-          emptyDir: {}
+          # emptyDir: {}  # For development only
           # For production, use persistent volume:
           persistentVolumeClaim:
             claimName: prometheus-storage
