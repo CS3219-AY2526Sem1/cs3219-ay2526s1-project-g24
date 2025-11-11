@@ -6,6 +6,9 @@ import { SessionService } from '../services/session.service.js';
 import { YjsWebSocketHandler } from './yjs-handler.js';
 import { AuthenticatedWebSocket, AppError } from '../types/index.js';
 
+// Singleton instance for global access
+let wsHandlerInstance: WebSocketHandler | null = null;
+
 /**
  * Main WebSocket connection handler
  * Handles authentication, routing, and delegation to Yjs handler
@@ -17,6 +20,9 @@ export class WebSocketHandler {
     constructor(wss: WebSocketServer) {
         this.wss = wss;
         this.setupConnectionHandler();
+        
+        // Set singleton instance
+        wsHandlerInstance = this;
     }
 
     /**
@@ -270,6 +276,38 @@ export class WebSocketHandler {
     }
 
     /**
+     * Close all WebSocket connections for a specific session
+     * Used when session is terminated by one participant
+     */
+    async closeSessionConnections(sessionId: string, reason: string): Promise<void> {
+        console.log(`🔌 Closing all connections for session ${sessionId}: ${reason}`);
+        
+        const promises: Promise<void>[] = [];
+        const connectionsToClose: WebSocket[] = [];
+
+        // Collect all connections for this session
+        this.wss.clients.forEach((ws) => {
+            const authWs = ws as AuthenticatedWebSocket;
+            if (authWs.sessionId === sessionId) {
+                connectionsToClose.push(ws);
+            }
+        });
+
+        // Close all collected connections
+        for (const ws of connectionsToClose) {
+            const yjsHandler = this.connections.get(ws);
+            if (yjsHandler) {
+                promises.push(yjsHandler.cleanup());
+            }
+            // Close with custom code 4000 to indicate session termination
+            ws.close(4000, reason);
+        }
+
+        await Promise.all(promises);
+        console.log(`✓ Closed ${connectionsToClose.length} connection(s) for session ${sessionId}`);
+    }
+
+    /**
      * Close all connections gracefully
      */
     async closeAll(): Promise<void> {
@@ -284,5 +322,15 @@ export class WebSocketHandler {
 
         await Promise.all(promises);
         this.connections.clear();
+        
+        // Clear singleton instance
+        wsHandlerInstance = null;
     }
+}
+
+/**
+ * Get the singleton WebSocket handler instance
+ */
+export function getWebSocketHandler(): WebSocketHandler | null {
+    return wsHandlerInstance;
 }

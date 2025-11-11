@@ -24,6 +24,7 @@ Each microservice is located in its own folder within this repository.
 - **Code Execution:** Real-time code execution with test case validation powered by Judge0
 - **Comprehensive Testing:** 138 passing tests with 92% code coverage in Question Service
 - **Security:** ALB restricted to Cloudflare IPs only - prevents DDoS bypass attacks
+- **Session Management:** Automatic timeout handling, ghost session cleanup, and reconnection support
 
 ### Deployment
 - **AWS EKS:** Kubernetes 1.30 with auto-scaling (Karpenter)
@@ -34,6 +35,48 @@ Each microservice is located in its own folder within this repository.
 - **Cost Optimization:** Auto spin-down saves ~$110/month when idle
 
 For detailed deployment instructions, see [Infrastructure Setup Guide](./infra/SETUP_GUIDE.md).
+
+---
+## Session Management & Timeouts
+
+PeerPrep includes automatic session management to prevent resource hogging and handle AFK users:
+
+### Timeout Periods
+
+| Timeout Type | Duration | Purpose |
+|--------------|----------|---------|
+| **Partner Presence Warning** | 10 seconds | Notify user if partner hasn't joined yet |
+| **Ghost Session Cleanup** | 60 seconds | Delete sessions where no users connected after match |
+| **Rejoin Grace Period** | 2 minutes | Allow reconnection after accidental disconnect |
+| **Inactivity Timeout** | 30 minutes | Expire sessions with no activity (handles AFK users) |
+| **Y.Doc Garbage Collection** | 5 minutes | Clean up in-memory documents with no connected clients |
+
+### Automatic Cleanup
+
+The Collaboration Service runs periodic cleanup every **5 minutes** to:
+1. Expire sessions inactive for > 30 minutes
+2. Free up server resources
+3. Prevent indefinite session hogging
+
+### User Experience
+
+**Active Session:**
+- Real-time presence indicator shows partner connection status
+- Session persists in localStorage for easy reconnection
+- 2-minute grace period to rejoin after disconnect
+
+**Inactive Session (30+ minutes):**
+- Session automatically expires
+- Status changed to `EXPIRED` in database
+- Resources freed up for other users
+- Users must start a new session to continue
+
+**Partner Never Joins:**
+- Warning appears after 10 seconds
+- Session auto-deleted after 60 seconds if no connections
+- Prevents orphaned "ghost" sessions
+
+For detailed session management implementation, see [Session Management Improvements](./SESSION_MANAGEMENT_IMPROVEMENTS.md).
 
 ---
 ## Cross-Service Authentication (JWT)

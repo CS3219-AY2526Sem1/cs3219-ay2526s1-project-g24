@@ -319,7 +319,16 @@ export class CollaborationManager {
 
             this.provider.on('connection-close', (event: any) => {
                 console.warn('[Collaboration] Connection closed:', event);
-                if (event.code === 1006) {
+                if (event.code === 4000) {
+                    // Session terminated by partner
+                    this.notifyError({
+                        code: 'SESSION_TERMINATED',
+                        message: event.reason || 'Your partner has ended the session',
+                        recoverable: false,
+                        timestamp: new Date(),
+                    });
+                    onStatusChange('error');
+                } else if (event.code === 1006) {
                     // Abnormal closure
                     this.notifyError({
                         code: 'CONNECTION_CLOSED',

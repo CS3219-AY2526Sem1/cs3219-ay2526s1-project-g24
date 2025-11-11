@@ -149,6 +149,15 @@ router.post('/sessions/:sessionId/terminate', authenticate, async (req: Request,
 
         await SessionService.terminateSession(sessionId, authReq.user.userId);
 
+        // Close all WebSocket connections for this session
+        // This immediately disconnects all participants
+        const { getWebSocketHandler } = await import('../websocket/handler.js');
+        const wsHandler = getWebSocketHandler();
+        if (wsHandler) {
+            wsHandler.closeSessionConnections(sessionId, 'Session ended by partner');
+            console.log(`📢 Closed all WebSocket connections for session ${sessionId}`);
+        }
+
         res.status(200).json({
             message: 'Session terminated successfully',
         });
