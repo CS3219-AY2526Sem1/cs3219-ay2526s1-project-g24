@@ -30,6 +30,11 @@ describe('SessionService', () => {
         jest.clearAllMocks();
     });
 
+    afterAll(() => {
+        // Ensure all timers are cleared
+        jest.clearAllTimers();
+    });
+
     describe('createSession', () => {
         it('should create a new session successfully', async () => {
             const sessionData = {
@@ -464,12 +469,10 @@ describe('SessionService', () => {
             jest.useFakeTimers();
         });
 
-        afterEach(async () => {
+        afterEach(() => {
+            // Clear all timers and restore real timers
             jest.clearAllTimers();
             jest.useRealTimers();
-            jest.clearAllMocks();
-            // Give time for any pending promises to resolve
-            await new Promise(resolve => setImmediate(resolve));
         });
 
         it('should delete ghost session if no one connects after 60 seconds', async () => {

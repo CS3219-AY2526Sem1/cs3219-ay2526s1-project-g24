@@ -92,14 +92,14 @@ describe('SnapshotService Integration Tests', () => {
     describe('getStats', () => {
         it('should return accurate statistics', async () => {
             // Create sessions
-            const session1 = await TestDatabase.createSession({
+            await TestDatabase.createSession({
                 sessionId: 'session-1',
                 user1Id: 'user-1',
                 user2Id: 'user-2',
                 questionId: 'question-1',
             });
 
-            const session2 = await TestDatabase.createSession({
+            await TestDatabase.createSession({
                 sessionId: 'session-2',
                 user1Id: 'user-3',
                 user2Id: 'user-4',
