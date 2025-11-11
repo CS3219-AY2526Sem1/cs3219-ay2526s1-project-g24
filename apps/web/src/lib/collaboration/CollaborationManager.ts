@@ -17,7 +17,7 @@ const WS_SESSIONS_BASE_URL = normalizedWsBase
 /**
  * Connection status for collaboration session
  */
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
+export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error' | 'ended';
 
 /**
  * Error notification callback
@@ -348,7 +348,7 @@ export class CollaborationManager {
                         recoverable: false,
                         timestamp: new Date(),
                     });
-                    onStatusChange('error');
+                    onStatusChange('ended'); // Use 'ended' status - clearer for users
                 } else if (event.code === 1006) {
                     // Abnormal closure - only reconnect if session wasn't terminated
                     if (!this.sessionTerminated) {

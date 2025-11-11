@@ -836,9 +836,11 @@ function CollaborativeCodingPage() {
                         ? 'bg-[#F1FCAC]'
                         : connectionStatus === 'connecting'
                           ? 'bg-yellow-500 animate-pulse'
-                          : connectionStatus === 'error'
-                            ? 'bg-red-500'
-                            : 'bg-gray-500'
+                          : connectionStatus === 'ended'
+                            ? 'bg-orange-500'
+                            : connectionStatus === 'error'
+                              ? 'bg-red-500'
+                              : 'bg-gray-500'
                     }`}
                   />
                   <span className='text-xs text-gray-400'>{connectionStatus}</span>
