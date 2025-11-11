@@ -594,8 +594,6 @@ data:
 #   -n cs3219
 #
 # DO NOT commit weak passwords to version control!
-#
-# For development/testing only (REMOVE IN PRODUCTION):
 ---
 apiVersion: apps/v1
 kind: Deployment
