@@ -10,6 +10,8 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
     alb.ingress.kubernetes.io/healthcheck-port: traffic-port
     alb.ingress.kubernetes.io/success-codes: "200"
+    # Security: Restrict ALB to Cloudflare IPs only (managed by Terraform)
+    alb.ingress.kubernetes.io/security-groups: ${ALB_SECURITY_GROUP_ID}
     # Enable SSL redirect (uncomment when SSL certificate is configured)
     # alb.ingress.kubernetes.io/ssl-redirect: "443"
     # alb.ingress.kubernetes.io/certificate-arn: arn:aws:acm:region:account:certificate/xxx
