@@ -654,7 +654,14 @@ spec:
             - name: grafana-dashboards-config
               mountPath: /etc/grafana/provisioning/dashboards
             - name: grafana-dashboard-overview
-              mountPath: /var/lib/grafana/dashboards
+              mountPath: /var/lib/grafana/dashboards/overview.json
+              subPath: overview.json
+            - name: grafana-dashboard-kubernetes
+              mountPath: /var/lib/grafana/dashboards/kubernetes-cluster.json
+              subPath: kubernetes-cluster.json
+            - name: grafana-dashboard-unified
+              mountPath: /var/lib/grafana/dashboards/unified-dashboard.json
+              subPath: unified-dashboard.json
           resources:
             requests:
               cpu: 100m
@@ -689,6 +696,12 @@ spec:
         - name: grafana-dashboard-overview
           configMap:
             name: grafana-dashboard-overview
+        - name: grafana-dashboard-kubernetes
+          configMap:
+            name: grafana-dashboard-kubernetes
+        - name: grafana-dashboard-unified
+          configMap:
+            name: grafana-dashboard-unified
 
 ---
 apiVersion: v1

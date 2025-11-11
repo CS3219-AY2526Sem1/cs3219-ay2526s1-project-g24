@@ -26,6 +26,8 @@ resources:
   - ingress.yaml
   - prometheus.yaml
   - grafana.yaml
+  - grafana-dashboard-kubernetes.yaml
+  - grafana-dashboard-unified.yaml
 
 # Common labels for all resources (kustomize v5+)
 labels:
