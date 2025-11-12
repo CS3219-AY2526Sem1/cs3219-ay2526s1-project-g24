@@ -38,7 +38,8 @@ import {
 } from '@/components/session/activeSession';
 
 const PARTNER_JOIN_WARNING_MS = 10000; // Delay before we show the "partner missing" toast
-const SOLO_WARNING_MS = 240000; // Frontend warning window before backend solo timeout kicks in
+// Frontend warning window (4 minutes) before backend solo timeout (300000ms or 5 minutes) kicks in.
+const SOLO_WARNING_MS = 240000;
 
 function CollaborativeCodingPage() {
   const router = useRouter();

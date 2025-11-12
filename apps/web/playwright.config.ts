@@ -38,8 +38,8 @@ export default defineConfig({
         /* Screenshot on failure */
         screenshot: 'only-on-failure',
 
-        /* Video recording - always record */
-        video: 'on',
+        /* Video recording - retain only on failure */
+        video: 'retain-on-failure',
     },
 
     /* Configure projects for major browsers */
