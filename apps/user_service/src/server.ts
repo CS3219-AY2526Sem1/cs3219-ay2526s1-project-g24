@@ -5,6 +5,7 @@ import cookieParser from 'cookie-parser';
 import { RegisterRoutes } from './routes/routes';
 import { AuthController } from './controllers/auth.controller';
 import swaggerDocument from '../dist/swagger.json';
+import { metricsMiddleware, metricsEndpoint } from './metrics';
 
 export const createServer = (): Express => {
   const app = express();
@@ -30,11 +31,13 @@ export const createServer = (): Express => {
   }));
 
   app.use(cookieParser());
+  app.use(metricsMiddleware);
   
   // Simple health check endpoint for k8s probes (outside of /api/v1 prefix)
   app.get('/health', (_req, res) => {
     res.json({ status: 'OK' });
   });
+  app.get('/metrics', metricsEndpoint);
   
   // Wrap swagger-ui-express handlers to satisfy Express types across versions
   const swaggerServe = swaggerUi.serve as unknown as RequestHandler;
