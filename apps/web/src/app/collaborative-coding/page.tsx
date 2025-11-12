@@ -37,6 +37,10 @@ import {
   persistActiveSession,
 } from '@/components/session/activeSession';
 
+const PARTNER_JOIN_WARNING_MS = 10000; // Delay before we show the "partner missing" toast
+// Frontend warning window (4 minutes) before backend solo timeout (300000ms or 5 minutes) kicks in.
+const SOLO_WARNING_MS = 240000;
+
 function CollaborativeCodingPage() {
   const router = useRouter();
 
@@ -64,6 +68,10 @@ function CollaborativeCodingPage() {
   const [partnerPresent, setPartnerPresent] = useState<boolean>(false);
   const [waitingForPartner, setWaitingForPartner] = useState<boolean>(false);
   const partnerTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const soloWarningTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track delayed solo warning toast
+  const connectedUsersRef = useRef<UserPresence[]>([]); // Store live presence to avoid stale closure reads
+  const soloWarningShownRef = useRef<boolean>(false); // Guard against duplicate solo warnings
+  const partnerWaitArmedRef = useRef<boolean>(false); // Tracks whether the 10s reminder is armed for the current solo span
 
   // question + run/submit state
   const [question, setQuestion] = useState<QuestionDetail | null>(null);
@@ -152,6 +160,95 @@ function CollaborativeCodingPage() {
   const handleCollaborationError = (error: CollaborationErrorInfo) => {
     console.error('[Collaboration Error]', error);
     addToast(error.message, 'error', error.recoverable ? 5000 : 10000);
+  };
+
+  /**
+   * Clear the pending partner reminder timer.
+   * When resetArmed is true we also allow a fresh timer to be scheduled.
+   */
+  const clearPartnerJoinWarning = (resetArmed: boolean = true) => {
+    if (partnerTimeoutRef.current) {
+      clearTimeout(partnerTimeoutRef.current);
+      partnerTimeoutRef.current = null;
+    }
+    if (resetArmed) {
+      partnerWaitArmedRef.current = false;
+    }
+  };
+
+  /**
+   * Clear the solo-warning timer. Optionally reset the "already warned" flag.
+   */
+  const clearSoloWarningTimer = (resetShown: boolean = false) => {
+    if (soloWarningTimeoutRef.current) {
+      clearTimeout(soloWarningTimeoutRef.current);
+      soloWarningTimeoutRef.current = null;
+    }
+    if (resetShown) {
+      soloWarningShownRef.current = false;
+    }
+  };
+
+  /**
+   * Ensure the solo warning toast will trigger if the partner stays away.
+   */
+  const armSoloWarningTimer = () => {
+    if (soloWarningTimeoutRef.current || soloWarningShownRef.current) return;
+
+    soloWarningTimeoutRef.current = setTimeout(() => {
+      soloWarningTimeoutRef.current = null;
+      if (connectedUsersRef.current.length <= 1 && !soloWarningShownRef.current) {
+        addToast(
+          'Your partner has been disconnected for a while. This session will end soon if they do not return.',
+          'warning',
+          5000
+        );
+        soloWarningShownRef.current = true;
+        setWaitingForPartner(false);
+      }
+    }, SOLO_WARNING_MS);
+  };
+
+  /**
+   * Schedule a "partner hasn't joined" toast when we're the only connected user.
+   * Guarded by partnerTimeoutRef so each disconnect schedules a single 10s check.
+   */
+  const schedulePartnerJoinWarning = () => {
+    if (partnerTimeoutRef.current) return;
+
+    partnerWaitArmedRef.current = true;
+    partnerTimeoutRef.current = setTimeout(() => {
+      partnerTimeoutRef.current = null;
+      partnerWaitArmedRef.current = false;
+      if (connectedUsersRef.current.length <= 1) {
+        addToast(
+          'Your partner hasn\'t joined yet. They may have disconnected or not received the match.',
+          'warning',
+          5000
+        );
+        setWaitingForPartner(false);
+      }
+    }, PARTNER_JOIN_WARNING_MS);
+  };
+
+  /**
+   * Central place to reset timers when both users are present.
+   */
+  const handlePartnerConnected = () => {
+    clearPartnerJoinWarning();
+    clearSoloWarningTimer(true);
+    setWaitingForPartner(false);
+  };
+
+  /**
+   * Handle the single-user state (partner missing).
+   */
+  const handlePartnerDisconnected = () => {
+    setWaitingForPartner(false);
+    if (!partnerWaitArmedRef.current) {
+      schedulePartnerJoinWarning();
+    }
+    armSoloWarningTimer();
   };
 
   // Handle collaboration messages (code execution events)
@@ -336,18 +433,19 @@ function CollaborativeCodingPage() {
       }
 
       collaborationManagerRef.current.onPresenceUpdate((users) => {
+        connectedUsersRef.current = users;
         setConnectedUsers(users);
         
         // Detect partner presence (more than just ourselves)
         const hasPartner = users.length > 1;
         setPartnerPresent(hasPartner);
         
-        // Clear timeout if partner joins
-        if (hasPartner && partnerTimeoutRef.current) {
-          clearTimeout(partnerTimeoutRef.current);
-          partnerTimeoutRef.current = null;
-          setWaitingForPartner(false);
+        if (hasPartner) {
+          handlePartnerConnected();
+          return;
         }
+
+        handlePartnerDisconnected();
       });
 
       collaborationManagerRef.current.onErrorNotification(handleCollaborationError);
@@ -358,6 +456,8 @@ function CollaborativeCodingPage() {
       });
 
       // connect
+      connectedUsersRef.current = []; // Ensure presence ref starts clean before we attach callbacks
+      setConnectedUsers([]);
       await collaborationManagerRef.current.connect(
         targetSessionId,
         editorRef.current,
@@ -368,19 +468,12 @@ function CollaborativeCodingPage() {
           if (status === 'connected') {
             addToast('Successfully connected to session', 'success', 3000);
             setIsLoadingContent(true); // Start loading state
-            
-            // Start partner presence timeout (10 seconds)
+            clearSoloWarningTimer(true);
+            clearPartnerJoinWarning();
+
+            // Start/restart partner presence timeout (10 seconds) on initial connect
             setWaitingForPartner(true);
-            partnerTimeoutRef.current = setTimeout(() => {
-              if (connectedUsers.length === 1) {
-                addToast(
-                  'Your partner hasn\'t joined yet. They may have disconnected or not received the match.',
-                  'warning',
-                  5000
-                );
-                setWaitingForPartner(false);
-              }
-            }, 10000); // 10 seconds
+            schedulePartnerJoinWarning();
 
             const storedQid = getActiveQuestionId();
             if (storedQid) {
@@ -506,11 +599,9 @@ function CollaborativeCodingPage() {
   // cleanup on unmount
   useEffect(() => {
     return () => {
-      // Clear partner timeout
-      if (partnerTimeoutRef.current) {
-        clearTimeout(partnerTimeoutRef.current);
-        partnerTimeoutRef.current = null;
-      }
+      // Clear partner/solo timeouts so they don't leak into the next session
+      clearPartnerJoinWarning();
+      clearSoloWarningTimer(true);
       
       // React unmount - clean up frontend only (WebSocket close will notify backend)
       if (collaborationManagerRef.current) {
