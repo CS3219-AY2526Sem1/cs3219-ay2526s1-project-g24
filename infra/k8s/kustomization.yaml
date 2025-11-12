@@ -24,6 +24,11 @@ resources:
   - web.yaml
   - hpa.yaml
   - ingress.yaml
+  - prometheus-pvc.yaml
+  - prometheus.yaml
+  - grafana-pvc.yaml
+  - grafana.yaml
+  - grafana-dashboard-mission-control.yaml
 
 # Common labels for all resources (kustomize v5+)
 labels:
