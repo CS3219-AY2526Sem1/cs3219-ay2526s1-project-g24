@@ -28,8 +28,7 @@ resources:
   - prometheus.yaml
   - grafana-pvc.yaml
   - grafana.yaml
-  - grafana-dashboard-kubernetes.yaml
-  - grafana-dashboard-unified.yaml
+  - grafana-dashboard-mission-control.yaml
 
 # Common labels for all resources (kustomize v5+)
 labels:
