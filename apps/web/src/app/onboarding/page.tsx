@@ -288,7 +288,7 @@ function Onboarding() {
                   value={username || "Loading..."}
                   disabled
                   placeholder="Name from Google account"
-                  className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white placeholder:text-[#585858] focus:outline-none focus:border-white/40 transition-colors cursor-not-allowed"
+                  className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white placeholder:text-[#585858] focus:outline-none focus:border-white/40 transition-colors cursor-not-allowed opacity-70"
                 />
               </div>
 
@@ -296,29 +296,12 @@ function Onboarding() {
                 <label className="font-montserrat font-semibold text-white text-sm block mb-3">
                   Email
                 </label>
-                <div className="relative">
-                  <input
-                    type="email"
-                    value={user?.email || "Unknown Email"}
-                    disabled
-                    className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white cursor-not-allowed opacity-70"
-                  />
-                  <div className="absolute right-5 top-1/2 transform -translate-y-1/2">
-                    <div className="w-5 h-5 bg-[#8a9ef4] rounded-full flex items-center justify-center">
-                      <svg
-                        width="12"
-                        height="12"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        stroke="white"
-                        strokeWidth="2.5"
-                      >
-                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" />
-                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" />
-                      </svg>
-                    </div>
-                  </div>
-                </div>
+                <input
+                  type="email"
+                  value={user?.email || "Unknown Email"}
+                  disabled
+                  className="w-full bg-transparent border-2 border-white/20 rounded-full px-6 py-3.5 font-montserrat font-medium text-sm text-white cursor-not-allowed opacity-70"
+                />
               </div>
 
               <div>

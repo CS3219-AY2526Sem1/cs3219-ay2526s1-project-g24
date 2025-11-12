@@ -77,9 +77,11 @@ export default function Landing() {
                                     Start practicing
                                 </button>
                             </Link>
-                            <button className="glow-button secondary-glow border border-white/30 text-white px-7 py-3 rounded-full font-montserrat font-medium hover:bg-white/10 transition-all">
-                                Watch demo
-                            </button>
+                            <Link href="https://nusmods.com/courses/CS3219/software-engineering-principles-and-patterns" target="_blank" rel="noopener noreferrer">
+                                <button className="glow-button secondary-glow border border-white/30 text-white px-7 py-3 rounded-full font-montserrat font-medium hover:bg-white/10 transition-all">
+                                    Learn more
+                                </button>
+                            </Link>
                         </div>
                     </div>
 
