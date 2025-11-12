@@ -51,7 +51,7 @@ export const metricsMiddleware = (req: Request, res: Response, next: NextFunctio
   // Track when response finishes
   res.on('finish', () => {
     const duration = Date.now() - start;
-    const route = req.route?.path || req.path;
+    const route = req.route?.path || 'unmatched'
     const labels = {
       method: req.method,
       route,
