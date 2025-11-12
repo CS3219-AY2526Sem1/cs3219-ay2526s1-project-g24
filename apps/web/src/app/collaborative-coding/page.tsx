@@ -70,6 +70,7 @@ function CollaborativeCodingPage() {
   const soloWarningTimeoutRef = useRef<NodeJS.Timeout | null>(null); // Track delayed solo warning toast
   const connectedUsersRef = useRef<UserPresence[]>([]); // Store live presence to avoid stale closure reads
   const soloWarningShownRef = useRef<boolean>(false); // Guard against duplicate solo warnings
+  const partnerWaitArmedRef = useRef<boolean>(false); // Tracks whether the 10s reminder is armed for the current solo span
 
   // question + run/submit state
   const [question, setQuestion] = useState<QuestionDetail | null>(null);
@@ -167,7 +168,7 @@ function CollaborativeCodingPage() {
   const schedulePartnerJoinWarning = () => {
     if (partnerTimeoutRef.current) return;
 
-    setWaitingForPartner(true);
+    partnerWaitArmedRef.current = true;
     partnerTimeoutRef.current = setTimeout(() => {
       partnerTimeoutRef.current = null;
       if (connectedUsersRef.current.length <= 1) {
@@ -381,13 +382,16 @@ function CollaborativeCodingPage() {
             soloWarningTimeoutRef.current = null;
           }
           soloWarningShownRef.current = false;
+          partnerWaitArmedRef.current = false;
           setWaitingForPartner(false);
           return;
         }
 
-        // No partner currently connected - show waiting state and arm partner timeout
-        setWaitingForPartner(true);
-        schedulePartnerJoinWarning();
+        // No partner currently connected - ensure banner shows disconnected state
+        setWaitingForPartner(false);
+        if (!partnerWaitArmedRef.current) {
+          schedulePartnerJoinWarning();
+        }
 
         if (!soloWarningTimeoutRef.current && !soloWarningShownRef.current) {
           soloWarningTimeoutRef.current = setTimeout(() => {
@@ -567,6 +571,7 @@ function CollaborativeCodingPage() {
         clearTimeout(partnerTimeoutRef.current);
         partnerTimeoutRef.current = null;
       }
+      partnerWaitArmedRef.current = false;
       if (soloWarningTimeoutRef.current) {
         clearTimeout(soloWarningTimeoutRef.current);
         soloWarningTimeoutRef.current = null;
