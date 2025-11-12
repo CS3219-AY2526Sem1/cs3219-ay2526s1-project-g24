@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { ServerErrorHandler } from "@/components/ServerErrorHandler";
 
 export default function ClientBody({
     children,
@@ -12,5 +13,10 @@ export default function ClientBody({
         document.body.className = "antialiased min-h-screen bg-[#333232]";
     }, []);
 
-    return <div className="antialiased min-h-screen bg-[#333232]">{children}</div>;
+    return (
+        <div className="antialiased min-h-screen bg-[#333232]">
+            {children}
+            <ServerErrorHandler />
+        </div>
+    );
 }
