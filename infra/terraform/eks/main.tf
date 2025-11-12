@@ -58,13 +58,13 @@ module "eks" {
       desired_size = 2
       min_size = 1
       max_size = 3
-      
+
       labels = {
         "os" = "al2"
         "node-pool" = "general"
         "workload" = "all"
       }
-      
+
       tags = {
         "Name" = "${var.cluster_name}-node-al2"
         "Purpose" = "General workloads with cgroup v1 support"
@@ -79,6 +79,19 @@ module "eks" {
   }
 
   tags = { "karpenter.sh/discovery" = var.cluster_name }
+}
+
+# === Security Group Rule for Pod Communication ===
+# Allow port 80 traffic between worker nodes for pod-to-pod communication
+# This is required for services running on port 80 to communicate across nodes
+resource "aws_security_group_rule" "node_to_node_port_80" {
+  type              = "ingress"
+  from_port         = 80
+  to_port           = 80
+  protocol          = "tcp"
+  security_group_id = module.eks.node_security_group_id
+  source_security_group_id = module.eks.node_security_group_id
+  description       = "Allow pod port 80 between nodes"
 }
 
 data "aws_eks_cluster" "this" {
@@ -208,7 +221,7 @@ resource "kubernetes_config_map_v1_data" "aws_auth" {
     namespace = "kube-system"
   }
   force = true
-  
+
   data = {
     mapRoles = yamlencode(concat(
       # GitHub Actions deployer role
