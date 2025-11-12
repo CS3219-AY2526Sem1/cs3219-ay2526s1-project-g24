@@ -38,7 +38,7 @@ export default defineConfig({
         /* Screenshot on failure */
         screenshot: 'only-on-failure',
 
-        /* Video on failure */
+        /* Video recording - retain only on failure */
         video: 'retain-on-failure',
     },
 
