@@ -62,7 +62,7 @@ test.describe('Landing Page', () => {
 
         // Main action buttons - "Start practicing" is a button inside a link
         await expect(page.getByRole('button', { name: 'Start practicing' })).toBeVisible();
-        await expect(page.getByRole('button', { name: 'Watch demo' })).toBeVisible();
+        await expect(page.getByRole('button', { name: 'Learn more' })).toBeVisible();
     });
 
     test('should be responsive on mobile', async ({ page }) => {
