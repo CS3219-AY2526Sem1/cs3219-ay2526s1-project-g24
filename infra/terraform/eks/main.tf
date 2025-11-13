@@ -141,7 +141,8 @@ data "aws_iam_policy_document" "gha_assume" {
       values = [
         "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/main",
         "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/master",
-        "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/dev"
+        "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/dev",
+        "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/feat/*"
       ]
     }
   }

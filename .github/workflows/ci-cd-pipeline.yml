@@ -341,16 +341,14 @@ jobs:
           cache-to: type=gha,mode=max
           tags: |
             ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:${{ steps.git.outputs.sha }}
-            ${{ (inputs.tag_latest == true || inputs.tag_latest == null) && format('ghcr.io/{0}/cs3219-g24-{1}:latest', steps.repo.outputs.owner_lc, matrix.service) || '' }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:latest
 
       - name: Output build info
         if: ${{ matrix.changed == 'true' || inputs.push_images == true }}
         run: |
           echo "✅ Built and pushed ${{ matrix.service }}"
           echo "📦 Image: ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:${{ steps.git.outputs.sha }}"
-          if [ "${{ inputs.tag_latest }}" == "true" ] || [ "${{ inputs.tag_latest }}" == "" ]; then
-            echo "🏷️  Tagged as: ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:latest"
-          fi
+          echo "🏷️  Tagged as: ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:latest"
 
   # ============================================
   # STAGE 5: Deploy to EKS (Manual trigger only)
