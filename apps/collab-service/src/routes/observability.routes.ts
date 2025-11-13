@@ -46,10 +46,20 @@ router.get('/ready', async (_req: Request, res: Response) => {
  */
 router.get('/metrics', async (_req: Request, res: Response) => {
     try {
+        // Update real-time metrics before serving
+        const { YjsService } = await import('../services/yjs.service.js');
+        const { yjsDocumentCache, sessionParticipantsTotal } = await import('../metrics/collaboration.metrics.js');
+        
+        // Update Yjs document cache size and participant count
+        const yjsStats = YjsService.getStats();
+        yjsDocumentCache.set(yjsStats.totalDocuments);
+        sessionParticipantsTotal.set(yjsStats.totalClients);
+        
         res.set('Content-Type', register.contentType);
         const metrics = await register.metrics();
         res.end(metrics);
     } catch (error) {
+        console.error('Failed to generate metrics:', error);
         res.status(500).end();
     }
 });

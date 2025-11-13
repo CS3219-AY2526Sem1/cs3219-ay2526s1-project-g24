@@ -5,6 +5,7 @@ import { verifyToken } from '../middleware/auth.js';
 import { SessionService } from '../services/session.service.js';
 import { YjsWebSocketHandler } from './yjs-handler.js';
 import { AuthenticatedWebSocket, AppError } from '../types/index.js';
+import { CollaborationMetrics } from '../metrics/collaboration.metrics.js';
 
 // Singleton instance for global access
 let wsHandlerInstance: WebSocketHandler | null = null;
@@ -120,6 +121,9 @@ export class WebSocketHandler {
 
                 console.log(`[WebSocket] 🔗 Connection established: user=${userId}, session=${sessionId}`);
 
+                // Track WebSocket connection in metrics
+                CollaborationMetrics.connectionOpened();
+
                 // Mark user as connected in the session
                 try {
                     await SessionService.rejoinSession(sessionId, userId);
@@ -195,6 +199,9 @@ export class WebSocketHandler {
             await yjsHandler.cleanup();
             this.connections.delete(ws);
         }
+        
+        // Track WebSocket disconnection in metrics
+        CollaborationMetrics.connectionClosed();
     }
 
     /**

@@ -5,6 +5,7 @@ import { YjsDocument } from '../types/index.js';
 import { getRedisClient, getRedisPubClient, getRedisSubClient } from '../utils/redis.js';
 import { randomUUID } from 'crypto';
 import { ErrorHandler } from '../utils/errors.js';
+import { CollaborationMetrics } from '../metrics/collaboration.metrics.js';
 
 // Unique server instance ID to prevent applying our own pub/sub messages
 const SERVER_ID = process.env.INSTANCE_ID || randomUUID();
@@ -77,6 +78,9 @@ export class YjsService {
                 };
 
                 this.documents.set(sessionId, yjsDoc);
+
+                // Update Yjs cache size metric
+                CollaborationMetrics.updateDocumentCacheSize(this.documents.size);
 
                 // Setup Redis integration asynchronously (non-blocking)
                 void this.setupRedisIntegration(sessionId, doc).catch(err => {
@@ -160,6 +164,8 @@ export class YjsService {
                                 const updateBuffer = Buffer.from(payload.update, 'base64');
                                 Y.applyUpdate(doc, new Uint8Array(updateBuffer), 'redis-pubsub');
                                 this.updateActivity(sessionId);
+                                CollaborationMetrics.redisPubSubReceived(channel);
+                                CollaborationMetrics.documentUpdated();
                                 console.log(`[Redis] ↔ Received update for ${sessionId} from server ${payload.serverId} (${updateBuffer.length} bytes)`);
                             }
                         } catch (err) {
@@ -193,12 +199,14 @@ export class YjsService {
                             timestamp: Date.now(),
                         });
                         await pub.publish(channel, message);
+                        CollaborationMetrics.redisPubSubSent(channel);
 
                         // Update full state cache in Redis
                         const fullState = Y.encodeStateAsUpdate(doc);
                         await redis.set(stateKey, Buffer.from(fullState).toString('base64'), {
                             EX: 7200, // 2 hour TTL
                         });
+                        CollaborationMetrics.documentUpdated();
 
                         console.log(`[Redis] → Published update for ${sessionId} (${update.length} bytes)`);
                     } catch (err) {
@@ -368,6 +376,10 @@ export class YjsService {
             await this.teardownRedisIntegration(sessionId);
 
             this.documents.delete(sessionId);
+            
+            // Update Yjs cache size metric
+            CollaborationMetrics.updateDocumentCacheSize(this.documents.size);
+            
             console.log(`🗑️  Deleted Y.Doc for session ${sessionId}`);
         } else {
             // Even if not in memory, still clear Redis cache
