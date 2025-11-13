@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated error handling system for Collaboration Service:
+//   - ErrorCode enum with comprehensive error types (WebSocket, Redis, PostgreSQL, Yjs, Snapshot, Validation)
+//   - User-friendly error messages mapping
+//   - CollaborationError class with code, message, userMessage, details, recoverable properties
+//   - Helper functions: createError, createWebSocketError, createRedisError, createDatabaseError, createValidationError
+//   - Error logging utilities with structured error context
+//   - Error recovery strategies
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced user-facing error messages for better UX
+//   - Added error recovery guidance for each error type
+
 /**
  * Standard error codes for collaboration service
  */

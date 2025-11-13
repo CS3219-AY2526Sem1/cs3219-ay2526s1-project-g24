@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 1-10, 2025
+// Scope: Generated timeout worker using Redis Sorted Set scanning:
+//   - handleTimeout(): Process individual expired requests atomically
+//   - processBatch(): Batch processing for efficiency
+//   - scanExpiredTimeouts(): Periodic scan for expired items
+//   - startTimeoutWorker(): Worker initialization with configurable intervals
+//   Uses sorted sets with timestamp scores for accurate timeout tracking
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Optimized batch processing for high-throughput scenarios
+//   - Added atomic status updates to prevent race conditions
+//   - Enhanced logging and metrics for timeout monitoring
+//   - Implemented graceful shutdown handling
+
 /**
  * Timeout Worker - Handles request timeouts using Redis Sorted Set scanning
  *

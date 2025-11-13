@@ -1,3 +1,14 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated Next.js root layout:
+//   - Root HTML structure with metadata
+//   - Google Fonts integration (Geist, Geist Mono)
+//   - Dark mode configuration
+//   - ClientBody wrapper for global components
+//   - Global CSS imports
+// Author review: Code reviewed, tested, and validated by team.
+
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";

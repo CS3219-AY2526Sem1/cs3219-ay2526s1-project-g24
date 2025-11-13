@@ -1,3 +1,21 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated solo practice page with code editor:
+//   - Monaco code editor integration with multiple languages
+//   - Question description with Markdown rendering
+//   - Test case runner and submission handler
+//   - Resizable split panes for editor and description
+//   - Language selector (Python, JavaScript, Java, C++)
+//   - Console output display with test results
+//   - Similar questions recommendations
+//   Integration with Question Service and Code Execution Service
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced editor configuration with themes
+//   - Added comprehensive error handling
+//   - Implemented auto-save functionality
+//   - Optimized performance with debouncing
+
 'use client';
 import { useState, useEffect, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';

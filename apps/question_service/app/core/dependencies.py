@@ -1,3 +1,16 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: November 1-10, 2025
+# Scope: Generated FastAPI authentication dependencies:
+#   - get_current_user dependency for protected routes
+#   - get_current_user_optional for optional auth
+#   - require_permissions factory for scope-based authorization
+#   - require_admin shortcut dependency
+#   - Integration with JWT auth utilities
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Enhanced permission checking with flexible scope requirements
+#   - Added optional authentication support
+
 """
 FastAPI dependencies for authentication and authorization.
 

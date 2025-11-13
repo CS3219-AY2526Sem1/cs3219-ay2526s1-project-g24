@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated active session persistence utilities:
+//   - Session state management with localStorage and sessionStorage
+//   - persistActiveSession function for dual storage
+//   - clearActiveSession for cleanup
+//   - getActiveSessionFromLocalStorage retrieval
+//   - hydrateSessionStorageFromLocal for session restoration
+//   - Safe JSON parsing with error handling
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced data validation
+//   - Added question ID normalization
+//   - Improved browser compatibility checks
+
 "use client";
 
 /**

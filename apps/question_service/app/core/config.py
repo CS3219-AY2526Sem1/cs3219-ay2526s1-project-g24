@@ -1,3 +1,16 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: September 18 - October 10, 2025
+# Scope: Generated Pydantic Settings configuration:
+#   - Database connection URL
+#   - Environment settings (dev/prod)
+#   - JWT authentication settings (RS256 with JWKS)
+#   - Service URLs for inter-service communication
+#   - Code Execution Service integration
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Added validation for required environment variables
+#   - Enhanced security settings for production
+
 from pydantic_settings import BaseSettings
 
 

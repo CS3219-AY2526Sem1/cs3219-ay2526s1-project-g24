@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated waiting room page for match queue:
+//   - Real-time match status updates via SSE
+//   - Timer display for elapsed time
+//   - Cancel match functionality
+//   - Match found redirect to collaborative coding
+//   - Session and question data persistence
+//   - Error handling for match failures
+//   Integration with Matching Service SSE
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced UX with animated timer
+//   - Added match type and language storage
+//   - Improved error handling and user feedback
+
 'use client';
 
 import { useEffect, useState } from 'react';

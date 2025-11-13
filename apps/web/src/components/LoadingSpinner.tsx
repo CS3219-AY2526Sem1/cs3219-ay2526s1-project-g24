@@ -1,3 +1,15 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated loading spinner component:
+//   - Animated spinner with custom styling
+//   - Full-screen and inline variants
+//   - Loading message support
+//   - Smooth animations with Tailwind
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced animation performance
+//   - Added accessibility for screen readers
+
 interface LoadingSpinnerProps {
     message?: string;
     fullScreen?: boolean;

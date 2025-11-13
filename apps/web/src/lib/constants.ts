@@ -1,3 +1,16 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated application constants:
+//   - Editor configuration (font size, tab size, line numbers)
+//   - Layout defaults (panel widths, heights)
+//   - Difficulty options with display metadata
+//   - Language options with icons
+//   - Timer and time format constants
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Optimized default values based on user testing
+//   - Added responsive design breakpoints
+
 import { ProficiencyLevel, ProgrammingLanguage } from "@/lib/types";
 
 export const TIMER_INTERVAL_MS = 1000;

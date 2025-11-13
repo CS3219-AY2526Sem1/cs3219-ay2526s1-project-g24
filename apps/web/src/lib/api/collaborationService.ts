@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated Collaboration Service HTTP client:
+//   - createSession(): Create collaborative session
+//   - getSession(): Get session details
+//   - deleteSession(): Delete session
+//   - getSessionState(): Get Yjs document state
+//   - endSession(): Mark session as ended
+//   - Health check utilities
+//   Integrates with WebSocket for real-time collaboration
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added proper error handling for session lifecycle
+//   - Enhanced type safety for session states
+//   - Implemented session validation
+
 "use client";
 import { API_CONFIG, createServiceUrlBuilder } from "@/lib/api-utils";
 

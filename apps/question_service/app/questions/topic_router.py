@@ -1,3 +1,16 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: September 18 - October 10, 2025
+# Scope: Generated FastAPI router for topic management:
+#   - GET /topics: List all topics with pagination
+#   - POST /topics: Create new topic
+#   - GET /topics/{id}: Get topic by ID
+#   - PUT /topics/{id}: Update topic
+#   - DELETE /topics/{id}: Delete topic
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Added duplicate topic name validation
+#   - Enhanced error handling for integrity constraints
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session

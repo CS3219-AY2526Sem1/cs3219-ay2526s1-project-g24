@@ -1,3 +1,20 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated matching page for peer matching:
+//   - Match request form (difficulty, topics, languages)
+//   - Real-time queue statistics display
+//   - SSE connection for live match updates
+//   - Cancel match functionality
+//   - Match found redirect to collaborative session
+//   - Topic selector with multi-select
+//   Integration with Matching Service via SSE
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced UI for match status feedback
+//   - Added timeout handling with visual countdown
+//   - Implemented reconnection logic for SSE
+//   - Optimized topic filtering
+
 "use client";
 
 import { useState, useEffect } from "react";

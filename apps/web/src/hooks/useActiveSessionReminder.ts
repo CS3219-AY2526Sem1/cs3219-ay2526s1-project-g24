@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated active session reminder hook:
+//   - Session state management from localStorage
+//   - Periodic session validation with API
+//   - Dismiss and clear functionality
+//   - Browser visibility and storage event listeners
+//   - Path-based reminder suppression
+//   - Session status polling with exponential backoff
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced error handling for network failures
+//   - Added session expiration logic
+//   - Optimized polling intervals
+
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";

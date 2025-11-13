@@ -1,3 +1,18 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: October 12-20, 2025
+# Scope: Generated FastAPI application for code execution service with:
+#   - CORS middleware configuration
+#   - Router registration for execution endpoints
+#   - Health check endpoint
+#   - Swagger/OpenAPI documentation
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Production CORS configuration
+#   - Added error handling middleware
+#   - Integrated metrics collection
+#   - Modified for Judge0 service integration
+#   - Added logging configuration
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os

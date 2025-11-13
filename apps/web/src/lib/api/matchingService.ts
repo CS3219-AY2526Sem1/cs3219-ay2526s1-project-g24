@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated Matching Service HTTP client:
+//   - MatchingServiceClient class: Handles matching requests
+//   - createMatchRequest(): Submit match request with difficulty/topics
+//   - getMatchRequest(): Get request status
+//   - cancelMatchRequest(): Cancel pending request
+//   - subscribeToMatchEvents(): SSE stream for real-time updates
+//   - getQueueStats(): Queue statistics
+//   Server-Sent Events integration for live matching status
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced SSE error handling and reconnection logic
+//   - Added proper cleanup for event listeners
+//   - Implemented retry mechanism for failed requests
+
 /**
  * Matching Service API Client
  * Handles communication with the matching microservice

@@ -1,3 +1,14 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: September 18 - October 10, 2025
+# Scope: Generated FastAPI router for test case management:
+#   - PUT /test-cases/{id}: Update test case (admin only)
+#   - DELETE /test-cases/{id}: Delete test case (admin only)
+#   Admin-only endpoints for managing public/private test cases
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Added validation for test case data
+#   - Enhanced error handling
+
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 

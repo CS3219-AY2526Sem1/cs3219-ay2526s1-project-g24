@@ -1,3 +1,16 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated Prisma client singleton and utilities:
+//   - Prisma Client singleton pattern for connection pooling
+//   - Database connection and disconnection functions
+//   - Health check utility (isDatabaseHealthy)
+//   - Development mode query logging
+//   - Global prisma instance for hot module reloading in dev
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced logging configuration
+//   - Added health check endpoint support
+
 import { PrismaClient } from '@prisma/client';
 
 const prismaClientSingleton = () => {

@@ -1,3 +1,23 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated collaborative coding page with real-time features:
+//   - Dual-pane code editor with Monaco
+//   - Yjs-based real-time collaboration (CRDT)
+//   - WebSocket connection for live sync
+//   - User presence indicators (cursors, selections)
+//   - Shared test execution and submission
+//   - Chat functionality for communication
+//   - Session management (leave, end session)
+//   - Remote cursor rendering with user colors
+//   Integration with Collaboration Service, Yjs, and WebSocket
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced conflict resolution with Yjs
+//   - Optimized WebSocket reconnection logic
+//   - Added comprehensive error handling for network issues
+//   - Implemented presence awareness protocol
+//   - Added chat history persistence
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';

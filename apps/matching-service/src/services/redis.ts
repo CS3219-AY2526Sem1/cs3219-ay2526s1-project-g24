@@ -1,3 +1,20 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 1-10, 2025
+// Scope: Generated Redis service with comprehensive matching operations:
+//   - initRedis(): Connection setup with retry strategy
+//   - redisOps.createRequest(): Store match request with TTL
+//   - redisOps.findMatches(): Query compatible requests by difficulty/topics
+//   - redisOps.updateStatus(): Atomic status transitions
+//   - redisOps.getQueueStats(): Real-time queue metrics by difficulty
+//   Includes atomic operations, Lua scripts, and pipeline optimizations
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added Lua scripts for atomic multi-key operations
+//   - Implemented connection pooling and health checks
+//   - Enhanced error handling with circuit breaker pattern
+//   - Added comprehensive logging and metrics
+//   - Optimized queries with Redis pipelines
+
 import { Redis } from "ioredis";
 import { logger } from "../observability/logger.js";
 import { metrics } from "../observability/metrics.js";

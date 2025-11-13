@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 15-20, 2025
+// Scope: Generated Express server setup with:
+//   - CORS configuration with origin validation
+//   - Middleware chain (body-parser, cookie-parser, metrics)
+//   - Swagger UI integration at /docs
+//   - Health check endpoint
+//   - Route registration
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Production CORS configuration with environment-based origins
+//   - Added security settings for cookies (httpOnly, secure, sameSite)
+//   - Integrated Prometheus metrics middleware
+//   - Added comprehensive error handling
+//   - Modified for production deployment requirements
+
 import express, { type Express, type RequestHandler } from 'express';
 import swaggerUi from 'swagger-ui-express';
 import cors from 'cors';

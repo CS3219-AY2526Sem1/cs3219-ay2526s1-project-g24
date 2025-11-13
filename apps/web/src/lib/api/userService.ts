@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated User Service HTTP client:
+//   - Authentication: getSession(), getGoogleSignInUrl(), logoutUser()
+//   - User CRUD: getUsers(), getUserById(), updateUser(), deleteUser()
+//   - Admin: getRoles(), getPermissions(), assignRole(), etc.
+//   - Profile: updateProfile(), getMe()
+//   Fetch-based HTTP client with cookie-based authentication
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added proper error handling and response validation
+//   - Implemented type normalization for backend responses
+//   - Enhanced CORS and cookie handling
+
 import { API_CONFIG, createServiceUrlBuilder } from "@/lib/api-utils";
 import { Session, User, Role, Permission } from "@/lib/types";
 

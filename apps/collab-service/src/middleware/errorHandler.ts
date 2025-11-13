@@ -1,3 +1,12 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated Express error handling middleware:
+//   - AppError custom error handling with status codes
+//   - Unexpected error fallback with 500 response
+//   - Structured error response format
+// Author review: Code reviewed, tested, and validated by team.
+
 import { Request, Response, NextFunction } from 'express';
 import { AppError } from '../types/index.js';
 

@@ -1,3 +1,16 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated landing page component:
+//   - Landing page with hero section and features
+//   - Google OAuth sign-in button
+//   - Auto-redirect for authenticated users
+//   - Responsive design with Tailwind CSS
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced visual design and animations
+//   - Added feature highlights
+//   - Optimized for SEO
+
 "use client";
 
 import Image from "next/image";

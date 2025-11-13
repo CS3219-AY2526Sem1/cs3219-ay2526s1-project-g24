@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 1-10, 2025
+// Scope: Generated Collaboration Service HTTP client:
+//   - createSession(): Create collaborative coding session after match
+//   - deleteSession(): Clean up session on match failure
+//   - Session request building with user IDs and question
+//   - JWT-based service-to-service authentication
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added proper error handling and rollback mechanisms
+//   - Integrated JWKS authentication for service communication
+//   - Enhanced logging and metrics for session lifecycle
+//   - Added retry logic for transient failures
+
 /**
  * Collaboration Service client
  */

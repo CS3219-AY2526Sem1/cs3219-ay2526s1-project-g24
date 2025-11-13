@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated home page with navigation and daily challenge:
+//   - Navigation tabs (Home, Practice, Match, Profile)
+//   - Daily challenge question display
+//   - User greeting and personalization
+//   - Integration with Question Service for daily question
+//   Protected route with withAuth HOC
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced UI/UX with better layout
+//   - Added loading states and error handling
+//   - Implemented daily challenge feature
+
 "use client";
 
 import Link from "next/link";

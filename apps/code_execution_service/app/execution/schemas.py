@@ -1,3 +1,16 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: October 12-20, 2025
+# Scope: Generated Pydantic schemas for code execution:
+#   - CodeExecutionRequest: Request schema with code, language, test cases
+#   - CodeExecutionResponse: Response with results, metrics, status
+#   - Judge0Result: Individual test case result
+#   - LanguageEnum, ExecutionStatus: Enums for type safety
+#   - TestCase: Input/output schema
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Added validation for supported languages
+#   - Enhanced type safety with enums
+
 from enum import Enum
 from typing import Any, Dict, List, Optional
 

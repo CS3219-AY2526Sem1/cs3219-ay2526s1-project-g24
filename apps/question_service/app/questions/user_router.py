@@ -1,3 +1,15 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: September 18 - October 10, 2025
+# Scope: Generated FastAPI router for user progress tracking:
+#   - GET /users/me/attempts: Get user's question attempts
+#   - GET /users/me/stats: Get user statistics (attempts, success rate, etc.)
+#   - GET /users/me/solved: Get list of solved questions
+#   Authentication required for all endpoints
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Added pagination for attempts history
+#   - Enhanced statistics calculation
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 

@@ -1,3 +1,20 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 20 - November 5, 2025
+// Scope: Generated Yjs document management service:
+//   - YjsService class: Manages in-memory Y.Doc instances for real-time collaboration
+//   - getDocument(): Retrieve or create Y.Doc for session
+//   - initializeFromSnapshot(): Load persisted state from database
+//   - syncDocuments(): Cross-server synchronization via Redis pub/sub
+//   - garbageCollectInactive(): Auto-cleanup of inactive documents
+//   - Awareness protocol integration for presence/cursors
+//   Distributed architecture with Redis for state sync across instances
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added comprehensive error handling
+//   - Implemented proper garbage collection
+//   - Enhanced Redis pub/sub for multi-instance deployment
+//   - Added metrics for document lifecycle
+
 import * as Y from 'yjs';
 import { Awareness } from 'y-protocols/awareness';
 import { config } from '../config/index.js';

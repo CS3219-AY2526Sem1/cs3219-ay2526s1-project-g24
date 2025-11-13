@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated questions list page:
+//   - Question browsing with filters (difficulty, topic, company, status)
+//   - Search functionality with debouncing
+//   - Random question selection
+//   - Question attempt status tracking
+//   - Pagination support
+//   - Navigation to practice mode
+//   Integration with Question Service API
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced filter UX with multi-select
+//   - Optimized search performance with debouncing
+//   - Added client-side filtering for "not-attempted" status
+
 "use client";
 
 import Link from "next/link";

@@ -1,3 +1,16 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: September 18 - October 10, 2025
+# Scope: Generated FastAPI router for company management:
+#   - GET /companies: List all companies with pagination
+#   - POST /companies: Create new company
+#   - GET /companies/{id}: Get company by ID
+#   - PUT /companies/{id}: Update company
+#   - DELETE /companies/{id}: Delete company
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Added duplicate company name validation
+#   - Enhanced error handling for integrity constraints
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
