@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated React authentication hook:
+//   - useAuth(): Main authentication state management hook
+//   - checkSession(): Verify user session and update state
+//   - login(): Redirect to Google OAuth flow
+//   - logout(): Clear session and redirect to landing
+//   - State management for user and loading states
+//   Integrates with User Service API for authentication
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced error handling for network failures
+//   - Added session refresh logic
+//   - Optimized with useMemo/useCallback for performance
+
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {

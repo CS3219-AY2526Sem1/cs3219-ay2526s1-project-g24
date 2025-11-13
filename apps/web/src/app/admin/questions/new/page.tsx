@@ -1,3 +1,21 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated admin question creation page:
+//   - Comprehensive question creation form with multiple sections
+//   - Topic and company multi-select with checkboxes
+//   - Function signature definition (name, arguments, return type)
+//   - Code template editor for 4 languages (Python, JavaScript, Java, C++)
+//   - Constraints and hints management (add/remove dynamic fields)
+//   - Time/memory limits per language
+//   - Test case creation with visibility levels (sample, public, private)
+//   - Form validation and error handling
+//   - API integration with createQuestion
+//   - Redirect to questions list on success
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced form validation with detailed error messages
+//   - Added better UX for dynamic field management
+
 "use client";
 
 import Link from "next/link";

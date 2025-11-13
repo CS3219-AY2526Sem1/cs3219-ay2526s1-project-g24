@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 1-10, 2025
+// Scope: Generated Server-Sent Events (SSE) handler for real-time match updates:
+//   - handleSSE(): Establish SSE connection for match status streaming
+//   - Redis polling for status updates
+//   - Heartbeat mechanism for connection keep-alive
+//   - Automatic cleanup on timeout/disconnect
+//   Event types: status, matched, timeout, cancelled, error
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added connection pooling and management
+//   - Enhanced error handling and reconnection logic
+//   - Implemented proper cleanup on client disconnect
+//   - Added metrics for active SSE connections
+//   - Optimized polling intervals for better performance
+
 import type { Request, Response } from "express";
 import { logger } from "../observability/logger.js";
 import { metrics } from "../observability/metrics.js";

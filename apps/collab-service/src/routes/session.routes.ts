@@ -1,3 +1,20 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 20 - November 5, 2025
+// Scope: Generated Express routes for session management:
+//   - POST /sessions: Create new collaboration session
+//   - GET /sessions/:id: Get session details
+//   - DELETE /sessions/:id: Delete session
+//   - GET /sessions/:id/state: Get current document state
+//   - PATCH /sessions/:id/end: End active session
+//   - GET /sessions/active: List active sessions for user
+//   Includes authentication, authorization, input validation with Zod
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced validation for session creation
+//   - Added proper error handling and HTTP status codes
+//   - Integrated with Redis for state management
+//   - Added comprehensive logging
+
 import { Router, Request, Response, NextFunction } from 'express';
 import { authenticate } from '../middleware/auth.js';
 import { SessionService } from '../services/session.service.js';

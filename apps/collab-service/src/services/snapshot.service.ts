@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 20 - November 5, 2025
+// Scope: Generated snapshot persistence service:
+//   - SnapshotService.startPeriodicSnapshots(): Background job for auto-save
+//   - SnapshotService.saveSnapshot(): Persist Y.Doc state to PostgreSQL
+//   - SnapshotService.loadSnapshot(): Restore document from database
+//   - SnapshotService.cleanupOldSnapshots(): Remove expired snapshots
+//   Periodic snapshots ensure durability beyond Redis TTL, with retry logic
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added configurable snapshot intervals
+//   - Implemented retry mechanism for failed saves
+//   - Enhanced compression for large documents
+//   - Added metrics for snapshot operations
+
 import { prisma } from '../utils/prisma.js';
 import { YjsService } from './yjs.service.js';
 import { config } from '../config/index.js';

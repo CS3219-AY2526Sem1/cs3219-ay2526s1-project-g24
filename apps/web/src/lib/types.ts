@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated TypeScript type definitions:
+//   - User types (User, Role, Permission)
+//   - Authentication types (AuthResponse, Session)
+//   - Matching types (MatchRequest, MatchEvent, MatchStatus)
+//   - Question types (QuestionDetail, TestCase)
+//   - Collaboration types (SessionInfo, SessionStatus)
+//   - Code execution types (CodeExecutionResult)
+//   - Enums (ProficiencyLevel, ProgrammingLanguage)
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added comprehensive JSDoc comments
+//   - Enhanced type safety with discriminated unions
+
 // Type definitions for the web application
 
 // ========== USER TYPES ==========

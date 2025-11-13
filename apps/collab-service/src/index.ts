@@ -1,3 +1,20 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 20 - November 5, 2025
+// Scope: Generated application entry point and initialization:
+//   - main(): Bootstrap sequence for all services
+//   - Database connection (PostgreSQL via Prisma)
+//   - Redis connection (pub/sub for Yjs sync)
+//   - WebSocket server initialization
+//   - YjsService startup with Redis pub/sub
+//   - SnapshotService periodic background jobs
+//   - Graceful shutdown handling (SIGTERM, SIGINT)
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added proper error handling in startup sequence
+//   - Enhanced graceful shutdown with cleanup timeouts
+//   - Added comprehensive logging for initialization steps
+//   - Implemented health check warmup
+
 import { createServer, startServer } from './server.js';
 import { connectDatabase, disconnectDatabase } from './utils/prisma.js';
 import { connectRedis, disconnectRedis, getRedisPubClient, getRedisSubClient } from './utils/redis.js';

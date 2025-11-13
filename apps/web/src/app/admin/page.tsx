@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated admin dashboard page:
+//   - Dashboard statistics display (total users, questions by difficulty, active sessions)
+//   - Data fetching from Question Service and User Service APIs
+//   - Statistics cards with visual styling and responsive layout
+//   - Navigation header with links to users and questions management
+//   - Error handling with graceful permission error fallbacks
+//   - Loading states with spinner component
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced error messaging for better admin UX
+//   - Added responsive design improvements
+
 "use client";
 
 import Link from "next/link";

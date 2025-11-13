@@ -1,3 +1,12 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated utility functions:
+//   - capitalizeFirstLetter for string formatting
+//   - mapDifficultyToApi for difficulty level conversion
+//   - removeExamplesFromDescription for question text cleanup
+// Author review: Code reviewed, tested, and validated by team.
+
 import { MatchingDifficulty, ProficiencyLevel } from "@/lib/types";
 
 export function capitalizeFirstLetter(str: string): string {

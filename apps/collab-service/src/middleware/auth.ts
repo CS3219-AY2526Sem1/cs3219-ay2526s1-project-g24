@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated JWT authentication middleware for Collaboration Service:
+//   - RS256 JWT verification using JWKS from User Service
+//   - Token extraction from Authorization header and cookies
+//   - Cookie header parsing for token retrieval
+//   - Mock authentication support for local testing
+//   - User payload attachment to request object
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced cookie parsing logic
+//   - Added comprehensive logging for debugging
+//   - Implemented mock auth for development
+
 import { Response, NextFunction } from 'express';
 import { config } from '../config/index.js';
 import { AuthRequest, JWTPayload, AppError } from '../types/index.js';

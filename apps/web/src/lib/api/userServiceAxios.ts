@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated User Service Axios API client:
+//   - User authentication functions (Google OAuth, logout, session)
+//   - User CRUD operations (get, update, delete)
+//   - Admin user management (list, update, delete)
+//   - Role and permission normalization
+//   - Integration with Axios client with auth interceptors
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced data normalization for roles and permissions
+//   - Added comprehensive error handling
+//   - Optimized API response parsing
+
 import { API_CONFIG, createServiceUrlBuilder } from "@/lib/api-utils";
 import { Session, User, Role, Permission } from "@/lib/types";
 import { apiClient } from "./axiosClient";

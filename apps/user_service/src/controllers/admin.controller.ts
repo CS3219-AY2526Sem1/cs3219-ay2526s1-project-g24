@@ -1,3 +1,20 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 20-25, 2025
+// Scope: Generated admin controller for Role-Based Access Control (RBAC):
+//   - createRole(): Create new user roles
+//   - getAllRoles(): List all available roles
+//   - createPermission(): Define new permissions
+//   - getAllPermissions(): List all permissions
+//   - assignRoleToUser(): Grant roles to users
+//   - revokeRoleFromUser(): Remove user roles
+//   - assignPermissionToRole(): Add permissions to roles
+//   - revokePermissionFromRole(): Remove permissions from roles
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced authorization checks
+//   - Comprehensive error handling for RBAC operations
+//   - Integrated with admin service layer
+
 import {
   Controller,
   Get,

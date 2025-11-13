@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated Redis client management for Collaboration Service:
+//   - Redis client creation and connection with error/connect/ready event handling
+//   - Main Redis client getter and connector functions
+//   - Separate Redis Pub/Sub clients for publishing and subscribing
+//   - Connection pooling with singleton pattern
+//   - Graceful disconnect for all clients (main, pub, sub)
+//   - Health check utility (isRedisHealthy with PING)
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added comprehensive logging for connection lifecycle
+//   - Enhanced error handling for Redis operations
+
 import { createClient, RedisClientType } from 'redis';
 import { config } from '../config/index.js';
 

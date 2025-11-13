@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated simplified admin question edit page:
+//   - Basic question editing form (title, difficulty, description)
+//   - Topic selection with multi-select checkboxes
+//   - Example management (input, output, explanation)
+//   - Constraints list management
+//   - Test case editing (input, expected output)
+//   - Dynamic field addition/removal
+//   - Form submission to updateQuestion API
+//   - Redirect to questions list on success
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Simplified UI for faster editing workflow
+//   - Added better validation feedback
+
 "use client";
 
 import Link from "next/link";

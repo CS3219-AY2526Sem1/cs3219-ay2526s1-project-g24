@@ -1,3 +1,18 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: September 18 - October 10, 2025
+# Scope: Generated Pydantic schemas for request/response validation:
+#   - QuestionCreate, QuestionUpdate, QuestionResponse
+#   - TestCaseCreate, TestCaseUpdate, TestCaseResponse
+#   - TopicCreate, TopicResponse, CompanyCreate, CompanyResponse
+#   - UserProgressCreate, UserProgressResponse
+#   - DifficultyEnum, TestCaseVisibility enums
+#   - Custom validators for input sanitization
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Added comprehensive field validation
+#   - Enhanced type safety with Pydantic V2
+#   - Added custom validators for difficulty and topics
+
 from datetime import datetime
 from enum import Enum
 from typing import Any, Dict, List, Optional

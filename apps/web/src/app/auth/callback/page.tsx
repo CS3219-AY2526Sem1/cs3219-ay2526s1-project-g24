@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated OAuth callback page:
+//   - Handle OAuth redirect after Google authentication
+//   - Check for user onboarding completion
+//   - Redirect new users to onboarding
+//   - Redirect returning users to intended destination
+//   - Post-login redirect with sessionStorage
+//   - Loading state during authentication check
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added proficiency check for onboarding flow
+//   - Enhanced redirect logic
+
 "use client";
 
 import { useEffect } from "react";

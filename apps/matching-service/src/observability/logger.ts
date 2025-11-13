@@ -1,3 +1,13 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 1-10, 2025
+// Scope: Generated Pino logger configuration:
+//   - Structured JSON logging for production
+//   - Pretty printing for development
+//   - Configurable log levels via environment variable
+//   - Custom formatters for consistent log structure
+// Author review: Code reviewed, tested, and validated by team. No modifications needed.
+
 /**
  * Structured logging with Pino
  */

@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated Markdown rendering component:
+//   - ReactMarkdown integration with GitHub-flavored markdown
+//   - Custom renderers for code blocks (inline and block)
+//   - Styled components for headings, lists, links
+//   - Dark theme optimized for code editor
+//   - Syntax highlighting support
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced code block formatting with language detection
+//   - Added responsive design for mobile devices
+//   - Optimized performance for large documents
+
 import React from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";

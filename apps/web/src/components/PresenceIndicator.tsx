@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated presence indicator component:
+//   - Display connected users with avatars
+//   - User color coding for identification
+//   - Local user highlighting ("You" badge)
+//   - Tooltips with user names
+//   - Overflow handling ("+N more")
+//   - Real-time user count display
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced avatar styling with gradients
+//   - Added smooth animations for user join/leave
+
 import { UserPresence } from '@/lib/collaboration/CollaborationManager';
 
 interface PresenceIndicatorProps {

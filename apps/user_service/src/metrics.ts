@@ -1,3 +1,16 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 20-25, 2025
+// Scope: Generated Prometheus metrics for observability:
+//   - httpRequestDuration: Histogram for request latency
+//   - httpRequestTotal: Counter for total requests by method/route/status
+//   - activeUsers: Gauge for tracking active user count
+//   - metricsMiddleware(): Express middleware for automatic metrics collection
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added custom business metrics (active users, authentication events)
+//   - Enhanced labels for better metric granularity
+//   - Integrated with /metrics endpoint for Prometheus scraping
+
 import promClient from 'prom-client';
 import { Request, Response, NextFunction } from 'express';
 

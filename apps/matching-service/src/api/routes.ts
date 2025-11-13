@@ -1,3 +1,21 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 1-10, 2025
+// Scope: Generated Express API routes for matching service:
+//   - POST /match: Create match request
+//   - GET /match/:id: Get request status
+//   - DELETE /match/:id: Cancel match request
+//   - GET /match/:id/sse: Server-Sent Events stream
+//   - GET /queue/stats: Queue statistics
+//   - GET /metrics: Prometheus metrics endpoint
+//   Includes Zod validation, authentication, OpenTelemetry tracing
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added comprehensive input validation with Zod schemas
+//   - Enhanced error handling and HTTP status codes
+//   - Integrated Swagger/OpenAPI documentation
+//   - Added rate limiting and request validation
+//   - Implemented distributed tracing spans
+
 import express, { Request, Response, NextFunction, Router } from "express";
 import { v4 as uuidv4 } from "uuid";
 import { z } from "zod";

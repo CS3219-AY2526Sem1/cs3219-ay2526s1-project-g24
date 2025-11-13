@@ -1,3 +1,13 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: October 12-20, 2025
+# Scope: Generated FastAPI router for code execution:
+#   - POST /execution/execute: Execute code with test cases
+#   Integration with Judge0Service for actual execution
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Added request validation
+#   - Enhanced error responses
+
 """
 Code execution router
 """

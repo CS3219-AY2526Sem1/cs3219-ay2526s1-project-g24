@@ -1,3 +1,14 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 15-20, 2025
+// Scope: Generated User model with validation decorators:
+//   - User class with fields: id, displayName, email, proficiencyLevel, programmingLanguages
+//   - Class-validator decorators for runtime validation
+//   - Integration with Prisma types for enums
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added custom validation for programming languages array
+//   - Enhanced type safety with Prisma enum types
+
 import {
   IsString,
   IsEmail,

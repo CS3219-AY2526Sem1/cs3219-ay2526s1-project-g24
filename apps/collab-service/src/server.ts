@@ -1,3 +1,20 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 20 - November 5, 2025
+// Scope: Generated Express server setup with WebSocket integration:
+//   - createServer(): Express app configuration with middleware
+//   - CORS configuration for cross-origin requests
+//   - Helmet security headers (CSP disabled for dev)
+//   - WebSocket server setup alongside HTTP server
+//   - Route registration (session, observability)
+//   - Static file serving for Yjs client
+//   - Error handling middleware
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Production CORS configuration with environment-based origins
+//   - Enhanced security headers for production
+//   - Added comprehensive error handling
+//   - Integrated health check endpoints
+
 import express, { Express, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';

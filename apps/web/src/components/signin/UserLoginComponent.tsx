@@ -1,3 +1,16 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated user login component:
+//   - Google OAuth sign-in button
+//   - Gradient background with animated image
+//   - Post-login redirect handling with sessionStorage
+//   - Integration with User Service for OAuth URL
+//   - Responsive design for mobile and desktop
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced visual design with animations
+//   - Added redirect parameter support
+
 "use client";
 
 import Link from "next/link";

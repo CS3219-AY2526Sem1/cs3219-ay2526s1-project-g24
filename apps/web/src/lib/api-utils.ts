@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated API utility functions:
+//   - Service URL resolution for different environments (dev, prod, SSR)
+//   - HTTP and WebSocket URL builders
+//   - Localhost detection and same-origin handling
+//   - URL scheme normalization (http/https, ws/wss)
+//   - API configuration with service endpoints
+//   - Service URL builder factory
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced security with HTTPS enforcement in production
+//   - Added robust URL validation
+//   - Optimized for Next.js SSR and client-side rendering
+
 /**
  * Shared helpers for constructing service base URLs that work in both
  * local development (localhost), browser production (same-origin),

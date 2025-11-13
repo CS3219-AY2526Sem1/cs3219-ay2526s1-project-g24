@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 20 - November 5, 2025
+// Scope: Generated Yjs WebSocket protocol handler:
+//   - YjsWebSocketHandler class: Per-connection Yjs message processor
+//   - handleMessage(): Parse and route Yjs protocol messages
+//   - Sync protocol: STATE_VECTOR, STATE_UPDATE, SYNC_STEP1, SYNC_STEP2
+//   - Awareness protocol: Cursor positions, user presence
+//   - Binary message encoding/decoding with lib0
+//   - Document synchronization and conflict resolution
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced message validation and error handling
+//   - Optimized sync performance with delta updates
+//   - Added metrics for protocol message types
+//   - Implemented proper cleanup on disconnect
+
 import { WebSocket } from 'ws';
 import * as encoding from 'lib0/encoding';
 import * as decoding from 'lib0/decoding';

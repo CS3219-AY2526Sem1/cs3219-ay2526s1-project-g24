@@ -1,3 +1,22 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated admin question edit page:
+//   - Load existing question data by ID
+//   - Multi-section edit form (metadata, function signature, templates, constraints)
+//   - Topic and company selection with checkbox UI
+//   - Function signature editing (name, arguments, return type)
+//   - Code template editor for 4 languages with syntax highlighting
+//   - Constraints and hints management
+//   - Time/memory limits configuration per language
+//   - Question deletion with confirmation modal
+//   - Form validation and error handling
+//   - API integration with updateQuestion and deleteQuestion
+//   - Redirect on successful update/deletion
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced loading states for better UX
+//   - Added comprehensive validation
+
 "use client";
 
 import Link from "next/link";

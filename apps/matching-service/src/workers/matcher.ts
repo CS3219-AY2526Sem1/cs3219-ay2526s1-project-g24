@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 1-10, 2025
+// Scope: Generated matching worker with Redis Pub/Sub:
+//   - isCompatible(): Algorithm to check topic/difficulty compatibility
+//   - findMatch(): Search for compatible requests in queue
+//   - processMatchRequest(): Main matching logic with atomic operations
+//   - startMatcher(): Worker initialization and pub/sub listener
+//   Includes metrics collection, distributed tracing, and race condition handling
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced matching algorithm with weighted topic matching
+//   - Added OpenTelemetry spans for distributed tracing
+//   - Implemented atomic Redis operations to prevent race conditions
+//   - Added comprehensive error handling and retry logic
+//   - Integrated Prometheus metrics for match success/failure rates
+
 /**
  * Matcher Worker - Processes matching using Redis Pub/Sub
  */

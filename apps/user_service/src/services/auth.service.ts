@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 15-20, 2025
+// Scope: Generated authentication service with functions:
+//   - handleGoogleAuth(): Process Google OAuth tokens
+//   - generateAccessToken(): Create JWT with user claims
+//   User creation/update logic for OAuth flow, token expiration and signing configuration.
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Custom error handling and validation
+//   - Modified JWT payload structure to include roles and permissions
+//   - Added Prisma integration for user lookup/creation
+//   - Implemented secure token generation with proper expiration
+//   - Added comprehensive logging for auth events
+
 import { google } from "googleapis";
 import axios from "axios";
 import prisma from "../prisma";

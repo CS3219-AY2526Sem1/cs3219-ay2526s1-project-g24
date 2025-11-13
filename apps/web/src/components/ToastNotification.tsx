@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated toast notification component:
+//   - Toast notifications with multiple types (error, warning, success, info)
+//   - Auto-dismiss with configurable duration
+//   - Manual dismiss functionality
+//   - Animated slide-in transitions
+//   - Stacked toast management
+//   - Icon rendering for each toast type
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced visual design with glassmorphism
+//   - Added accessibility for screen readers
+//   - Optimized animation performance
+
 import { useEffect } from 'react';
 
 export interface Toast {

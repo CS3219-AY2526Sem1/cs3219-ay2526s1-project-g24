@@ -1,3 +1,23 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated collaboration manager for real-time code editing:
+//   - Yjs document and WebSocket provider management
+//   - Monaco editor binding with Yjs
+//   - User presence and awareness protocol
+//   - Remote cursor rendering and management
+//   - Custom message broadcasting (code execution, language changes)
+//   - Connection status tracking with reconnection logic
+//   - Session termination handling
+//   - Error recovery and reporting
+//   - Initial sync promise for state hydration
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced WebSocket reconnection with exponential backoff
+//   - Optimized presence updates with debouncing
+//   - Added comprehensive error handling and logging
+//   - Implemented cursor position synchronization
+//   - Added session cleanup on disconnect
+
 import type { editor } from 'monaco-editor';
 import { resolveServiceEndpoints, stripTrailingSlash } from '@/lib/api-utils';
 import { getYjsModules } from './yjs-modules';

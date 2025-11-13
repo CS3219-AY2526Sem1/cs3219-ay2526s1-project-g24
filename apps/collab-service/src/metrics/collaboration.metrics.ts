@@ -1,3 +1,23 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated Prometheus metrics for Collaboration Service:
+//   - WebSocket connection metrics (wsConnectionsActive)
+//   - Active collaboration session tracking (collaborationSessionsActive)
+//   - Session operations counter with operation/status labels
+//   - Document sync operations for Yjs (update, snapshot, restore)
+//   - Yjs document cache size gauge
+//   - Redis pub/sub message tracking with direction/channel labels
+//   - Document state size histogram with buckets from 1KB to 10MB
+//   - Snapshot operation duration histogram (save/restore)
+//   - Redis operation duration metrics
+//   - Client awareness updates counter (cursors, selections)
+//   - Session participant count across all sessions
+//   - Code execution request tracking with language/status labels
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added high cardinality prevention strategies
+//   - Enhanced bucket configurations for better observability
+
 import { register, Counter, Gauge, Histogram } from 'prom-client';
 
 /**
