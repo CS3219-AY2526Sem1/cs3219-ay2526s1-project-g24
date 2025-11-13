@@ -8,10 +8,12 @@ import cors from "cors";
 import cookieParser from "cookie-parser";
 import { logger } from "./observability/logger.js";
 import { initTracing, shutdownTracing } from "./observability/tracing.js";
-import { initRedis, closeRedis } from "./services/redis.js";
+import { initRedis, closeRedis, redisOps } from "./services/redis.js";
 import { router } from "./api/routes.js";
 import { startMatcher } from "./workers/matcher.js";
 import { startTimeoutWorker } from "./workers/timeout.js";
+import { metrics } from "./observability/metrics.js";
+import type { Difficulty } from "./types.js";
 
 const PORT = parseInt(process.env.PORT || "3000", 10);
 
@@ -68,6 +70,17 @@ async function start() {
     startTimeoutWorker();
 
     logger.info("Workers started");
+
+    // Initialize metrics with current queue lengths
+    const difficulties: Difficulty[] = ["easy", "medium", "hard"];
+    await Promise.all(
+      difficulties.map(async (difficulty) => {
+        const length = await redisOps.getQueueLength(difficulty);
+        metrics.setQueueLength(difficulty, length);
+      }),
+    );
+    logger.info("Metrics initialized");
+
     logger.info("Matching Service ready");
 
     // Graceful shutdown
