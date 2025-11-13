@@ -518,10 +518,10 @@ router.get("/-/ready", async (_req: Request, res: Response) => {
 });
 
 /**
- * GET /-/metrics
+ * GET /metrics
  * Prometheus metrics endpoint
  */
-router.get("/-/metrics", async (_req: Request, res: Response) => {
+router.get("/metrics", async (_req: Request, res: Response) => {
     try {
         // Update queue length metrics before serving
         const difficulties: ("easy" | "medium" | "hard")[] = [
