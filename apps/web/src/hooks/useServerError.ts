@@ -1,3 +1,13 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated server error management hook:
+//   - Custom event listener for server errors
+//   - Error state management with React hooks
+//   - clearError function for dismissing errors
+//   - TypeScript interface for ServerError
+// Author review: Code reviewed, tested, and validated by team.
+
 import { useEffect, useState } from 'react';
 
 interface ServerError {

@@ -1,3 +1,16 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 1-10, 2025
+// Scope: Generated OpenTelemetry distributed tracing:
+//   - initTracing(): Initialize OTEL SDK with auto-instrumentation
+//   - shutdownTracing(): Graceful shutdown
+//   - withSpan(): Helper function for creating traced operations
+//   OTLP exporter for Jaeger/Grafana Tempo integration
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added custom span attributes for matching operations
+//   - Enhanced error tracking with span status codes
+//   - Configured sampling strategies for production
+
 /**
  * OpenTelemetry tracing configuration
  */

@@ -1,3 +1,16 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 15-20, 2025
+// Scope: Generated configuration module for environment variables:
+//   - jwtConfig: JWT signing keys, JWKS URI, token expiry settings
+//   - oauthConfig: Google OAuth credentials and redirect URI
+//   - serverConfig: CORS origins, cookie settings, port configuration
+//   - rbacConfig: Default roles and permissions for seeding
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added validation for required environment variables
+//   - Separated development and production configurations
+//   - Enhanced security settings
+
 import { ADMIN, ADMIN_PERMISSIONS, USER, USER_PERMISSIONS } from "../utils/constants";
 
 export const jwtConfig = {

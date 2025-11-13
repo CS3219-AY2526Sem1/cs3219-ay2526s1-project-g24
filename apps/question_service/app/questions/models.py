@@ -1,3 +1,21 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: September 18 - October 10, 2025
+# Scope: Generated SQLAlchemy models including:
+#   - Question model with relationships
+#   - TestCase model (public and private)
+#   - Topic model with many-to-many relationships
+#   - Company model
+#   - UserProgress model for tracking attempts
+#   - SolvedQuestion model for completion tracking
+#   Database indexes for performance optimization.
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Added database indexes for difficulty, topics, companies
+#   - Implemented soft delete with deleted_at timestamp
+#   - Added validation constraints
+#   - Optimized relationships for query performance
+#   - Added audit fields (created_at, updated_at)
+
 import enum
 from datetime import datetime
 

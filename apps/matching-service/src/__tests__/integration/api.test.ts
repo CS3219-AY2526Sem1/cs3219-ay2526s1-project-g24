@@ -485,9 +485,9 @@ describe("API Routes Integration Tests", () => {
     });
   });
 
-  describe("GET /-/metrics", () => {
+  describe("GET /metrics", () => {
     it("should return Prometheus metrics", async () => {
-      const response = await request(app).get("/-/metrics").expect(200);
+      const response = await request(app).get("/metrics").expect(200);
 
       expect(response.text).toContain("# HELP");
       expect(response.text).toContain("# TYPE");

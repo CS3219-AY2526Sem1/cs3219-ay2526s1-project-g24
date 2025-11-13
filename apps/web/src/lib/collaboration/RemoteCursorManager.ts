@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated remote cursor manager for collaborative editing:
+//   - Remote cursor rendering in Monaco editor
+//   - Cursor position synchronization from Yjs awareness
+//   - Dynamic CSS injection for user-specific colors
+//   - Cursor decoration management with Monaco API
+//   - Cleanup of disconnected user cursors
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced visual feedback with smooth animations
+//   - Optimized rendering performance
+//   - Added error handling for invalid cursor positions
+
 import type { editor } from 'monaco-editor';
 
 /**

@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated user profile page:
+//   - User profile display and editing
+//   - Profile fields (display name, description, proficiency, language)
+//   - Avatar display with fallback
+//   - Navigation tabs integration
+//   - Update user API integration
+//   - Logout functionality
+//   Protected route with withAuth HOC
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced form validation
+//   - Added error handling for update failures
+
 "use client";
 
 import Link from "next/link";

@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated active session reminder component:
+//   - Persistent reminder for active collaboration sessions
+//   - Rejoin session functionality
+//   - Dismiss and clear session actions
+//   - Session state hydration from localStorage
+//   - Integration with useActiveSessionReminder hook
+//   - Responsive design with glassmorphism UI
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced UX with visual feedback
+//   - Added session expiration handling
+//   - Optimized storage operations
+
 "use client";
 
 import { useRouter } from "next/navigation";

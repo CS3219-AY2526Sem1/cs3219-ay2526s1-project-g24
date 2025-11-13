@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated admin questions management page:
+//   - Question listing with pagination (20 per page)
+//   - Search with debouncing (500ms delay)
+//   - Multi-filter support (difficulty, topic, company, deleted status)
+//   - Question deletion with confirmation modal
+//   - Question restoration for soft-deleted questions
+//   - Real-time filter updates with API integration
+//   - Responsive table layout with loading spinner
+//   - Navigation to question details and edit pages
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced filter UX with better visual feedback
+//   - Added comprehensive pagination controls
+
 "use client";
 
 import Link from "next/link";

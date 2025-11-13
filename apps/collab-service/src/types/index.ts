@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated TypeScript type definitions for Collaboration Service:
+//   - Session types (SessionStatus, CreateSessionRequest, etc.)
+//   - WebSocket types (AuthenticatedWebSocket, WebSocketMessage)
+//   - Yjs document management types (YjsDocument)
+//   - JWT payload and authentication types
+//   - Question Service response types
+//   - Prisma Session re-exports
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced type safety for WebSocket events
+//   - Added comprehensive JSDoc comments
+
 import { Request } from 'express';
 import * as Y from 'yjs';
 import { Session as PrismaSession } from '@prisma/client';

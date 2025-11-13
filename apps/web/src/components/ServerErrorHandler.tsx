@@ -1,3 +1,16 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated server error handler component:
+//   - Full-screen error overlay for server errors
+//   - Try again, dismiss, and go home actions
+//   - Error code and message display
+//   - Integration with useServerError hook
+//   - Consistent branding with glassmorphism UI
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced visual feedback with animations
+//   - Added accessibility attributes
+
 'use client';
 
 import { useServerError } from '@/hooks/useServerError';

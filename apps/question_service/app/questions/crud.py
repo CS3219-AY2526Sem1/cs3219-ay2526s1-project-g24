@@ -1,3 +1,19 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: September 18 - October 10, 2025
+# Scope: Generated CRUD operations for Question Service:
+#   - Question CRUD: create, read, update, delete (soft delete)
+#   - TestCase CRUD: create, read, update, delete
+#   - Topic/Company CRUD operations
+#   - UserProgress tracking: record attempts, get user statistics
+#   - Complex queries with filtering, pagination, eager loading
+#   - Random question selection by difficulty/topics
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Optimized database queries with proper joins and indexes
+#   - Implemented soft delete pattern for questions
+#   - Enhanced filtering logic for topic/difficulty combinations
+#   - Added comprehensive error handling
+
 import hashlib
 import random
 from datetime import datetime, timedelta

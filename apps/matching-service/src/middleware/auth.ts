@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 1-10, 2025
+// Scope: Generated JWT authentication middleware using JWKS:
+//   - authenticate(): Express middleware for JWT verification
+//   - getJWKS(): JWKS client with caching (1-hour TTL)
+//   - Token extraction from Authorization header or cookies
+//   - JWT verification using jose library with remote JWKS
+//   - User context injection into request object
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added JWKS caching to reduce latency
+//   - Enhanced error handling with specific error messages
+//   - Implemented token refresh logic
+//   - Added comprehensive logging for auth failures
+
 import type { NextFunction, Request, Response } from "express";
 import { createRemoteJWKSet, jwtVerify, type JWTPayload } from "jose";
 import { AuthContext } from "../auth/types.js";

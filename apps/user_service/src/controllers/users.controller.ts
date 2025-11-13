@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 15-20, 2025
+// Scope: Generated Express.js user controller with CRUD endpoints:
+//   - getUsers(): Fetch all users with pagination
+//   - getUser(): Get single user by ID
+//   - updateUser(): Update user profile (display name, proficiency, languages)
+//   - deleteUser(): Soft delete user account
+//   Input validation using TSOA decorators.
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Custom error handling with proper HTTP status codes
+//   - Integrated Prometheus metrics for monitoring
+//   - Added comprehensive input validation
+//   - Modified pagination logic
+//   - Added logging for user operations
+
 import {
   Controller,
   Get,

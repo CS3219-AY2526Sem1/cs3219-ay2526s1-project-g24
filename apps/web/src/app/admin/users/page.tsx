@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated admin user management page:
+//   - User listing with search and filtering
+//   - User deletion with confirmation modal
+//   - Role assignment/removal for users
+//   - Role creation and management
+//   - Permission creation and management
+//   - Permission grant/revoke for roles
+//   - Responsive table layout with loading states
+//   - Real-time updates after mutations
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced RBAC UI with better visual feedback
+//   - Added comprehensive error handling
+
 "use client";
 
 import Link from "next/link";

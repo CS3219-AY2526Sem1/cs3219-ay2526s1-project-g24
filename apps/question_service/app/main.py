@@ -1,3 +1,19 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: September 18 - October 10, 2025
+# Scope: Generated FastAPI application initialization with:
+#   - CORS middleware configuration
+#   - Router registration
+#   - Health check endpoint
+#   - Swagger/OpenAPI documentation
+#   - Metrics endpoint for Prometheus
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Production CORS configuration with environment-based origins
+#   - Added comprehensive error handling middleware
+#   - Modified startup/shutdown events for database management
+#   - Added logging configuration
+#   - Integrated observability (metrics, health checks)
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 import os

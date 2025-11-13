@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated Question Service HTTP client:
+//   - Question CRUD: getQuestions(), getQuestionById(), createQuestion(), updateQuestion(), deleteQuestion()
+//   - Test cases: getTestCases(), createTestCase(), updateTestCase(), deleteTestCase()
+//   - Topics/Companies: getTopics(), getCompanies(), createTopic(), createCompany()
+//   - User progress: getUserAttempts(), getUserStats(), submitCode()
+//   - Random question selection by difficulty/topics
+//   Fetch-based client with authentication and error handling
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added comprehensive error handling
+//   - Enhanced filtering and pagination
+//   - Integrated with Code Execution Service for submissions
+
 /**
  * Question Service API Client
  * Handles all interactions with the Question Service backend

@@ -1,3 +1,18 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: November 1-10, 2025
+# Scope: Generated JWT authentication utilities for Question Service:
+#   - RS256 JWT verification using JWKS from User Service
+#   - Public key extraction and conversion (JWK to PEM)
+#   - Token extraction from headers and cookies
+#   - User authentication and scope validation
+#   - Custom authentication and authorization exceptions
+#   - LRU caching for JWKS fetching
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Enhanced error handling for JWKS failures
+#   - Added scope-based authorization support
+#   - Optimized with caching for performance
+
 """
 JWT Authentication utilities for Question Service.
 

@@ -1,3 +1,21 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: September 18 - October 10, 2025
+# Scope: Generated FastAPI router for question endpoints:
+#   - GET /questions: List questions with filtering (difficulty, topics, companies)
+#   - POST /questions: Create new question (admin only)
+#   - GET /questions/{id}: Get question details
+#   - PUT /questions/{id}: Update question (admin only)
+#   - DELETE /questions/{id}: Soft delete question (admin only)
+#   - POST /questions/{id}/submit: Submit code solution
+#   - GET /questions/random: Get random question by criteria
+#   Includes pagination, authentication, admin authorization
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Enhanced filtering logic with complex query combinations
+#   - Integrated with Code Execution Service for submissions
+#   - Added user progress tracking
+#   - Implemented data structure helper generation
+
 import math
 import uuid
 from datetime import datetime

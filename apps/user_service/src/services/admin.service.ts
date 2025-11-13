@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 20-25, 2025
+// Scope: Generated admin service layer with RBAC database operations:
+//   - createRole(), getAllRoles(): Role management
+//   - createPermission(), getAllPermissions(): Permission management
+//   - assignRoleToUser(), revokeRoleFromUser(): User-role associations
+//   - assignPermissionToRole(), revokePermissionFromRole(): Role-permission associations
+//   Prisma queries with proper relations for nested data
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added proper TypeScript typing
+//   - Enhanced error handling for duplicate entries
+//   - Optimized queries with selective includes
+
 import prisma from '../prisma';
 
 // Role Management

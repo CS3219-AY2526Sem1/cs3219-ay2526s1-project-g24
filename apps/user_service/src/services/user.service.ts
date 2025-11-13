@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 15-20, 2025
+// Scope: Generated user service with database operations:
+//   - getAllUsers(): Database query with Prisma
+//   - getUserById(): Fetch user with relations
+//   - updateUserProfile(): Update user fields with validation
+//   - deleteUser(): Soft delete implementation
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Prisma query optimization with eager loading
+//   - Comprehensive error handling and validation
+//   - Soft delete implementation with deleted_at field
+//   - Added logging for database operations
+
 import prisma from '../prisma';
 import type { User } from '@prisma/client';
 

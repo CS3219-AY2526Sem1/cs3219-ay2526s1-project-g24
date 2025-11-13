@@ -1,3 +1,20 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated configuration management for Collaboration Service:
+//   - Environment variable loading with dotenv
+//   - Server configuration (port, node environment)
+//   - Database URL configuration
+//   - Redis connection settings
+//   - External service URLs (Question, User services)
+//   - JWT authentication settings (RS256/HS256, mock auth)
+//   - Session configuration (snapshot interval, timeout, max size)
+//   - WebSocket heartbeat configuration
+//   - Required environment variable validation for production
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added comprehensive validation for production environment
+//   - Enhanced type safety with const assertions
+
 import dotenv from 'dotenv';
 
 dotenv.config();

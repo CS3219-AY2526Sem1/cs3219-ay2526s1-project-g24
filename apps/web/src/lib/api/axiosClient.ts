@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated Axios HTTP client with interceptors:
+//   - Axios instance with default configuration
+//   - Request interceptor for JWT token injection
+//   - Response interceptor for global error handling
+//   - 401 unauthorized redirect to login
+//   - 403 forbidden navigation handling
+//   - Server error (5xx) modal display
+//   - Custom event dispatching for error UI
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced error handling with custom events
+//   - Added timeout configuration
+//   - Improved redirect logic with setTimeout
+
 import axios, { AxiosError, AxiosInstance, AxiosRequestConfig, AxiosResponse, InternalAxiosRequestConfig } from 'axios';
 
 // Create axios instance with default config

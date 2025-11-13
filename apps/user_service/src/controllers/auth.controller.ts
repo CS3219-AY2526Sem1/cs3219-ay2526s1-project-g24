@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 15-20, 2025
+// Scope: Generated Express.js authentication controller with the following functions:
+//   - googleAuth(): Initiates Google OAuth2 flow
+//   - googleCallback(): Handles OAuth callback, creates/updates user, issues JWT
+//   - logout(): Clears authentication cookies
+//   Includes JWT token generation, cookie configuration, and error handling.
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Custom error handling with proper HTTP status codes
+//   - Integration with Prisma for database operations
+//   - Added Prometheus metrics for authentication events
+//   - Modified JWT payload to include user roles and permissions
+//   - Added comprehensive logging for debugging
+//   - Integrated with role-based access control system
+
 import * as jose from "jose";
 import { jwtConfig, oauthConfig, webConfig } from "../config";
 import {

@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated JWKS authentication utilities:
+//   - RS256 JWT verification using jose library
+//   - JWKS fetching with 1-hour TTL caching
+//   - Token extraction from Authorization header and cookies
+//   - Token format validation (compact JWS)
+//   - Comprehensive error handling for expired, invalid, and malformed tokens
+//   - Cookie parsing with support for HttpOnly cookies
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced token validation with regex checks
+//   - Added detailed logging for debugging
+//   - Optimized JWKS caching strategy
+
 /**
  * JWKS (JSON Web Key Set) Authentication utilities for Collab Service.
  *

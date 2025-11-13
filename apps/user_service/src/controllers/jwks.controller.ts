@@ -1,3 +1,13 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 20-25, 2025
+// Scope: Generated JWKS (JSON Web Key Set) controller:
+//   - getJwks(): Expose public keys for JWT verification
+//   Uses jose library to export RSA public key in JWK format for external services
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Proper JWK format with required fields (kid, use, alg)
+//   - Integration with JWT configuration
+
 import { Controller, Get, Route, Tags } from 'tsoa';
 import * as jose from 'jose';
 import { jwtConfig } from '../config';

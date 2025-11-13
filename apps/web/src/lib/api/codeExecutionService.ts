@@ -1,3 +1,16 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated Code Execution Service API client:
+//   - executeCode function for running test cases
+//   - runCodeWithCustomInput for debugging
+//   - TypeScript types for execution requests and responses
+//   - Test case result parsing and validation
+//   - Error handling for execution failures
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added comprehensive error messages
+//   - Enhanced type safety with strict interfaces
+
 /**
  * Code Execution Service API Client
  * Handles all interactions with the Code Execution Service backend

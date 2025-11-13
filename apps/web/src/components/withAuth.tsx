@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated authentication HOC components:
+//   - withAuth HOC for protected routes
+//   - withAdminAuth HOC for admin-only routes
+//   - Authentication state checking with useAuth
+//   - Automatic redirect to sign-in for unauthenticated users
+//   - Loading state handling
+//   - Active session reminder integration
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced security with role-based access control
+//   - Optimized redirect logic
+
 'use client';
 
 import { useEffect } from 'react';

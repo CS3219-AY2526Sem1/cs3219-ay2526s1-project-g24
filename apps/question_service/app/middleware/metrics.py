@@ -1,3 +1,16 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: November 1-10, 2025
+# Scope: Generated Prometheus metrics middleware for FastAPI:
+#   - HTTP request counter with method, endpoint, status labels
+#   - Request duration histogram with configurable buckets
+#   - Active requests gauge
+#   - Metrics endpoint exposure at /metrics
+#   - Automatic endpoint path normalization
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Enhanced metric bucketing for better observability
+#   - Added metrics endpoint skip logic
+
 """
 Prometheus metrics middleware for FastAPI services.
 

@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 1-10, 2025
+// Scope: Generated Prometheus metrics for matching service:
+//   - matchRequestsTotal: Counter for match requests
+//   - matchSuccessTotal: Counter for successful matches
+//   - matchTimeoutTotal: Counter for timeouts
+//   - queueSize: Gauge for active requests by difficulty
+//   - matchDuration: Histogram for matching latency
+//   - sseConnections: Gauge for active SSE connections
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added custom business metrics for matching performance
+//   - Enhanced labels for better metric granularity
+//   - Integrated with /metrics endpoint for Prometheus scraping
+
 /**
  * Prometheus metrics for the matching service
  */

@@ -1,3 +1,19 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 20 - November 5, 2025
+// Scope: Generated main WebSocket connection handler:
+//   - WebSocketHandler class: Manages all WebSocket connections
+//   - handleConnection(): Authentication and session verification
+//   - Connection lifecycle management (connect, disconnect, error)
+//   - Delegates Yjs protocol handling to YjsWebSocketHandler
+//   - JWT token verification from query parameters
+//   - Session participant validation
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced authentication with proper error handling
+//   - Added connection pooling and cleanup
+//   - Implemented reconnection logic
+//   - Added comprehensive logging for debugging
+
 import { IncomingMessage } from 'http';
 import { WebSocket, WebSocketServer } from 'ws';
 import { URL } from 'url';
@@ -5,6 +21,7 @@ import { verifyToken } from '../middleware/auth.js';
 import { SessionService } from '../services/session.service.js';
 import { YjsWebSocketHandler } from './yjs-handler.js';
 import { AuthenticatedWebSocket, AppError } from '../types/index.js';
+import { CollaborationMetrics } from '../metrics/collaboration.metrics.js';
 
 // Singleton instance for global access
 let wsHandlerInstance: WebSocketHandler | null = null;
@@ -120,6 +137,9 @@ export class WebSocketHandler {
 
                 console.log(`[WebSocket] 🔗 Connection established: user=${userId}, session=${sessionId}`);
 
+                // Track WebSocket connection in metrics
+                CollaborationMetrics.connectionOpened();
+
                 // Mark user as connected in the session
                 try {
                     await SessionService.rejoinSession(sessionId, userId);
@@ -195,6 +215,9 @@ export class WebSocketHandler {
             await yjsHandler.cleanup();
             this.connections.delete(ws);
         }
+        
+        // Track WebSocket disconnection in metrics
+        CollaborationMetrics.connectionClosed();
     }
 
     /**

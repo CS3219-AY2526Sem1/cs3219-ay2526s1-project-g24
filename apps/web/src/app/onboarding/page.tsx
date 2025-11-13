@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: November 1-10, 2025
+// Scope: Generated user onboarding page:
+//   - New user profile setup form
+//   - Programming language and proficiency selection
+//   - Username initialization from Google account
+//   - Form validation with error handling
+//   - User profile update API integration
+//   - Redirect to home after successful onboarding
+//   Protected route with withAuth HOC
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Enhanced UX with step-by-step guidance
+//   - Added form field validation
+
 "use client";
 
 import Link from "next/link";

@@ -1,3 +1,17 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 1-10, 2025
+// Scope: Generated Question Service HTTP client:
+//   - getMatchingQuestion(): Fetch random question by difficulty/topics
+//   - getAllTopics(): Retrieve available topics for matching
+//   - HTTP client with retry logic and error handling
+//   - Response parsing and validation
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added timeout configuration for HTTP requests
+//   - Enhanced error handling with fallback mechanisms
+//   - Integrated with service discovery/load balancing
+//   - Added response caching for topic list
+
 /**
  * Question Service client
  * Fetches questions from the question service

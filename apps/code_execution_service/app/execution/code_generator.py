@@ -1,3 +1,19 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: October 12-20, 2025
+# Scope: Generated code wrapper generation for Judge0 execution:
+#   - code_generator class: Language-agnostic code wrapper system
+#   - generate_wrapper(): Creates executable code from user code + function signature
+#   - Language support: Python, JavaScript, Java, C++
+#   - Test case integration: stdin/stdout redirection
+#   - JSON result formatting for automated testing
+#   Based on LeetCode-style approach with function signature parsing
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Added comprehensive language-specific templates
+#   - Enhanced error handling for malformed code
+#   - Implemented proper input/output formatting
+#   - Added support for complex data structures (arrays, matrices)
+
 """
 Code Generator for Judge0 Integration
 

@@ -1,3 +1,19 @@
+# AI Assistance Disclosure:
+# Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+# Date Range: October 12-20, 2025
+# Scope: Generated Judge0 service integration layer:
+#   - Judge0Service class: Manages code execution via Judge0 API
+#   - execute_code(): Submit code with test cases to Judge0
+#   - get_submission(): Poll for execution results
+#   - Batch submission handling for multiple test cases
+#   - Result aggregation and metrics calculation
+#   Async HTTP client with retry logic and timeout handling
+# Author review: Code reviewed, tested, and validated by team. Modified for:
+#   - Added comprehensive error handling for Judge0 failures
+#   - Implemented polling with exponential backoff
+#   - Enhanced metrics aggregation (time, memory)
+#   - Added support for custom test case inputs/outputs
+
 import asyncio
 import json
 import logging

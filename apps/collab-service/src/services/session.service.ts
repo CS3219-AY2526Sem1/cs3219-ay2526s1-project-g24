@@ -1,6 +1,23 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: October 20 - November 5, 2025
+// Scope: Generated session management service with CRUD operations:
+//   - SessionService.createSession(): Create new collaboration session
+//   - SessionService.getSession(): Retrieve session by ID
+//   - SessionService.updateSession(): Update session details
+//   - SessionService.deleteSession(): Soft delete session
+//   - SessionService.endSession(): Mark session as ended
+//   - SessionService.getActiveSessions(): List active sessions by user
+//   Database operations with Prisma ORM, validation, error handling
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added comprehensive validation for session creation
+//   - Enhanced error handling and logging
+//   - Integrated with YjsService for document initialization
+
 import { prisma } from '../utils/prisma.js';
 import { Session, CreateSessionRequest, AppError } from '../types/index.js';
 import { YjsService } from './yjs.service.js';
+import { CollaborationMetrics } from '../metrics/collaboration.metrics.js';
 
 /**
  * SessionService handles CRUD operations for collaboration sessions
@@ -47,6 +64,9 @@ export class SessionService {
             });
 
             console.log(`[SessionService] ✓ Created session ${data.sessionId} for users ${data.user1Id} and ${data.user2Id}`);
+
+            // Track session creation in metrics
+            CollaborationMetrics.sessionCreated();
 
             // Initialize Y.Doc for this session
             YjsService.getDocument(data.sessionId);
@@ -169,6 +189,9 @@ export class SessionService {
 
             console.log(`❌ Session ${sessionId} terminated by ${userId}`);
 
+            // Track session termination in metrics
+            CollaborationMetrics.sessionTerminated();
+
             // Clean up Y.Doc from memory and Redis cache
             await YjsService.deleteDocument(sessionId);
 
@@ -263,6 +286,9 @@ export class SessionService {
 
                 if (bothDisconnected) {
                     console.log(`🔚 Both users disconnected from session ${sessionId}, deleting session...`);
+
+                    // Track session termination in metrics (both users left)
+                    CollaborationMetrics.sessionTerminated();
 
                     // Delete the session from the database within transaction
                     await tx.session.delete({
@@ -611,6 +637,9 @@ export class SessionService {
             });
 
             console.log(`🔚 Session ${sessionId} terminated by system: ${reason}`);
+
+            // Track session termination in metrics
+            CollaborationMetrics.sessionTerminated();
 
             // Clean up Y.Doc and notify via WebSocket
             await YjsService.deleteDocument(sessionId);
