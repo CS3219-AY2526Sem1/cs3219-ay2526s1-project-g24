@@ -448,26 +448,21 @@ kubectl get svc -n cs3219
 kubectl get ingress -n cs3219
 ```
 
-**Option B: Use GitHub Actions** (Recommended - Fully Automated)
+**Option B: Use GitHub Actions (CI/CD)**
 
-1. Push your code to GitHub
-2. Add GitHub secrets (AWS_ACCOUNT_ID, AWS_REGION)
-3. Go to Actions → "Cluster Spin Up" → Run workflow
+The project uses GitHub Actions for continuous deployment:
 
-**The workflow automatically:**
-- ✅ Runs Terraform to create EKS cluster
-- ✅ Installs EBS CSI Driver for persistent volumes
-- ✅ Creates gp3 StorageClass
-- ✅ Installs AWS Load Balancer Controller for ALB
-- ✅ Applies Karpenter NodePool for auto-scaling
-- ✅ Creates secrets from AWS Parameter Store (secure)
-- ✅ Deploys all Kubernetes resources
-- ✅ Waits for databases to be ready
-- ✅ Deploys application services with GHCR images
-- ✅ Verifies all deployments and health checks
-- ✅ Restores database backups (if available)
+1. Push your code to GitHub (`dev` or `main` branch)
+2. Ensure GitHub secrets are configured (AWS_ACCOUNT_ID, AWS_REGION)
+3. Workflow automatically triggers on push
 
-Wait ~15-20 minutes for complete cluster setup.
+**The CI/CD pipeline:**
+- ✅ Runs tests for all services
+- ✅ Builds Docker images
+- ✅ Pushes images to GHCR
+- ✅ Deploys to EKS (optional - enable via workflow_dispatch)
+
+See `.github/workflows/ci-cd-pipeline.yml` for details.
 
 ---
 

@@ -1,0 +1,12 @@
+sequenceDiagram
+    participant Client as Client
+    participant API as API Service
+    participant JWKS as User Service JWKS Endpoint
+
+    Client->>API: Send request with JWT (Authorization header)
+    API->>JWKS: Fetch JWKS (if not cached)
+    JWKS-->>API: Return JWKs (public keys)
+    API->>API: Extract kid from JWT header
+    API->>API: Find matching JWK by kid
+    API->>API: Verify JWT signature using JWK
+    API-->>Client: Allow or deny access based on JWT validity and claims
