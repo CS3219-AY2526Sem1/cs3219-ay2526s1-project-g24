@@ -1,377 +1,293 @@
 [![Review Assignment Due Date](https://classroom.github.com/assets/deadline-readme-button-22041afd0340ce965d47ae6ef1cefeee28c7c493a6346c4f15d667ab976d596c.svg)](https://classroom.github.com/a/QUdQy4ix)
 # CS3219 Project (PeerPrep) - AY2526S1
-## Group: Gxx
+## Group: G24
+
 ---
-## Overview
-PeerPrep is a technical interview preparation and peer-matching platform where users can practice coding interview questions together in real time.
-It is built using a **microservices architecture**, where each service runs independently and communicates through internal APIs.
+
+## 📖 Overview
+
+PeerPrep is a technical interview preparation and peer-matching platform where users can practice coding interview questions together in real time. It features a **microservices architecture** where each service runs independently and communicates through internal APIs.
+
 ---
-## Architecture
-| Service | Description |
-|----------|-------------|
-| User Service | Manages user accounts and authentication |
-| Matching Service | Matches users based on chosen topic and difficulty |
-| Question Service | Stores and retrieves coding questions with auto-generated helper definitions for custom data structures |
-| Code Execution Service | Executes and validates user code submissions against test cases using Judge0 |
-| Collaboration Service | Enables real-time collaborative coding sessions |
-| Frontend | Provides the user interface for accessing PeerPrep |
 
-Each microservice is located in its own folder within this repository.
+## 🏗️ Architecture
 
-### Key Features
-- **Multi-language Support:** Python, JavaScript, Java, and C++
-- **Custom Data Structures:** Automatic handling of LinkedList and TreeNode problems with commented helper class definitions
-- **Code Execution:** Real-time code execution with test case validation powered by Judge0
-- **Comprehensive Testing:** 138 passing tests with 92% code coverage in Question Service
-- **Security:** ALB restricted to Cloudflare IPs only - prevents DDoS bypass attacks
-- **Session Management:** Automatic timeout handling, ghost session cleanup, and reconnection support
+| Service | Technology | Description |
+|---------|-----------|-------------|
+| **Frontend** | Next.js 15 | User interface with server-side rendering |
+| **User Service** | Node.js + Prisma | Authentication, authorization, and user management |
+| **Question Service** | FastAPI + SQLAlchemy | Question management with auto-generated helper definitions |
+| **Matching Service** | Node.js + Socket.IO | Real-time user matching with Server-Sent Events |
+| **Collaboration Service** | Node.js + Y.js | Real-time collaborative coding with WebSocket |
+| **Code Execution Service** | FastAPI + Judge0 | Multi-language code execution and validation |
 
-### Deployment
-- **AWS EKS:** Kubernetes 1.30 with auto-scaling (Karpenter)
-- **Infrastructure as Code:** Terraform for reproducible deployments
-- **CI/CD:** GitHub Actions with automated cluster spin up/down
+**📊 System Diagrams:** See [`docs/diagrams/`](./docs/diagrams/) for architecture and deployment diagrams.
+
+### ✨ Key Features
+
+- **Multi-language Support** - Python, JavaScript, Java, and C++
+- **Custom Data Structures** - Auto-generated helper classes for LinkedList and TreeNode
+- **Real-time Collaboration** - WebSocket-based collaborative code editing with Y.js
+- **Code Execution** - Sandboxed code execution with test case validation
+- **Comprehensive Testing** - 138+ passing tests with 92% code coverage
+- **Smart Matching** - SSE-based real-time matching with automatic timeout handling
+- **Session Management** - Auto-cleanup of ghost sessions and AFK detection
+
+### 🚀 Deployment
+
+- **Container Orchestration:** Kubernetes 1.30 on AWS EKS
+- **Auto-scaling:** Karpenter for dynamic node provisioning
+- **Infrastructure as Code:** Terraform
+- **CI/CD:** GitHub Actions for automated testing and deployment
 - **Container Registry:** GitHub Container Registry (GHCR)
-- **Security:** Network-level protection - ALB only accepts traffic from Cloudflare IP ranges
-- **Cost Optimization:** Auto spin-down saves ~$110/month when idle
+- **Security:** Cloudflare + ALB with IP whitelisting
+- **Monitoring:** Prometheus/Grafana
 
-For detailed deployment instructions, see [Infrastructure Setup Guide](./infra/SETUP_GUIDE.md).
+For deployment instructions, see the [Infrastructure Setup Guide](./infra/SETUP_GUIDE.md).
 
 ---
-## Session Management & Timeouts
 
-PeerPrep includes automatic session management to prevent resource hogging and handle AFK users:
+## 🕒 Session Management
 
-### Timeout Periods
+PeerPrep automatically manages collaboration sessions to prevent resource hogging and handle disconnections:
 
 | Timeout Type | Duration | Purpose |
 |--------------|----------|---------|
-| **Partner Presence Warning** | 10 seconds | Notify user if partner hasn't joined yet |
-| **Ghost Session Cleanup** | 60 seconds (1 min) | Delete sessions where no users connected after match |
-| **Solo Session Warning** | 4 minutes | Warn user if partner never joined |
-| **Solo Session Timeout** | 5 minutes | Terminate sessions with only 1 user connected |
+| **Partner Presence Warning** | 10 seconds | Notify if partner hasn't joined |
+| **Ghost Session Cleanup** | 60 seconds | Remove sessions where no users connected |
+| **Solo Session Timeout** | 5 minutes | Terminate if only 1 user present |
 | **Rejoin Grace Period** | 10 minutes | Allow reconnection after disconnect |
-| **Inactivity Timeout (AFK)** | 30 minutes | Expire sessions with no activity (both users idle) |
-| **Cleanup Interval** | 5 minutes | How often to check for stale sessions |
-| **Y.Doc Garbage Collection** | 5 minutes | Clean up in-memory documents with no connected clients |
+| **Inactivity Timeout (AFK)** | 30 minutes | Expire inactive sessions |
+| **Cleanup Interval** | 5 minutes | Periodic stale session cleanup |
 
-### Automatic Cleanup
+### Session States
 
-The Collaboration Service runs periodic cleanup every **5 minutes** to:
-1. Expire sessions inactive for > 30 minutes
-2. Free up server resources
-3. Prevent indefinite session hogging
-
-### User Experience
-
-**Active Session:**
-- Real-time presence indicator shows partner connection status (green dot = partner present)
-- Session persists in localStorage for easy reconnection
-- Connection status displayed in top-left corner (🟢 connected | 🟡 connecting | 🔴 error | 🟠 ended)
-- **End Session** button (red) - terminates session for both users
-
-**Session Ended:**
-- When partner clicks "End Session", both users are disconnected
-- Status changes to 🟠 **ended** with orange indicator
-- Single notification toast: "Your partner has ended the session"
-- **No reconnection spam** - automatic reconnect is disabled
-- **Return to Home** button (gray) appears - navigates user back to home page
-
-**Inactive Session (30+ minutes):**
-- Session automatically expires
-- Status changed to `EXPIRED` in database
-- Resources freed up for other users
-- Users must start a new session to continue
-
-**Partner Never Joins:**
-- Warning appears after 10 seconds if partner hasn't connected
-- If no one connects: Session auto-deleted after 60 seconds (prevents ghost sessions)
-- If only 1 user connects: Warning at 4 minutes, auto-terminated at 5 minutes (prevents session hogging)
+- 🟢 **Connected** - Both users actively collaborating
+- 🟡 **Connecting** - Establishing connection
+- � **Error** - Connection failed
+- 🟠 **Ended** - Session terminated by user or timeout
 
 ---
-## Cross-Service Authentication (JWT)
 
-Authentication is handled centrally by the `user_service`, which issues JSON Web Tokens (JWTs) upon successful user login. These tokens are then used to authenticate requests to other microservices within the PeerPrep ecosystem.
+## 🔐 Authentication & Security
 
-### Authentication Flow
+### JWT-based Authentication
 
-1.  **Login**: A user logs in via the `user_service` (e.g., through a Google OAuth2 flow).
-2.  **Token Issuance**: Upon successful authentication, the `user_service` generates a JWT and returns it to the client.
-3.  **Authenticated Requests**: When the client makes a request to any microservice (e.g., `question_service`), it includes the JWT in the `Authorization` header as a bearer token.
-4.  **Token Validation**: The receiving service is responsible for validating the JWT to authenticate the request.
+All services use JWT (JSON Web Tokens) issued by the User Service:
 
-### JWT Payload Structure
+1. **Login** - User authenticates via Google OAuth2
+2. **Token Issuance** - User Service generates JWT signed with RS256
+3. **Token Validation** - Services validate JWT using JWKS endpoint
 
-The JWT payload contains essential user information that other services can use for authorization and context:
+**JWKS Endpoint:** `/.well-known/jwks.json`
 
+**JWT Payload Example:**
 ```json
 {
   "userId": "cuid298e7d6s5f4g3h2j1k0l",
   "email": "user@example.com",
-  "roles": ["user", "premium_member"],
-  "scopes": ["questions:read", "questions:create", "users:read:self"],
+  "roles": ["user"],
+  "scopes": ["questions:read", "questions:create"],
   "iat": 1678886400,
   "exp": 1679491200
 }
 ```
 
--   `userId`: The unique identifier for the user.
--   `roles`: A list of roles assigned to the user (e.g., `admin`, `user`).
--   `scopes`: A list of specific permissions the user has (e.g., `questions:delete`).
+**Security Features:**
+- Asymmetric key cryptography (RS256) - private key never leaves User Service
+- Automatic key rotation support via `kid` (Key ID) field
+- Service-to-service authentication using JWKS verification
 
-### Implementing JWT Validation in Other Services
+For implementation details, see [User Service README](./apps/user_service/README.md) and [authentication diagrams](./docs/diagrams/).
 
-To validate a JWT, a service needs access to the public key corresponding to the private key used by the `user_service` to sign the tokens.
+---
 
-**1. JWKS Endpoint**
+## 🚀 Quick Start (Local Development)
 
-The `user_service` exposes a JSON Web Key Set (JWKS) endpoint at `/.well-known/jwks.json`. This endpoint contains the public key that other services can use to verify the signature of the JWT.
+### Prerequisites
 
-**2. Validation Logic (Example for `question_service`)**
+- Docker Desktop installed and running
+- Node.js 18+ (for local development)
+- pnpm 8+ (for monorepo management)
 
-The `question_service` (built with FastAPI) can implement a dependency to verify the token and extract the user's identity.
-
-First, add `python-jose` to the service's dependencies:
-
-```bash
-# In apps/question_service
-poetry add python-jose
-```
-
-Next, create an authentication utility:
-
-```python
-# In apps/question_service/app/core/auth.py
-from jose import jwt
-from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
-from pydantic import BaseModel
-import requests
-
-# This scheme will look for the 'Authorization' header
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-USER_SERVICE_JWKS_URL = "http://user_service:8001/.well-known/jwks.json"
-
-class User(BaseModel):
-    id: str
-    email: str
-    roles: list[str]
-    scopes: list[str]
-
-def get_current_user(token: str = Depends(oauth2_scheme)) -> User:
-    if not token:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Not authenticated",
-        )
-    try:
-        jwks = requests.get(USER_SERVICE_JWKS_URL).json()
-        unverified_header = jwt.get_unverified_header(token)
-        rsa_key = {}
-        for key in jwks["keys"]:
-            if key["kid"] == unverified_header["kid"]:
-                rsa_key = {
-                    "kty": key["kty"],
-                    "kid": key["kid"],
-                    "use": key["use"],
-                    "n": key["n"],
-                    "e": key["e"],
-                }
-        if rsa_key:
-            payload = jwt.decode(
-                token, rsa_key, algorithms=["RS256"], audience="urn:example:audience", issuer="urn:example:issuer"
-            )
-            user_data = {"id": payload["userId"], **payload}
-            return User(**user_data)
-
-    except jwt.ExpiredSignatureError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Token has expired"
-        )
-    except jwt.JWTError:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-        )
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
-    )
-
-```
-
-Finally, protect endpoints with this dependency:
-
-```python
-# In a router file, e.g., apps/question_service/app/questions/router.py
-from fastapi import APIRouter, Depends
-from app.core.auth import get_current_user, User
-
-router = APIRouter()
-
-@router.post("/questions")
-def create_new_question(question_data: dict, current_user: User = Depends(get_current_user)):
-    # The request is authenticated if this point is reached.
-    # You can now use current_user for authorization.
-    if "questions:create" not in current_user.scopes:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Insufficient permissions",
-        )
-    # ... proceed with creating the question
-```
-
-This approach allows any service to independently and securely verify a user's identity and permissions without needing to make a synchronous call back to the `user_service` for every request.
-
-## Setup Instructions
-### 1. Clone the repository
-git clone https://github.com/CS3219-AY2526S1/cs3219-ay2526s1-project-Gxx.git
-cd cs3219-ay2526s1-project-Gxx
-
-### 2. Environment Variables
-Create a single `.env` file in the project root directory containing all environment variables for all services:
+### 1. Clone the Repository
 
 ```bash
-# .env
-QUESTION_DB_PASSWORD=your_secure_password_here
-JUDGE0_AUTH_TOKEN=  # Optional: Leave empty for no authentication
+git clone https://github.com/CS3219-AY2526Sem1/cs3219-ay2526s1-project-g24.git
+cd cs3219-ay2526s1-project-g24
 ```
 
-**Required Environment Variables:**
-- `QUESTION_DB_PASSWORD`: Password for the Question Service PostgreSQL database
-- `JUDGE0_AUTH_TOKEN`: (Optional) Authentication token for Judge0 API. Can be left empty for development.
+### 2. macOS Setup (Required for Judge0)
 
-**Important:** Do not commit the `.env` file to the repository. It should be ignored in `.gitignore`.
+**macOS users only:** Enable cgroup v1 in Docker Desktop:
 
-### 3. macOS Configuration (Required for Judge0)
-**For macOS users only:** Judge0 requires cgroup v1, which needs to be enabled in Docker Desktop.
-
-1. Edit the Docker settings file:
-   ```bash
-   nano ~/Library/Group\ Containers/group.com.docker/settings.json
-   ```
-   
-2. Find the line containing `deprecatedCgroupv1` parameter
-
-3. Change it to `true`:
-   ```json
-   "deprecatedCgroupv1": true
-   ```
-
-4. Save the file and restart Docker Desktop
-
-**Note:** This is only required for macOS. Linux and Windows users can skip this step.
-
-### 4. Running the project locally
-To build and start all services for local development, run the following command:
 ```bash
+# Edit Docker settings
+nano ~/Library/Group\ Containers/group.com.docker/settings.json
+
+# Change deprecatedCgroupv1 to true
+"deprecatedCgroupv1": true
+
+# Restart Docker Desktop
+```
+
+### 3. Start All Services
+
+```bash
+# Start all services in detached mode
 docker compose up -d
+
+# First build takes 5-10 minutes (downloads dependencies and images)
 ```
-This command merges the two configuration files, builds the images, and starts the containers in detached mode.
 
-**Note:** The first build may take several minutes as it downloads all necessary dependencies and Judge0 images.
+### 4. Access the Application
 
-### 5. Port Mappings
-The following ports are used by the services on `localhost`:
+| Service | Port | URL |
+|---------|------|-----|
+| **Frontend** | 3000 | http://localhost:3000 |
+| **User Service** | 8001 | http://localhost:8001 |
+| **Question Service** | 8000 | http://localhost:8000 |
+| **Matching Service** | 8002 | http://localhost:8002 |
+| **Collab Service** | 3003 | http://localhost:3003 |
+| **Code Execution** | 3010 | http://localhost:3010 |
 
-| Service | Port | URL | Description |
-| :--- | :--- | :--- | :--- |
-| `question_service` | `8000` | http://localhost:8000 | Question management API |
-| `user_service` | `8001` | http://localhost:8001 | User authentication API |
-| `code-execution-service` | `3010` | http://localhost:3010 | Code execution API (Judge0) |
-| `matching_service` | `8002` | http://localhost:8002 | Matching service API |
-| `web` (Frontend) | `3000` | http://localhost:3000 | Next.js web application |
-| `question_db` | `5434` | `localhost:5434` | PostgreSQL (direct DB access) |
-| `user_db` | `5433` | `localhost:5433` | PostgreSQL (direct DB access) |
-| `judgezero-server` | `2358` | Internal only | Judge0 API (internal network) |
+### 5. Verify Services
 
-**Please ensure these ports are not in use by other applications on your machine.**
-
-### 6. Verifying services
-Check that all containers are running:
 ```bash
+# Check all containers are running
 docker ps
+
+# View logs for specific service
+docker compose logs -f web
+
+# Access health endpoints
+curl http://localhost:8000/health  # Question Service
+curl http://localhost:3010/health  # Code Execution
 ```
 
-You should see containers for:
-- `question-service`
-- `user-service`
-- `code-execution-service`
-- `matching_service`
-- `web` (frontend)
-- `judgezero-server`
-- `judgezero-workers`
-- `judgezero-db`
-- `judgezero-redis`
-- Database containers for each service
+### 6. Stop Services
 
-View logs for a specific service (for example, the Code Execution Service):
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml logs code-execution-service
+# Stop and remove containers (keeps volumes)
+docker compose down
+
+# Remove containers and volumes (clean slate)
+docker compose down -v
 ```
 
-Access the services:
-- **Frontend:** http://localhost:3000
-- **Question Service API:** http://localhost:8000/api/questions
-- **Code Execution Service API:** http://localhost:3010/health
+### Development Tips
 
-### 7. Stopping the project
-To stop and remove all containers, networks, and volumes created by the local setup:
 ```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml down -v
+# Rebuild specific service after code changes
+docker compose up -d --build web
+
+# Run pnpm commands in workspace
+pnpm install
+pnpm build
+pnpm test
+
+# Run individual service locally (example: web)
+cd apps/web
+pnpm dev
 ```
 
-## Development Notes
-Each microservice can be built, tested, and run independently.
-Environment variables for each service should be clearly documented by the developer responsible for that service.
-When making code changes, you can rebuild a specific service by running the `up` command again with the `--build` flag.
-```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build <service-name>
-```
+---
 
-## Troubleshooting
+## 🔧 Troubleshooting
 
 ### Judge0 / Code Execution Issues
-If you encounter errors with code execution:
 
-1. **Check cgroup v1 is enabled (macOS only):**
-   ```bash
-   # Verify the setting
-   grep deprecatedCgroupv1 ~/Library/Group\ Containers/group.com.docker/settings.json
-   ```
-   Should return: `"deprecatedCgroupv1": true`
+```bash
+# 1. Check cgroup v1 (macOS only)
+grep deprecatedCgroupv1 ~/Library/Group\ Containers/group.com.docker/settings.json
 
-2. **Check Judge0 containers are running:**
-   ```bash
-   docker ps | grep judgezero
-   ```
-   You should see `judgezero-server`, `judgezero-workers`, `judgezero-db`, and `judgezero-redis`
+# 2. Verify Judge0 containers
+docker ps | grep judgezero
 
-3. **View Judge0 logs:**
-   ```bash
-   docker compose logs judgezero-server
-   docker compose logs judgezero-workers
-   ```
+# 3. Check logs
+docker compose logs judgezero-server
 
-4. **Test Judge0 is working:**
-   ```bash
-   curl http://localhost:3010/health
-   ```
+# 4. Test health
+curl http://localhost:3010/health
+```
 
 ### Port Conflicts
-If you see "port already in use" errors:
-```bash
-# Find what's using a port (e.g., 8000)
-lsof -i :8000
 
-# Kill the process if needed
+```bash
+# Find process using port
+lsof -i :3000
+
+# Kill process if needed
 kill -9 <PID>
 ```
 
-### Database Connection Issues
-If services can't connect to databases:
-1. Ensure the `.env` file exists with `QUESTION_DB_PASSWORD` set
-2. Check database containers are running: `docker ps | grep db`
-3. Try recreating volumes: `docker compose down -v` then rebuild
+### Database Issues
 
-## Note
-Each team member is responsible for developing their assigned microservice within its own folder.
-The teaching team must have access to this repository as they may need to review commit history for grading or dispute resolution.
+```bash
+# Check database containers
+docker ps | grep db
+
+# Restart with fresh volumes
+docker compose down -v
+docker compose up -d
+```
+
+---
+
+## 📚 Documentation
+
+- **[Infrastructure Setup](./infra/SETUP_GUIDE.md)** - Complete AWS EKS deployment guide
+- **[System Diagrams](./docs/diagrams/)** - Architecture and deployment diagrams
+- **[User Service](./apps/user_service/README.md)** - Authentication and user management
+- **[Question Service](./apps/question_service/README.md)** - Question management and stats
+- **[Matching Service](./apps/matching-service/README.md)** - Real-time user matching
+- **[Collab Service](./apps/collab-service/README.md)** - Real-time collaboration
+- **[Code Execution](./apps/code_execution_service/README.md)** - Code execution with Judge0
+- **[Frontend](./apps/web/README.md)** - Next.js web application
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+pnpm test
+
+# Run tests for specific service
+cd apps/question_service
+pytest
+
+# Run with coverage
+pnpm test:coverage
+```
+
+---
+
+## 🤝 Contributing
+
+This is an academic project for CS3219 AY2526S1. Each team member is responsible for their assigned microservice.
+
+**Project Structure:**
+```
+apps/
+├── web/                    # Frontend (Next.js)
+├── user_service/           # Authentication
+├── question_service/       # Questions
+├── matching-service/       # Matching
+├── collab-service/         # Collaboration
+└── code_execution_service/ # Code execution
+
+infra/
+├── k8s/                    # Kubernetes manifests
+├── terraform/              # Infrastructure as code
+└── SETUP_GUIDE.md          # Deployment guide
+
+docs/
+└── diagrams/               # System diagrams
+```
+
+---
+
+## 📝 License
+
+This project is part of CS3219 coursework at the National University of Singapore.

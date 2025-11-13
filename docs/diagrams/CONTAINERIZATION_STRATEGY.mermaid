@@ -1,0 +1,171 @@
+graph TB
+    subgraph Registry["📦 Container Registry - GitHub Container Registry (GHCR)"]
+        GHCR[ghcr.io/cs3219-ay2526sem1/]
+    end
+    
+    subgraph BuildPipeline["🏗️ Build Pipeline - Multi-stage Dockerfiles"]
+        subgraph WebBuild["Next.js Web App"]
+            WebBase[node:18-alpine<br/>Base Image]
+            WebBuilder[Builder Stage<br/>Turbo Prune + Install]
+            WebInstaller[Installer Stage<br/>Build Next.js]
+            WebRunner[Runner Stage<br/>Output Traces<br/>User: nextjs:nodejs 1001]
+            WebBase --> WebBuilder --> WebInstaller --> WebRunner
+            WebImage[cs3219-g24-web:latest]
+            WebRunner --> WebImage
+        end
+        
+        subgraph UserBuild["User Service - Node.js/Express"]
+            UserBase[node:22-alpine<br/>Base + pnpm]
+            UserBuilder[Builder Stage<br/>Turbo Prune]
+            UserInstaller[Installer Stage<br/>Install + Build TypeScript]
+            UserRunner[Runner Stage<br/>User: user-service:nodejs 1001<br/>Init: Prisma Migrate + Seed]
+            UserBase --> UserBuilder --> UserInstaller --> UserRunner
+            UserImage[cs3219-g24-user-service:latest]
+            UserRunner --> UserImage
+        end
+        
+        subgraph QuestBuild["Question Service - FastAPI/Python"]
+            QuestBase[python:3.12-slim<br/>+ uv package manager]
+            QuestSync[Install Dependencies<br/>uv sync --frozen]
+            QuestCmd[FastAPI Run<br/>Port 80 Dockerfile<br/>Port 8000 in K8s<br/>Init: Alembic Migrate + Seed]
+            QuestBase --> QuestSync --> QuestCmd
+            QuestImage[cs3219-g24-question-service:latest]
+            QuestCmd --> QuestImage
+        end
+        
+        subgraph MatchBuild["Matching Service - Node.js/Express"]
+            MatchBase[node:20-alpine<br/>+ pnpm]
+            MatchDeps[Deps Stage<br/>Monorepo Install]
+            MatchBuildStage[Build Stage<br/>TypeScript Compile]
+            MatchProd[Prod Stage<br/>Production deps only<br/>User: matching-service:nodejs 1001]
+            MatchBase --> MatchDeps --> MatchBuildStage --> MatchProd
+            MatchImage[cs3219-g24-matching-service:latest]
+            MatchProd --> MatchImage
+        end
+        
+        subgraph CollabBuild["Collaboration Service - Node.js/Socket.io"]
+            CollabBase[node:22-alpine<br/>+ pnpm + openssl]
+            CollabBuilder[Builder Stage<br/>Turbo Prune]
+            CollabInstaller[Installer Stage<br/>Prisma Generate + Build]
+            CollabRunner[Runner Stage<br/>User: collab-service:nodejs 1001<br/>Entrypoint: docker-entrypoint.sh<br/>Runs Prisma Migrate]
+            CollabBase --> CollabBuilder --> CollabInstaller --> CollabRunner
+            CollabImage[cs3219-g24-collab-service:latest]
+            CollabRunner --> CollabImage
+        end
+        
+        subgraph CodeBuild["Code Execution Service - FastAPI/Python"]
+            CodeBase[python:3.13-slim<br/>+ uv package manager]
+            CodeSync[Install Dependencies<br/>uv sync --frozen fallback to uv sync]
+            CodeCmd[FastAPI Run<br/>Port 3010]
+            CodeBase --> CodeSync --> CodeCmd
+            CodeImage[cs3219-g24-code-execution-service:latest]
+            CodeCmd --> CodeImage
+        end
+    end
+    
+    subgraph ThirdParty["🔧 Third-party Images"]
+        subgraph DBImages["Database Images"]
+            PG15[postgres:15-alpine<br/>User, Question, Collab DBs]
+            PG16[postgres:16.2<br/>Judge0 DB]
+        end
+        
+        subgraph CacheImages["Cache Images"]
+            Redis7[redis:7-alpine<br/>Matching Redis]
+            RedisJ0[redis:7.2.4<br/>Judge0 Redis]
+        end
+        
+        subgraph Judge0Images["Judge0 Execution"]
+            J0[judge0/judge0:1.13.1<br/>Server + Workers<br/>Privileged Mode]
+        end
+    end
+    
+    subgraph K8sDeployment["☸️ Kubernetes Deployment"]
+        subgraph Pods["Running Pods"]
+            WebPod[Web Pod<br/>Port: 3000]
+            UserPod[User Service Pod<br/>Port: 8000]
+            QuestPod[Question Service Pod<br/>Port: 8000]
+            MatchPod[Matching Service Pod<br/>Port: 3000]
+            CollabPod[Collab Service Pod<br/>Port: 3003]
+            CodePod[Code Exec Pod<br/>Port: 3010]
+            
+            UserDBPod[User DB Pod<br/>Port: 5432]
+            QuestDBPod[Question DB Pod<br/>Port: 5432]
+            CollabDBPod[Collab DB Pod<br/>Port: 5432]
+            RedisMatchPod[Matching Redis Pod<br/>Port: 6379]
+            
+            J0ServerPod[Judge0 Server Pod<br/>Port: 2358]
+            J0WorkersPod[Judge0 Workers Pod]
+            J0DBPod[Judge0 DB Pod<br/>Port: 5432]
+            J0RedisPod[Judge0 Redis Pod<br/>Port: 6379]
+        end
+        
+        WebImage --> WebPod
+        UserImage --> UserPod
+        QuestImage --> QuestPod
+        MatchImage --> MatchPod
+        CollabImage --> CollabPod
+        CodeImage --> CodePod
+        
+        PG15 --> UserDBPod
+        PG15 --> QuestDBPod
+        PG15 --> CollabDBPod
+        Redis7 --> RedisMatchPod
+        
+        J0 --> J0ServerPod
+        J0 --> J0WorkersPod
+        PG16 --> J0DBPod
+        RedisJ0 --> J0RedisPod
+    end
+    
+    WebImage --> GHCR
+    UserImage --> GHCR
+    QuestImage --> GHCR
+    MatchImage --> GHCR
+    CollabImage --> GHCR
+    CodeImage --> GHCR
+    
+    GHCR -.->|Image Pull<br/>ServiceAccount: ghcr-pull| WebPod
+    GHCR -.->|Image Pull| UserPod
+    GHCR -.->|Image Pull| QuestPod
+    GHCR -.->|Image Pull| MatchPod
+    GHCR -.->|Image Pull| CollabPod
+    GHCR -.->|Image Pull| CodePod
+    
+    style Registry fill:#2d333b,stroke:#539bf5,stroke-width:3px,color:#fff
+    style GHCR fill:#444c56,stroke:#539bf5,stroke-width:2px,color:#fff
+    
+    style BuildPipeline fill:#0d1117,stroke:#58a6ff,stroke-width:3px,color:#fff
+    style WebBuild fill:#161b22,stroke:#58a6ff,stroke-width:2px,color:#fff
+    style UserBuild fill:#161b22,stroke:#58a6ff,stroke-width:2px,color:#fff
+    style QuestBuild fill:#161b22,stroke:#58a6ff,stroke-width:2px,color:#fff
+    style MatchBuild fill:#161b22,stroke:#58a6ff,stroke-width:2px,color:#fff
+    style CollabBuild fill:#161b22,stroke:#58a6ff,stroke-width:2px,color:#fff
+    style CodeBuild fill:#161b22,stroke:#58a6ff,stroke-width:2px,color:#fff
+    
+    style WebImage fill:#61dafb,stroke:#21a1c4,stroke-width:3px,color:#000
+    style UserImage fill:#10b981,stroke:#059669,stroke-width:3px,color:#fff
+    style QuestImage fill:#8b5cf6,stroke:#7c3aed,stroke-width:3px,color:#fff
+    style MatchImage fill:#f59e0b,stroke:#d97706,stroke-width:3px,color:#000
+    style CollabImage fill:#3b82f6,stroke:#2563eb,stroke-width:3px,color:#fff
+    style CodeImage fill:#ec4899,stroke:#db2777,stroke-width:3px,color:#fff
+    
+    style ThirdParty fill:#0d1117,stroke:#7ee787,stroke-width:3px,color:#fff
+    style DBImages fill:#161b22,stroke:#7ee787,stroke-width:2px,color:#fff
+    style CacheImages fill:#161b22,stroke:#7ee787,stroke-width:2px,color:#fff
+    style Judge0Images fill:#161b22,stroke:#7ee787,stroke-width:2px,color:#fff
+    
+    style PG15 fill:#0ea5e9,stroke:#0284c7,stroke-width:3px,color:#fff
+    style PG16 fill:#06b6d4,stroke:#0891b2,stroke-width:3px,color:#fff
+    style Redis7 fill:#ef4444,stroke:#dc2626,stroke-width:3px,color:#fff
+    style RedisJ0 fill:#dc2626,stroke:#b91c1c,stroke-width:3px,color:#fff
+    style J0 fill:#fbbf24,stroke:#f59e0b,stroke-width:3px,color:#000
+    
+    style K8sDeployment fill:#0f172a,stroke:#e94560,stroke-width:3px,color:#fff
+    style Pods fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#fff
+    
+    style WebPod fill:#61dafb,stroke:#21a1c4,stroke-width:2px,color:#000
+    style UserPod fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    style QuestPod fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style MatchPod fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#000
+    style CollabPod fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff
+    style CodePod fill:#ec4899,stroke:#db2777,stroke-width:2px,color:#fff
