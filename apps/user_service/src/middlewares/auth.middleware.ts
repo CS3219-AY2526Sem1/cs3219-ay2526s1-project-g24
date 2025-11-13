@@ -1,3 +1,18 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 15-20, 2025
+// Scope: Generated JWT authentication middleware with functions:
+//   - expressAuthentication(): Verify JWT from cookies/headers
+//   - Token parsing and validation
+//   - User context injection into request object
+//   - Error responses for invalid/expired tokens
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Added comprehensive error handling with specific error types
+//   - Integrated with Prisma for user lookup
+//   - Added logging for authentication attempts and failures
+//   - Modified to support both cookie and header-based auth
+//   - Added role and permission checking capabilities
+
 import { Request } from "express";
 import * as jose from "jose";
 import { getUserById } from "../services/user.service";
