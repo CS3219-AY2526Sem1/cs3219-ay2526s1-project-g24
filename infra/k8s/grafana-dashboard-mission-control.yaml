@@ -1938,7 +1938,7 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "histogram_quantile(0.95, rate(match_latency_seconds_bucket[5m]))",
+              "expr": "histogram_quantile(0.95, sum(rate(match_latency_seconds_bucket[5m])) by (le, difficulty)) or vector(0)",
               "refId": "A",
               "legendFormat": "{{difficulty}} - p95"
             },
@@ -1947,7 +1947,7 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "histogram_quantile(0.50, rate(match_latency_seconds_bucket[5m]))",
+              "expr": "histogram_quantile(0.50, sum(rate(match_latency_seconds_bucket[5m])) by (le, difficulty)) or vector(0)",
               "refId": "B",
               "legendFormat": "{{difficulty}} - p50"
             }
