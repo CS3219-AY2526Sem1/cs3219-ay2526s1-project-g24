@@ -64,7 +64,7 @@ PeerPrep automatically manages collaboration sessions to prevent resource hoggin
 
 - 🟢 **Connected** - Both users actively collaborating
 - 🟡 **Connecting** - Establishing connection
-- � **Error** - Connection failed
+- 🔴 **Error** - Connection failed
 - 🟠 **Ended** - Session terminated by user or timeout
 
 ---
