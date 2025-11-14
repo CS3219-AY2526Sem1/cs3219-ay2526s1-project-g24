@@ -1,0 +1,66 @@
+version: "3.8"
+
+services:
+  # Matching Service
+  matching-service:
+    build:
+      context: ../..
+      dockerfile: apps/matching-service/Dockerfile
+    container_name: matching-service
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - COLLABORATION_SERVICE_URL=http://collaboration-service:4000
+      - MATCH_TIMEOUT_SECONDS=30
+      - REQUEST_TTL_SECONDS=60
+      - LOG_LEVEL=info
+      - AUTH_JWKS_URI=http://user-service:8000/api/v1/.well-known/jwks.json
+    depends_on:
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "require('http').get('http://localhost:3000/health', (r) => { process.exit(r.statusCode === 200 ? 0 : 1); })",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - matching-network
+
+  # Redis
+  redis:
+    image: redis:7-alpine
+    container_name: matching-service-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - matching-network
+
+volumes:
+  redis-data:
+    driver: local
+
+networks:
+  matching-network:
+    driver: bridge

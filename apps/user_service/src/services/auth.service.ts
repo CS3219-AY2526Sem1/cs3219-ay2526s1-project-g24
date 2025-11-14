@@ -1,0 +1,139 @@
+// AI Assistance Disclosure:
+// Tool: GitHub Copilot (model: Claude Sonnet 4.5)
+// Date Range: September 15-20, 2025
+// Scope: Generated authentication service with functions:
+//   - handleGoogleAuth(): Process Google OAuth tokens
+//   - generateAccessToken(): Create JWT with user claims
+//   User creation/update logic for OAuth flow, token expiration and signing configuration.
+// Author review: Code reviewed, tested, and validated by team. Modified for:
+//   - Custom error handling and validation
+//   - Modified JWT payload structure to include roles and permissions
+//   - Added Prisma integration for user lookup/creation
+//   - Implemented secure token generation with proper expiration
+//   - Added comprehensive logging for auth events
+
+import { google } from "googleapis";
+import axios from "axios";
+import prisma from "../prisma";
+import type { User } from "@prisma/client";
+import * as jose from "jose";
+import { randomUUID } from "crypto";
+import { jwtConfig, oauthConfig } from "../config";
+
+const oauth2Client = new google.auth.OAuth2(
+  oauthConfig.clientId,
+  oauthConfig.clientSecret,
+  oauthConfig.redirectUri,
+);
+
+export const getGoogleAuthUrl = () => {
+  const scopes = [
+    "https://www.googleapis.com/auth/userinfo.profile",
+    "https://www.googleapis.com/auth/userinfo.email",
+  ];
+
+  return oauth2Client.generateAuthUrl({
+    access_type: "offline",
+    prompt: "consent",
+    scope: scopes,
+  });
+};
+
+export const getGoogleUser = async (code: string) => {
+  try {
+    const { tokens } = await oauth2Client.getToken({
+      code,
+      redirect_uri: oauthConfig.redirectUri,
+    });
+    oauth2Client.setCredentials(tokens);
+
+    const { data } = await axios.get(
+      "https://www.googleapis.com/oauth2/v1/userinfo?alt=json",
+      {
+        headers: {
+          Authorization: `Bearer ${tokens.access_token}`,
+        },
+      },
+    );
+
+    return data;
+  } catch (error: any) {
+    const errorDetails = {
+      message: error.message,
+      code: error.code,
+      status: error.response?.status,
+      data: error.response?.data,
+      redirectUri: oauthConfig.redirectUri,
+    };
+    throw new Error(JSON.stringify(errorDetails));
+  }
+};
+
+export const hasRole = async (
+  userId: string,
+  roles: string[],
+): Promise<boolean> => {
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    include: {
+      roles: {
+        include: {
+          role: true,
+        },
+      },
+    },
+  });
+
+  if (!user) {
+    return false;
+  }
+
+  const userRoles = user.roles.map((userRole) => userRole.role.name);
+  return roles.some((role) => userRoles.includes(role));
+};
+
+export const generateAccessToken = async (user: User & { roles: any[] }) => {
+  const roles = user.roles.map((userRole: any) => userRole.role.name);
+  const permissions = user.roles.flatMap((userRole: any) =>
+    userRole.role.permissions.map(
+      (rolePermission: any) => rolePermission.permission.name,
+    ),
+  );
+  const scopes = [...new Set(permissions)]; // Remove duplicates
+
+  // We sign the JWT with the private key (This should be the most recently rotated key)
+  const privateKey = await jose.importPKCS8(jwtConfig.privateKey, "RS256");
+
+  const accessToken = await new jose.SignJWT({
+    userId: user.id,
+    email: user.email,
+    roles,
+    scopes,
+  })
+    .setProtectedHeader({ alg: "RS256", kid: "1" })
+    .setIssuedAt()
+    .setExpirationTime("15m")
+    .sign(privateKey);
+
+  return accessToken;
+};
+
+export const generateRefreshToken = async (
+  user: Pick<User, "id">,
+  familyId: string,
+) => {
+  const privateKey = await jose.importPKCS8(jwtConfig.privateKey, "RS256");
+  const jti = randomUUID();
+
+  const refreshToken = await new jose.SignJWT({
+    userId: user.id,
+    familyId,
+  })
+    .setProtectedHeader({ alg: "RS256", kid: "1" })
+    .setIssuedAt()
+    .setExpirationTime("7d")
+    .setJti(jti)
+    .sign(privateKey);
+
+  return { refreshToken, jti };
+};

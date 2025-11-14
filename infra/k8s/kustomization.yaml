@@ -1,0 +1,56 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: cs3219
+
+resources:
+  - namespace.yaml
+  # NOTE: secrets.yaml is a TEMPLATE ONLY - create secrets manually!
+  # See README.md for instructions on secret management
+  # - secrets.yaml  # ← DO NOT UNCOMMENT - use kubectl create instead
+  - serviceaccount.yaml
+  - configmap.yaml
+  - resource-quota.yaml
+  - network-policy.yaml
+  - postgres-question.yaml
+  - postgres-user.yaml
+  - redis.yaml
+  - postgres-collab.yaml
+  - question-service.yaml
+  - user-service.yaml
+  - matching-service.yaml
+  - collab-service.yaml
+  - code-execution-service.yaml
+  - web.yaml
+  - hpa.yaml
+  - ingress.yaml
+  - prometheus-pvc.yaml
+  - prometheus.yaml
+  - grafana-pvc.yaml
+  - grafana.yaml
+  - grafana-dashboard-mission-control.yaml
+
+# Common labels for all resources (kustomize v5+)
+labels:
+  - pairs:
+      project: cs3219
+      managed-by: kustomize
+    # Avoid mutating selectors so Services continue matching Pods by their original labels
+    includeSelectors: false
+    includeTemplates: true
+
+# Images can be updated here for all deployments
+# Uncomment and set after building images
+# images:
+#   - name: REPLACE_WITH_ECR_QUESTION_SERVICE_IMAGE
+#     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/question-service
+#     newTag: latest
+#   - name: REPLACE_WITH_ECR_USER_SERVICE_IMAGE
+#     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/user-service
+#     newTag: latest
+#   - name: REPLACE_WITH_ECR_MATCHING_SERVICE_IMAGE
+#     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/matching-service
+#     newTag: latest
+#   - name: REPLACE_WITH_ECR_WEB_IMAGE
+#     newName: <account-id>.dkr.ecr.<region>.amazonaws.com/web
+#     newTag: latest

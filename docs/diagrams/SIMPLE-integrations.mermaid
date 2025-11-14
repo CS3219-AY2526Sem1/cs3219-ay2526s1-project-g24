@@ -1,0 +1,51 @@
+graph TB
+    subgraph Auth["🔐 JWT Authentication"]
+        A1["User Service<br/>issues JWT token"] --> A2["Client stores token<br/>in cookie/storage"]
+        A2 --> A3["All requests include<br/>Authorization header"]
+        A3 --> A4["Services validate JWT<br/>via JWKS endpoint"]
+        A4 --> A5["✅ Request authorized"]
+    end
+    
+    subgraph RealTime["⚡ Real-time Communication"]
+        R1["SSE Server-Sent Events<br/>━━━━━━━━━━━━━━<br/>Matching Service<br/>Long-lived HTTP<br/>Server pushes updates"]
+        
+        R2["WebSocket Bidirectional<br/>━━━━━━━━━━━━━━<br/>Collaboration Service<br/>Full duplex<br/>Code sync + chat"]
+        
+        R3["Redis Pub/Sub<br/>━━━━━━━━━━━━━━<br/>Event broadcasting<br/>Scalable across replicas<br/>Real-time notifications"]
+    end
+    
+    subgraph InterService["🔄 Service-to-Service Integration"]
+        S1["HTTP REST APIs<br/>━━━━━━━━━━━━━━"] --> S2["Matching → Question<br/>Get random question"]
+        S1 --> S3["Matching → Collab<br/>Create session"]
+        S1 --> S4["Collab → User<br/>Validate JWT JWKS"]
+        S1 --> S5["Code Exec → Judge0<br/>Run & validate code"]
+    end
+    
+    subgraph Data["💾 Data Persistence"]
+        D1["PostgreSQL<br/>━━━━━━━━━━━━━━<br/>User, Question, Collab data<br/>ACID transactions<br/>3 separate databases"]
+        
+        D2["Redis<br/>━━━━━━━━━━━━━━<br/>Queue FIFO<br/>Pub/Sub events<br/>Session cache"]
+    end
+    
+    style Auth fill:#422006,stroke:#10b981,stroke-width:3px,color:#fff
+    style A1 fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    style A2 fill:#14b8a6,stroke:#0d9488,stroke-width:2px,color:#fff
+    style A3 fill:#22c55e,stroke:#16a34a,stroke-width:2px,color:#fff
+    style A4 fill:#4ade80,stroke:#22c55e,stroke-width:2px,color:#000
+    style A5 fill:#86efac,stroke:#4ade80,stroke-width:2px,color:#000
+    
+    style RealTime fill:#1e293b,stroke:#f59e0b,stroke-width:3px,color:#fff
+    style R1 fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#000
+    style R2 fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff
+    style R3 fill:#ef4444,stroke:#dc2626,stroke-width:2px,color:#fff
+    
+    style InterService fill:#1e293b,stroke:#3b82f6,stroke-width:3px,color:#fff
+    style S1 fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#fff
+    style S2 fill:#8b5cf6,stroke:#7c3aed,stroke-width:2px,color:#fff
+    style S3 fill:#ec4899,stroke:#db2777,stroke-width:2px,color:#fff
+    style S4 fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff
+    style S5 fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#000
+    
+    style Data fill:#0f172a,stroke:#06b6d4,stroke-width:3px,color:#fff
+    style D1 fill:#0ea5e9,stroke:#0284c7,stroke-width:2px,color:#fff
+    style D2 fill:#ef4444,stroke:#dc2626,stroke-width:2px,color:#fff

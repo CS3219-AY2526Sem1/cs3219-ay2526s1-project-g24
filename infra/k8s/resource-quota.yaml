@@ -1,0 +1,48 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: cs3219-quota
+  namespace: cs3219
+spec:
+  hard:
+    # Limit total resources for the application
+    requests.cpu: "8"
+    requests.memory: 16Gi
+    limits.cpu: "12"
+    limits.memory: 24Gi
+    
+    # Limit number of resources
+    persistentvolumeclaims: "10"
+    services.loadbalancers: "1"
+    
+    # Limit pods
+    pods: "50"
+---
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: cs3219-limits
+  namespace: cs3219
+spec:
+  limits:
+  # Default limits for containers without specified resources
+  - max:
+      cpu: "2"
+      memory: "2Gi"
+    min:
+      cpu: "50m"
+      memory: "64Mi"
+    default:
+      cpu: "500m"
+      memory: "512Mi"
+    defaultRequest:
+      cpu: "250m"
+      memory: "256Mi"
+    type: Container
+  
+  # Limits for PVCs
+  - max:
+      storage: "20Gi"
+    min:
+      storage: "1Gi"
+    type: PersistentVolumeClaim

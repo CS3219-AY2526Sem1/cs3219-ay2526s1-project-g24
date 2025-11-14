@@ -1,0 +1,99 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+datasource db {
+  provider = "postgresql"
+  url      = env("USERDB_DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum proficiency_level {
+  beginner
+  intermediate
+  advanced
+}
+
+enum programming_language {
+  cpp
+  java
+  python
+  javascript
+}
+
+model User {
+  id                      String                @id @default(uuid())
+  username                String?               @unique
+  display_name            String?
+  email                   String                @unique
+  avatar_url              String?
+  google_id               String?               @unique
+  description             String?
+  programming_proficiency proficiency_level?
+  preferred_language      programming_language?
+  created_at              DateTime              @default(now())
+  updated_at              DateTime              @updatedAt
+  roles                   UserRole[]
+  refresh_token_families  RefreshTokenFamily[]
+
+  @@map("users")
+}
+
+model RefreshTokenFamily {
+  id             String         @id @default(uuid())
+  user_id        String
+  user           User           @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  is_revoked     Boolean        @default(false)
+  refresh_tokens RefreshToken[]
+
+  @@map("refresh_token_families")
+}
+
+model RefreshToken {
+  id         String             @id
+  family_id  String
+  family     RefreshTokenFamily @relation(fields: [family_id], references: [id], onDelete: Cascade)
+  is_used    Boolean            @default(false)
+  created_at DateTime           @default(now())
+
+  @@map("refresh_tokens")
+}
+
+model Role {
+  id          Int                @id @default(autoincrement())
+  name        String             @unique
+  users       UserRole[]
+  permissions RolePermission[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id    Int              @id @default(autoincrement())
+  name  String           @unique
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model UserRole {
+  user    User   @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  user_id String // relation scalar field (used in the `@relation` attribute)
+  role    Role   @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  role_id Int    // relation scalar field (used in the `@relation` attribute)
+
+  @@id([user_id, role_id])
+  @@map("user_roles")
+}
+
+model RolePermission {
+  role          Role       @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  role_id       Int        // relation scalar field (used in the `@relation` attribute)
+  permission    Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+  permission_id Int        // relation scalar field (used in the `@relation` attribute)
+
+  @@id([role_id, permission_id])
+  @@map("role_permissions")
+}

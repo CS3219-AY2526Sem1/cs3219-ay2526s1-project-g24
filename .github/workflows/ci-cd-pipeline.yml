@@ -1,0 +1,448 @@
+name: CI/CD Pipeline
+
+on:
+  pull_request:
+    branches: ["master", "main", "dev"]
+    types: [opened, synchronize, reopened, ready_for_review]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.MD'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/CODEOWNERS'
+      - 'docs/**'
+  push:
+    branches: ["master", "main", "dev"]
+    paths-ignore:
+      - '**/*.md'
+      - '**/*.MD'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/CODEOWNERS'
+      - 'docs/**'
+  workflow_dispatch:
+    inputs:
+      skip_tests:
+        description: 'Skip tests'
+        required: false
+        type: boolean
+        default: false
+      skip_build:
+        description: 'Skip build'
+        required: false
+        type: boolean
+        default: false
+      push_images:
+        description: 'Push Docker images to GHCR'
+        required: false
+        type: boolean
+        default: false
+      tag_latest:
+        description: 'Tag images as latest'
+        required: false
+        type: boolean
+        default: true
+      deploy_to_eks:
+        description: 'Deploy to EKS cluster'
+        required: false
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ============================================
+  # STAGE 1: Test (runs on all PRs and pushes)
+  # ============================================
+  test:
+    name: Test
+    if: ${{ !inputs.skip_tests }}
+    timeout-minutes: 10
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate Prisma Client & TSOA routes
+        env:
+          USERDB_DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
+          COLLAB_DATABASE_URL: "postgresql://dummy:dummy@localhost:5432/dummy?schema=public"
+        run: |
+          pnpm --filter user_service exec prisma generate
+          pnpm --filter collab-service exec prisma generate
+          pnpm --filter user_service exec tsoa spec-and-routes
+
+      - name: Run tests
+        run: pnpm test
+
+  # ============================================
+  # STAGE 2: Build TypeScript/Next.js Code
+  # (Validates code compiles - Turborepo handles caching)
+  # ============================================
+  build:
+    name: Build Code
+    if: ${{ !inputs.skip_build }}
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build TypeScript/Next.js
+        run: pnpm build
+
+  # ============================================
+  # STAGE 2.5: E2E Tests with Playwright
+  # (Runs on web app changes)
+  # ============================================
+  e2e-tests:
+    name: E2E Tests (Playwright)
+    needs: [detect-changes]
+    if: |
+      !inputs.skip_tests &&
+      (needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.shared == 'true')
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v3
+        with:
+          version: 9
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'pnpm'
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v3
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Install Playwright Browsers
+        run: cd apps/web && npx playwright install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: cd apps/web && pnpm test:e2e
+        env:
+          CI: true
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: playwright-report
+          path: apps/web/playwright-report/
+          retention-days: 30
+
+      - name: Upload test screenshots
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: playwright-test-results
+          path: apps/web/test-results/
+          retention-days: 30
+
+      - name: Comment PR with test results
+        uses: daun/playwright-report-comment@v3
+        if: always() && github.event_name == 'pull_request'
+        with:
+          report-file: apps/web/playwright-report/results.json
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================
+  # STAGE 3: Detect Changes
+  # ============================================
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      web: ${{ steps.filter.outputs.web }}
+      question: ${{ steps.filter.outputs.question }}
+      user: ${{ steps.filter.outputs.user }}
+      matching: ${{ steps.filter.outputs.matching }}
+      collab: ${{ steps.filter.outputs.collab }}
+      code-execution: ${{ steps.filter.outputs.code-execution }}
+      shared: ${{ steps.filter.outputs.shared }}
+      infra: ${{ steps.filter.outputs.infra }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - name: Check for changed files
+        uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            web:
+              - 'apps/web/**'
+              - 'packages/**'
+            question:
+              - 'apps/question_service/**'
+            user:
+              - 'apps/user_service/**'
+              - 'packages/**'
+            matching:
+              - 'apps/matching-service/**'
+              - 'packages/**'
+            collab:
+              - 'apps/collab-service/**'
+              - 'packages/**'
+            code-execution:
+              - 'apps/code_execution_service/**'
+            shared:
+              - 'package.json'
+              - 'pnpm-lock.yaml'
+              - 'pnpm-workspace.yaml'
+              - 'turbo.json'
+            infra:
+              - 'infra/**'
+
+  # ============================================
+  # STAGE 4: Build and Push Docker Images
+  # (Only builds CHANGED services via change detection)
+  # (MANUAL TRIGGER ONLY - Never automatic)
+  # ============================================
+  push-images:
+    name: Build & Push Images
+    needs: [test, build, detect-changes, e2e-tests]
+    if: |
+      always() &&
+      (needs.test.result == 'success' || needs.test.result == 'skipped') &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped') &&
+      (needs.e2e-tests.result == 'success' || needs.e2e-tests.result == 'skipped') &&
+      inputs.push_images == true
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - service: web
+            context: .
+            dockerfile: ./apps/web/Dockerfile
+            changed: ${{ needs.detect-changes.outputs.web == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+          - service: question-service
+            context: ./apps/question_service
+            dockerfile: ./apps/question_service/dockerfile
+            changed: ${{ needs.detect-changes.outputs.question == 'true' }}
+          - service: user-service
+            context: .
+            dockerfile: ./apps/user_service/Dockerfile
+            changed: ${{ needs.detect-changes.outputs.user == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+          - service: matching-service
+            context: .
+            dockerfile: ./apps/matching-service/Dockerfile
+            changed: ${{ needs.detect-changes.outputs.matching == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+          - service: collab-service
+            context: .
+            dockerfile: ./apps/collab-service/Dockerfile
+            changed: ${{ needs.detect-changes.outputs.collab == 'true' || needs.detect-changes.outputs.shared == 'true' }}
+          - service: code-execution-service
+            context: ./apps/code_execution_service
+            dockerfile: ./apps/code_execution_service/Dockerfile
+            changed: ${{ needs.detect-changes.outputs.code-execution == 'true' }}
+    steps:
+      - name: Skip if no changes
+        if: ${{ matrix.changed == 'false' && inputs.push_images != true }}
+        run: |
+          echo "⏭️  Skipping ${{ matrix.service }} - no changes detected"
+          exit 0
+
+      - name: Checkout
+        if: ${{ matrix.changed == 'true' || inputs.push_images == true }}
+        uses: actions/checkout@v4
+
+      - name: Resolve ref SHA
+        if: ${{ matrix.changed == 'true' || inputs.push_images == true }}
+        id: git
+        run: echo "sha=$(git rev-parse HEAD)" >> $GITHUB_OUTPUT
+
+      - name: Set lowercase repository owner
+        if: ${{ matrix.changed == 'true' || inputs.push_images == true }}
+        id: repo
+        run: echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Set up QEMU
+        if: ${{ matrix.changed == 'true' || inputs.push_images == true }}
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        if: ${{ matrix.changed == 'true' || inputs.push_images == true }}
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to GHCR
+        if: ${{ matrix.changed == 'true' || inputs.push_images == true }}
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.service }}
+        if: ${{ matrix.changed == 'true' || inputs.push_images == true }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
+          push: true
+          provenance: false
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          tags: |
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:${{ steps.git.outputs.sha }}
+            ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:latest
+
+      - name: Output build info
+        if: ${{ matrix.changed == 'true' || inputs.push_images == true }}
+        run: |
+          echo "✅ Built and pushed ${{ matrix.service }}"
+          echo "📦 Image: ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:${{ steps.git.outputs.sha }}"
+          echo "🏷️  Tagged as: ghcr.io/${{ steps.repo.outputs.owner_lc }}/cs3219-g24-${{ matrix.service }}:latest"
+
+  # ============================================
+  # STAGE 5: Deploy to EKS (Manual trigger only)
+  # ============================================
+  deploy:
+    name: Deploy to EKS
+    needs: [push-images, detect-changes]
+    if: |
+      always() &&
+      needs.push-images.result == 'success' &&
+      inputs.deploy_to_eks == true
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set lowercase repository owner
+        id: repo
+        run: echo "owner_lc=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> $GITHUB_OUTPUT
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::${{ secrets.AWS_ACCOUNT_ID }}:role/cs3219-eks-gha-deployer
+          role-session-name: gha-${{ github.run_id }}
+          aws-region: ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+          audience: sts.amazonaws.com
+
+      - name: Setup kubectl
+        run: |
+          aws eks update-kubeconfig --name cs3219-eks --region ${{ secrets.AWS_REGION || 'ap-southeast-1' }}
+
+      - name: Update service images to latest pushed version
+        env:
+          SHA: ${{ github.sha }}
+          OWNER: ${{ steps.repo.outputs.owner_lc }}
+        run: |
+          echo "📦 Updating services to latest images (SHA: ${SHA})"
+          
+          SERVICES=(web question-service user-service matching-service collab-service code-execution-service)
+          for service in "${SERVICES[@]}"; do
+            IMAGE="ghcr.io/${OWNER}/cs3219-g24-${service}:${SHA}"
+            echo "🔄 Updating ${service} to ${IMAGE}"
+            kubectl set image deployment/${service} ${service}=${IMAGE} -n cs3219 --record || true
+          done
+
+      - name: Restart deployments to pick up new images
+        run: |
+          echo "Rolling out new deployments..."
+          
+          SERVICES=(web question-service user-service matching-service collab-service code-execution-service)
+          for service in "${SERVICES[@]}"; do
+            echo "Restarting ${service}..."
+            kubectl rollout restart deployment/${service} -n cs3219 || true
+          done
+
+      - name: Verify rollout status
+        run: |
+          echo "Verifying deployments..."
+          
+          SERVICES=(web question-service user-service matching-service collab-service code-execution-service)
+          for service in "${SERVICES[@]}"; do
+            echo "Checking ${service}..."
+            kubectl rollout status deployment/${service} -n cs3219 --timeout=300s || true
+          done
+
+      - name: Health check
+        run: |
+          echo "Checking pod status..."
+          kubectl get pods -n cs3219
+          echo ""
+          
+          if kubectl get pods -n cs3219 | grep -E 'Error|CrashLoopBackOff|ImagePullBackOff'; then
+            echo "❌ Found failed pods"
+            kubectl describe pods -n cs3219 | grep -A 10 "Events:"
+            exit 1
+          fi
+          
+          echo "✅ All pods running"
+
+      - name: Deployment summary
+        run: |
+          echo "📊 Deployment Status:"
+          echo ""
+          echo "Pods:"
+          kubectl get pods -n cs3219
+          echo ""
+          echo "Services:"
+          kubectl get svc -n cs3219
+          echo ""
+          echo "Ingress:"
+          kubectl get ingress -n cs3219
+          echo ""
+          echo "🔗 Application URL:"
+          kubectl get ingress cs3219-ingress -n cs3219 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' || echo "Ingress not ready yet"
+          echo ""
+          echo "✅ Deployment complete!"

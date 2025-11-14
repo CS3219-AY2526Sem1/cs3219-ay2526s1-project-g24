@@ -1,0 +1,71 @@
+# Node modules
+node_modules/
+
+# pnpm-specific files
+.pnpm-store/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Build output
+dist/
+build/
+out/
+
+# Logs
+*.log
+logs
+npm-debug.log*
+pnpm-debug.log*
+
+# Environment variables
+.env
+.env.*
+
+# Turborepo cache / stuff
+.turbo/
+**.turbo/**
+**/.turbo/**
+
+# TypeScript specific
+*.tsbuildinfo
+
+# Coverage
+coverage
+
+# IDE
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+
+# tmp files
+*.swp
+
+# MacOS
+.DS_*
+
+# Next.js
+.next/
+*.backup
+
+# Cryptographic keys
+private.pem
+public.pem
+
+# Terraform
+.terraform
+*.tfstate
+*.tfstate.*
+.terraform.tfvars

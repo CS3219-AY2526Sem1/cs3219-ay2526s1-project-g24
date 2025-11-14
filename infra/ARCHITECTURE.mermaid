@@ -1,0 +1,121 @@
+graph TB
+    subgraph Internet["🌐 Internet Layer"]
+        Users[👤 Users/Browsers]
+        CF[☁️ Cloudflare Orange Proxy<br/>SSL/TLS Termination<br/>WebSocket & SSE Compatible]
+    end
+    
+    Users -->|HTTPS<br/>HTTP/SSE/WS| CF
+    CF -->|HTTP<br/>Upgraded WS| ALB
+    
+    subgraph AWS["☁️ AWS Cloud - EKS Cluster"]
+        ALB[⚖️ AWS Application Load Balancer<br/>WebSocket Support Enabled]
+        
+        subgraph Ingress["🚪 Ingress Layer - Namespace: cs3219"]
+            IngressCtrl[Ingress Controller<br/>Path-based Routing<br/>WebSocket Upgrade Support]
+        end
+        
+        ALB --> IngressCtrl
+        
+        subgraph AppLayer["📦 Application Layer"]
+            subgraph FrontendZone["🎨 Frontend"]
+                Web[Next.js Web<br/>:3000]
+            end
+            
+            subgraph BackendZone["⚙️ Backend Microservices"]
+                User[👥 User Service<br/>Node.js:8000<br/>Auth & JWT]
+                Quest[📝 Question Service<br/>FastAPI:8000<br/>Questions & Stats]
+                Match[🎲 Matching Service<br/>Node.js:3000<br/>SSE Streams]
+                Collab[🤝 Collab Service<br/>Node.js:3003<br/>WebSocket/Socket.io]
+                Code[💻 Code Execution<br/>FastAPI:3010<br/>Judge0 Proxy]
+            end
+        end
+        
+        subgraph DataLayer["💾 Data & Cache Layer"]
+            subgraph Databases["🗄️ PostgreSQL Databases"]
+                UserDB[(user-db<br/>:5432<br/>10Gi PVC)]
+                QuestDB[(question-db<br/>:5432<br/>10Gi PVC)]
+                CollabDB[(collab-db<br/>:5432<br/>10Gi PVC)]
+            end
+            
+            subgraph Caches["⚡ Redis Caches"]
+                MatchRedis[(matching-redis<br/>:6379<br/>2Gi PVC)]
+            end
+        end
+        
+        subgraph Judge0Layer["⚖️ Judge0 Execution Engine"]
+            J0Server[Judge0 Server<br/>:2358]
+            J0Workers[Judge0 Workers<br/>Sandbox]
+            J0DB[(judge0-db<br/>:5432<br/>5Gi)]
+            J0Redis[(judge0-redis<br/>:6379)]
+        end
+        
+        IngressCtrl -->|HTTP /| Web
+        IngressCtrl -->|HTTP /api/v1/auth<br/>/api/v1/users| User
+        IngressCtrl -->|HTTP /api/v1/questions<br/>/api/v1/topics| Quest
+        IngressCtrl -->|SSE /api/v1/match| Match
+        IngressCtrl -->|HTTP /api/v1/sessions<br/>WS /api/v1/ws| Collab
+        IngressCtrl -->|HTTP /api/v1/execution| Code
+        
+        User -.->|SQL| UserDB
+        Quest -.->|SQL| QuestDB
+        Collab -.->|SQL| CollabDB
+        Match -->|Pub/Sub| MatchRedis
+        Collab -->|Pub/Sub| MatchRedis
+        
+        Match -->|HTTP| Quest
+        Match -->|HTTP| Collab
+        Collab -->|JWKS Auth| User
+        Collab -->|HTTP| Quest
+        
+        Code -->|HTTP| J0Server
+        J0Server --> J0Workers
+        J0Server -.-> J0DB
+        J0Server --> J0Redis
+        J0Workers -.-> J0DB
+        J0Workers --> J0Redis
+    end
+    
+    subgraph Legend["📡 Full Request Path"]
+        L1[SSE: Client → CF → ALB → Ingress → Match Service]
+        L2[WebSocket: Client → CF → ALB → Ingress → Collab Service]
+        L3[Both use HTTPS to Cloudflare, HTTP internally]
+    end
+    
+    style Internet fill:#1a1a2e,stroke:#e94560,stroke-width:3px,color:#eee
+    style Users fill:#0f3460,stroke:#16213e,stroke-width:2px,color:#fff
+    style CF fill:#e94560,stroke:#533483,stroke-width:4px,color:#fff
+    style ALB fill:#ff6b35,stroke:#004e89,stroke-width:3px,color:#fff
+    
+    style Ingress fill:#16213e,stroke:#e94560,stroke-width:2px,color:#fff
+    style IngressCtrl fill:#1a508b,stroke:#0d3b66,stroke-width:2px,color:#fff
+    
+    style AppLayer fill:#0f172a,stroke:#e94560,stroke-width:3px,color:#fff
+    style FrontendZone fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#fff
+    style BackendZone fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#fff
+    
+    style Web fill:#61dafb,stroke:#21a1c4,stroke-width:3px,color:#000
+    style User fill:#10b981,stroke:#059669,stroke-width:3px,color:#fff
+    style Quest fill:#8b5cf6,stroke:#7c3aed,stroke-width:3px,color:#fff
+    style Match fill:#f59e0b,stroke:#d97706,stroke-width:3px,color:#000
+    style Collab fill:#3b82f6,stroke:#2563eb,stroke-width:3px,color:#fff
+    style Code fill:#ec4899,stroke:#db2777,stroke-width:3px,color:#fff
+    
+    style DataLayer fill:#0f172a,stroke:#e94560,stroke-width:3px,color:#fff
+    style Databases fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#fff
+    style Caches fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#fff
+    
+    style UserDB fill:#0ea5e9,stroke:#0284c7,stroke-width:3px,color:#fff
+    style QuestDB fill:#06b6d4,stroke:#0891b2,stroke-width:3px,color:#fff
+    style CollabDB fill:#14b8a6,stroke:#0d9488,stroke-width:3px,color:#fff
+    style MatchRedis fill:#ef4444,stroke:#dc2626,stroke-width:3px,color:#fff
+    
+    style Judge0Layer fill:#422006,stroke:#f59e0b,stroke-width:3px,color:#fff
+    style J0Server fill:#fbbf24,stroke:#f59e0b,stroke-width:3px,color:#000
+    style J0Workers fill:#fcd34d,stroke:#f59e0b,stroke-width:3px,color:#000
+    style J0DB fill:#78716c,stroke:#57534e,stroke-width:3px,color:#fff
+    style J0Redis fill:#dc2626,stroke:#b91c1c,stroke-width:3px,color:#fff
+    
+    style Legend fill:#1e293b,stroke:#e94560,stroke-width:2px,color:#fff
+    style L1 fill:#f59e0b,stroke:#d97706,stroke-width:2px,color:#000
+    style L2 fill:#3b82f6,stroke:#2563eb,stroke-width:2px,color:#fff
+    style L3 fill:#10b981,stroke:#059669,stroke-width:2px,color:#fff

@@ -1,0 +1,60 @@
+graph TB
+    subgraph AWS["☁️ AWS Cloud Infrastructure"]
+        subgraph EKS["Kubernetes EKS Cluster"]
+            Nodes["⚙️ Worker Nodes<br/>t3.medium → t3.xlarge<br/>Karpenter Auto-scaling"]
+            
+            Pods["📦 Application Pods<br/>6 Services + Databases<br/>HPA: 2-10 replicas"]
+            
+            Storage["💾 Persistent Storage<br/>EBS Volumes gp3<br/>40Gi total"]
+        end
+        
+        ALB["⚖️ Application Load Balancer<br/>WebSocket Support<br/>Health Checks"]
+        
+        Nodes --> Pods
+        Pods --> Storage
+        ALB --> Pods
+    end
+    
+    CF["☁️ Cloudflare<br/>SSL/TLS + DDoS<br/>CDN Caching"] --> ALB
+    Users["👤 Users"] --> CF
+    
+    subgraph CICD["🔄 CI/CD Pipeline"]
+        GitHub["GitHub Actions<br/>Build + Test + Deploy"]
+        GHCR["GitHub Container Registry<br/>Docker Images"]
+        
+        GitHub --> GHCR
+        GHCR -.->|Pull| Pods
+    end
+    
+    subgraph IaC["🏗️ Infrastructure as Code"]
+        Terraform["Terraform<br/>VPC + EKS + IAM"]
+        K8s["Kubernetes Manifests<br/>Deployments + Services"]
+        
+        Terraform -.->|Provisions| EKS
+        K8s -.->|Deploys| Pods
+    end
+    
+    subgraph LocalDev["💻 Local Development"]
+        Docker["Docker Compose<br/>All services + DBs<br/>One command setup"]
+    end
+    
+    style AWS fill:#232f3e,stroke:#ff9900,stroke-width:4px,color:#fff
+    style EKS fill:#0f172a,stroke:#326ce5,stroke-width:3px,color:#fff
+    style Nodes fill:#475569,stroke:#334155,stroke-width:2px,color:#fff
+    style Pods fill:#1e293b,stroke:#10b981,stroke-width:2px,color:#fff
+    style Storage fill:#422006,stroke:#ca8a04,stroke-width:2px,color:#fff
+    style ALB fill:#ff6b35,stroke:#004e89,stroke-width:2px,color:#fff
+    
+    style CF fill:#e94560,stroke:#533483,stroke-width:2px,color:#fff
+    style Users fill:#0f3460,stroke:#16213e,stroke-width:2px,color:#fff
+    
+    style CICD fill:#0d1117,stroke:#22c55e,stroke-width:3px,color:#fff
+    style GitHub fill:#2da44e,stroke:#22863a,stroke-width:2px,color:#fff
+    style GHCR fill:#0969da,stroke:#0550ae,stroke-width:2px,color:#fff
+    
+    style IaC fill:#422006,stroke:#844cf7,stroke-width:3px,color:#fff
+    style Terraform fill:#844cf7,stroke:#6b21a8,stroke-width:2px,color:#fff
+    style K8s fill:#326ce5,stroke:#1d4ed8,stroke-width:2px,color:#fff
+    
+    style LocalDev fill:#1e293b,stroke:#64748b,stroke-width:2px,color:#fff
+    style Docker fill:#2496ed,stroke:#1d63ed,stroke-width:2px,color:#fff

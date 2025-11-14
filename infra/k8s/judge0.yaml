@@ -1,0 +1,444 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: judge0-conf
+  namespace: cs3219
+type: Opaque
+stringData:
+  judge0.conf: |
+    # Judge0 Configuration File
+    # https://github.com/judge0/judge0/blob/master/judge0.conf
+
+    # Allow origin (adjust for production if needed)
+    JUDGE0_ALLOW_ORIGIN=*
+
+    # Redis configuration
+    REDIS_HOST=judgezero-redis
+    REDIS_PORT=6379
+    REDIS_PASSWORD=changeme-judge0
+
+    # Postgres configuration
+    POSTGRES_HOST=judgezero-db
+    POSTGRES_PORT=5432
+    POSTGRES_DB=judge0
+    POSTGRES_USER=judge0
+    POSTGRES_PASSWORD=changeme-judge0
+
+    # Submission limits (keep aligned with your code-execution defaults)
+    MAX_QUEUE_SIZE=100
+    MAX_CPU_TIME_LIMIT=15
+    MAX_WALL_TIME_LIMIT=30
+    MAX_MEMORY_LIMIT=512000
+    MAX_STACK_LIMIT=128000
+    MAX_PROCESSES_AND_OR_THREADS=60
+    MAX_FILE_SIZE=1024
+
+    ENABLE_WAIT_RESULT=true
+    ENABLE_COMPILER_OPTIONS=false
+    ALLOWED_LANGUAGES_FOR_COMPILE_OPTIONS=
+
+    MAINTENANCE_MODE=false
+    MAINTENANCE_MESSAGE="Judge0 is under maintenance."
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: judge0-secrets
+  namespace: cs3219
+type: Opaque
+stringData:
+  postgres-password: "changeme-judge0"
+  redis-password: "changeme-judge0"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: judgezero-db-pvc
+  namespace: cs3219
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 5Gi
+  storageClassName: gp3
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: judgezero-db
+  namespace: cs3219
+  labels:
+    app: judgezero-db
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: judgezero-db
+  template:
+    metadata:
+      labels:
+        app: judgezero-db
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16.2
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_USER
+              value: judge0
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: judge0-secrets
+                  key: postgres-password
+            - name: POSTGRES_DB
+              value: judge0
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          volumeMounts:
+            - name: postgres-storage
+              mountPath: /var/lib/postgresql/data
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+            limits:
+              memory: "512Mi"
+              cpu: "500m"
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 5
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U $POSTGRES_USER -d $POSTGRES_DB"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+      volumes:
+        - name: postgres-storage
+          persistentVolumeClaim:
+            claimName: judgezero-db-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: judgezero-db
+  namespace: cs3219
+  labels:
+    app: judgezero-db
+spec:
+  type: ClusterIP
+  ports:
+    - port: 5432
+      targetPort: 5432
+      protocol: TCP
+      name: postgres
+  selector:
+    app: judgezero-db
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: judgezero-redis
+  namespace: cs3219
+  labels:
+    app: judgezero-redis
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: judgezero-redis
+  template:
+    metadata:
+      labels:
+        app: judgezero-redis
+    spec:
+      containers:
+        - name: redis
+          image: redis:7.2.4
+          command:
+            - bash
+            - -c
+            - docker-entrypoint.sh --appendonly no --requirepass "$REDIS_PASSWORD"
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: judge0-secrets
+                  key: redis-password
+          ports:
+            - containerPort: 6379
+              name: redis
+          resources:
+            requests:
+              memory: "128Mi"
+              cpu: "50m"
+            limits:
+              memory: "256Mi"
+              cpu: "200m"
+          livenessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 20
+            periodSeconds: 10
+            timeoutSeconds: 3
+          readinessProbe:
+            exec:
+              command: ["redis-cli", "ping"]
+            initialDelaySeconds: 5
+            periodSeconds: 5
+            timeoutSeconds: 3
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: judgezero-redis
+  namespace: cs3219
+  labels:
+    app: judgezero-redis
+spec:
+  type: ClusterIP
+  ports:
+    - port: 6379
+      targetPort: 6379
+      protocol: TCP
+      name: redis
+  selector:
+    app: judgezero-redis
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: judgezero-server
+  namespace: cs3219
+  labels:
+    app: judgezero-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: judgezero-server
+  template:
+    metadata:
+      labels:
+        app: judgezero-server
+    spec:
+      nodeSelector:
+        os: al2
+      containers:
+        - name: judge0
+          image: judge0/judge0:1.13.1
+          ports:
+            - containerPort: 2358
+              name: http
+          volumeMounts:
+            - name: judge0-config
+              mountPath: /judge0.conf
+              subPath: judge0.conf
+              readOnly: true
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "100m"
+              ephemeral-storage: "1Gi"
+            limits:
+              memory: "1Gi"
+              cpu: "1000m"
+              ephemeral-storage: "2Gi"
+      volumes:
+        - name: judge0-config
+          secret:
+            secretName: judge0-conf
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: judgezero-server
+  namespace: cs3219
+  labels:
+    app: judgezero-server
+spec:
+  type: ClusterIP
+  ports:
+    - port: 2358
+      targetPort: 2358
+      protocol: TCP
+      name: http
+  selector:
+    app: judgezero-server
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: judgezero-workers
+  namespace: cs3219
+  labels:
+    app: judgezero-workers
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: judgezero-workers
+  template:
+    metadata:
+      labels:
+        app: judgezero-workers
+    spec:
+      nodeSelector:
+        os: al2
+      containers:
+        - name: workers
+          image: judge0/judge0:1.13.1
+          command: ["./scripts/workers"]
+          volumeMounts:
+            - name: judge0-config
+              mountPath: /judge0.conf
+              subPath: judge0.conf
+              readOnly: true
+          securityContext:
+            privileged: true
+          resources:
+            requests:
+              memory: "256Mi"
+              cpu: "200m"
+              ephemeral-storage: "2Gi"
+            limits:
+              memory: "1Gi"
+              cpu: "1500m"
+              ephemeral-storage: "4Gi"
+      volumes:
+        - name: judge0-config
+          secret:
+            secretName: judge0-conf
+---
+# Network Policies for Judge0 and code-execution-service connectivity
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-judgezero-server
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: judgezero-server
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: code-execution-service
+      ports:
+        - protocol: TCP
+          port: 2358
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: code-execution-to-judgezero-egress
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: code-execution-service
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: judgezero-server
+      ports:
+        - protocol: TCP
+          port: 2358
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: judgezero-egress-to-internal-deps
+  namespace: cs3219
+spec:
+  podSelector:
+    matchExpressions:
+      - key: app
+        operator: In
+        values:
+          - judgezero-server
+          - judgezero-workers
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: judgezero-db
+      ports:
+        - protocol: TCP
+          port: 5432
+    - to:
+        - podSelector:
+            matchLabels:
+              app: judgezero-redis
+      ports:
+        - protocol: TCP
+          port: 6379
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-judgezero-db
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: judgezero-db
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - judgezero-server
+                  - judgezero-workers
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-ingress-to-judgezero-redis
+  namespace: cs3219
+spec:
+  podSelector:
+    matchLabels:
+      app: judgezero-redis
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - podSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - judgezero-server
+                  - judgezero-workers
+      ports:
+        - protocol: TCP
+          port: 6379

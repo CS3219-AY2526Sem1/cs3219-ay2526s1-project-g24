@@ -1,0 +1,22 @@
+{
+  "entryFile": "src/index.ts",
+  "noImplicitAdditionalProperties": "throw-on-extras",
+  "controllerPathGlobs": ["src/controllers/**/*.ts"],
+  "spec": {
+    "outputDirectory": "dist",
+    "specVersion": 3,
+    "basePath": "/api/v1",
+    "securityDefinitions": {
+      "jwt": {
+        "type": "apiKey",
+        "name": "access_token",
+        "in": "cookie"
+      }
+    }
+  },
+  "routes": {
+    "routesDir": "src/routes",
+    "authenticationModule": "src/middlewares/auth.middleware.ts",
+    "basePath": "/api/v1"
+  }
+}
